@@ -2,7 +2,7 @@
 
 Community mod for the MG4 EV (AAOS 9, pre-2026 facelift) that improves the 360° turn signal camera behavior — removing the launcher overlay in favor of a Tesla-style tile view and raising the auto-close speed threshold.
 
-> **Work in progress.** Check the [Wiki](../../wiki) for technical details and the [Project Board](../../projects/4) for current progress.
+> **Work in progress.** Check the [Wiki](https://github.com/jamakr4/MG4-360-Camera-App/wiki) for technical details and the [Project Board](https://github.com/users/jamakr4/projects/4) for current progress.
 
 ## ⚠️ Disclaimer
 
