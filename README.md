@@ -18,6 +18,7 @@ This is an independent community project and is **not affiliated with SAIC, MG M
 ## Credits
 
 - Analysis based on community research from [XDA Forums — MG4 Electric AAOS 9](https://xdaforums.com/t/mg4-electric-aaos-9-playing-and-possibly-other-mg-models.4697712/)
+- Tile View based on: [merth4n](https://xdaforums.com/m/merth4n.13350648/)
 
 ## License
 
