@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.TextView;
@@ -27,6 +28,9 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
+
+    private static final String AVM_PREFS_NAME = "AVM_Settings";
+    private static final String KEY_SAFETY_WARNING = "ShowSafetyWarning";
 
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
@@ -84,6 +88,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if (tvStatus != null) {
             tvStatus.setText("Preview: " + cameraLabel(currentVideoIndex));
         }
+        applyWarningVisibility();
 
         // Sinyal/vites dinleme her zaman açık kalsın; overlay sadece ayardan kontrol edilecek.
         try {
@@ -155,6 +160,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
         // Main açıkken overlay görünmesin.
         OverlayService.hideOverlay(this);
+        applyWarningVisibility();
     }
 
     @Override
@@ -179,13 +185,22 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
 
         SharedPreferences prefs = getSharedPreferences("rec_prefs", MODE_PRIVATE);
+        SharedPreferences avmPrefs = getSharedPreferences(AVM_PREFS_NAME, MODE_PRIVATE);
         Switch swOverlay = dialog.findViewById(R.id.switchOverlayOnSignal);
+        Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
+
         swOverlay.setChecked(prefs.getBoolean("overlayOnSignal", false));
         swOverlay.setOnCheckedChangeListener((buttonView, isChecked) -> {
             prefs.edit().putBoolean("overlayOnSignal", isChecked).apply();
             if (!isChecked) {
                 OverlayService.hideOverlay(MainActivity.this);
             }
+        });
+
+        swSafetyWarning.setChecked(avmPrefs.getBoolean(KEY_SAFETY_WARNING, true));
+        swSafetyWarning.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, isChecked).apply();
+            applyWarningVisibility();
         });
 
         TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
@@ -206,6 +221,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             float density = getResources().getDisplayMetrics().density;
             shownWindow.setLayout((int) (560 * density), WindowManager.LayoutParams.WRAP_CONTENT);
         }
+    }
+
+    private void applyWarningVisibility() {
+        boolean show = getSharedPreferences(AVM_PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(KEY_SAFETY_WARNING, true);
+        int visibility = show ? View.VISIBLE : View.GONE;
+        View bg = findViewById(R.id.bg_tishi);
+        View banner = findViewById(R.id.warningBanner);
+        if (bg != null) bg.setVisibility(visibility);
+        if (banner != null) banner.setVisibility(visibility);
     }
 
     private void startPreviewIfReady() {

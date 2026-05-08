@@ -27,6 +27,48 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <ImageView
+        android:id="@+id/bg_tishi"
+        android:layout_width="0dp"
+        android:layout_height="84dp"
+        android:src="@drawable/bg_tishi"
+        android:scaleType="fitXY"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <RelativeLayout
+        android:id="@+id/warningBanner"
+        android:layout_width="0dp"
+        android:layout_height="84dp"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="@id/bg_tishi"
+        app:layout_constraintBottom_toBottomOf="@id/bg_tishi"
+        app:layout_constraintStart_toStartOf="@id/bg_tishi"
+        app:layout_constraintEnd_toEndOf="@id/bg_tishi">
+
+        <ImageView
+            android:id="@+id/eyeImage"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="12dp"
+            android:src="@drawable/pdc_icons_eye"
+            android:layout_toStartOf="@+id/alertTextView" />
+
+        <TextView
+            android:id="@+id/alertTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="@string/safety_warning_text"
+            android:textColor="@color/white"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:singleLine="true" />
+
+    </RelativeLayout>
+
     <ImageButton
         android:id="@+id/btnSettings"
         android:layout_width="70dp"
