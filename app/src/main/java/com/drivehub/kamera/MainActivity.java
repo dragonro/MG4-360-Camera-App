@@ -1,12 +1,19 @@
 package com.drivehub.kamera;
 
 import android.annotation.SuppressLint;
+import android.app.Dialog;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.MotionEvent;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.ImageButton;
+import android.widget.Switch;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -68,21 +75,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
 
-        TextView tvVersion = findViewById(R.id.tvVersion);
         tvStatus = findViewById(R.id.tvStatus);
         ImageButton btnSettings = findViewById(R.id.btnSettings);
-        try {
-            String version = getPackageManager()
-                    .getPackageInfo(getPackageName(), 0)
-                    .versionName;
-            tvVersion.setText("Version: " + version);
-        } catch (Exception e) {
-            tvVersion.setText("Version: ?");
-        }
 
-        btnSettings.setOnClickListener(v -> {
-            startActivity(new Intent(MainActivity.this, SettingsActivity.class));
-        });
+        btnSettings.setOnClickListener(v -> showSettingsDialog());
 
         // Başlangıç etiketini göster
         if (tvStatus != null) {
@@ -168,6 +164,47 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         try {
             unregisterReceiver(cameraRouteReceiver);
         } catch (Throwable ignored) {
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void showSettingsDialog() {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_settings);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+
+        SharedPreferences prefs = getSharedPreferences("rec_prefs", MODE_PRIVATE);
+        Switch swOverlay = dialog.findViewById(R.id.switchOverlayOnSignal);
+        swOverlay.setChecked(prefs.getBoolean("overlayOnSignal", false));
+        swOverlay.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            prefs.edit().putBoolean("overlayOnSignal", isChecked).apply();
+            if (!isChecked) {
+                OverlayService.hideOverlay(MainActivity.this);
+            }
+        });
+
+        TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
+        try {
+            String version = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0)
+                    .versionName;
+            tvDialogVersion.setText("Version " + version);
+        } catch (Exception e) {
+            tvDialogVersion.setText("Version ?");
+        }
+
+        dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
+
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            float density = getResources().getDisplayMetrics().density;
+            shownWindow.setLayout((int) (560 * density), WindowManager.LayoutParams.WRAP_CONTENT);
         }
     }
 

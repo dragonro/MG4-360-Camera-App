@@ -16,17 +16,6 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <TextView
-        android:id="@+id/tvVersion"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        android:textSize="12sp"
-        android:textColor="@android:color/darker_gray"
-        android:text="Version:"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <TextView
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -40,13 +29,16 @@
 
     <ImageButton
         android:id="@+id/btnSettings"
-        android:layout_width="38dp"
-        android:layout_height="38dp"
-        android:layout_margin="8dp"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="16dp"
         android:background="@android:color/transparent"
         android:contentDescription="Settings"
-        android:src="@android:drawable/ic_menu_preferences"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        android:padding="0dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/selector_settings"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
