@@ -1,0 +1,46 @@
+# Gradle / Android build output
+.gradle/
+**/build/
+captures/
+
+# Local machine configuration
+local.properties
+*.local
+
+# Android Studio / IntelliJ
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+*.iml
+
+# Native build output
+.cxx/
+.externalNativeBuild/
+
+# Generated packages and reports
+*.apk
+*.ap_
+*.aab
+*.aar
+*.idsig
+*.hprof
+
+# Signing keys / certificates
+*.jks
+*.keystore
+tools/*.key
+tools/*.p12
+tools/*.pk8
+tools/*.pem
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Keep the Gradle wrapper executable jar tracked.
+!gradle/wrapper/gradle-wrapper.jar

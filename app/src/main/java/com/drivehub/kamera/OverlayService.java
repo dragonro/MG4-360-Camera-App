@@ -1,0 +1,353 @@
+package com.drivehub.kamera;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.PixelFormat;
+import android.os.IBinder;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.WindowManager;
+
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+
+/**
+ * En üste gelen, sürüklenebilir küçük kamera penceresi.
+ * Şimdilik doğrudan bir kamera index'i alır; ileride sinyal bilgisinden tetiklenecek.
+ */
+public class OverlayService extends Service implements SurfaceHolder.Callback {
+
+    public static final String EXTRA_CAMERA_INDEX = "camera_index";
+
+    private static final String CHANNEL_ID = "mg4_overlay";
+    private static final int NOTIF_ID = 99;
+
+    /** Varsayılan overlay boyutu (px); en-boy oranı korunur. */
+    private static final int DEFAULT_OVERLAY_WIDTH_PX = 1000;
+    private static final int DEFAULT_OVERLAY_HEIGHT_PX = 480;
+    /** İki parmakla küçültme / büyütme sınırları. */
+    private static final int OVERLAY_MIN_WIDTH_PX = 240;
+    private static final int OVERLAY_MAX_WIDTH_PX = 3840;
+
+    private static final String PREFS_NAME = "overlay_prefs";
+    private static final String KEY_LAST_X = "last_x";
+    private static final String KEY_LAST_Y = "last_y";
+    private static final String KEY_OVERLAY_W = "overlay_w";
+    private static final String KEY_OVERLAY_H = "overlay_h";
+
+    private WindowManager windowManager;
+    private View overlayView;
+    private SurfaceView surfaceView;
+    private SurfaceHolder surfaceHolder;
+    private WindowManager.LayoutParams overlayParams;
+    private int cameraIndex = 15; // varsayılan: ön
+
+    /** Anlık pencere boyutu (pinch ile değişir). */
+    private int overlayWidthPx = DEFAULT_OVERLAY_WIDTH_PX;
+    private int overlayHeightPx = DEFAULT_OVERLAY_HEIGHT_PX;
+
+    private ScaleGestureDetector scaleGestureDetector;
+
+    private float initialX;
+    private float initialY;
+    private float initialTouchX;
+    private float initialTouchY;
+
+    public static void showOverlay(Context context, int cameraIndex) {
+        Intent i = new Intent(context, OverlayService.class);
+        i.putExtra(EXTRA_CAMERA_INDEX, cameraIndex);
+        context.startForegroundService(i);
+    }
+
+    public static void hideOverlay(Context context) {
+        Intent i = new Intent(context, OverlayService.class);
+        context.stopService(i);
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        createNotificationChannel();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && intent.hasExtra(EXTRA_CAMERA_INDEX)) {
+            cameraIndex = intent.getIntExtra(EXTRA_CAMERA_INDEX, 15);
+        }
+        // Uygulama arka planda kalsa bile overlay'in yaşaması için foreground service olarak çalış.
+        Notification notif = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_menu_camera)
+                .setContentTitle("Drivehub Kamera")
+                .setContentText("Sinyal kamerası overlay açık")
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build();
+        startForeground(NOTIF_ID, notif);
+
+        if (overlayView == null) {
+            showFloatingWindow();
+        } else {
+            // Overlay zaten açıksa ve sadece kamera index'i değiştiyse, akışı yeni kameraya çevir.
+            if (surfaceHolder != null && surfaceHolder.getSurface() != null &&
+                    surfaceHolder.getSurface().isValid()) {
+                startPreview();
+            }
+        }
+        return START_STICKY;
+    }
+
+    private void showFloatingWindow() {
+        if (windowManager == null) return;
+
+        int layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+
+        // Boyut: kayıtlı veya varsayılan (en-boy oranı sabit).
+        try {
+            android.content.SharedPreferences sp =
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            int w = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
+            int h = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
+            if (w >= OVERLAY_MIN_WIDTH_PX && h >= 1) {
+                overlayWidthPx = w;
+                overlayHeightPx = h;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        overlayParams = new WindowManager.LayoutParams(
+                overlayWidthPx,
+                overlayHeightPx,
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT
+        );
+        overlayParams.gravity = Gravity.TOP | Gravity.START;
+
+        // Son kullanılan konumu prefs'ten oku (yoksa varsayılan).
+        int defaultX = 32;
+        int defaultY = 120;
+        try {
+            android.content.SharedPreferences sp =
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            defaultX = sp.getInt(KEY_LAST_X, defaultX);
+            defaultY = sp.getInt(KEY_LAST_Y, defaultY);
+        } catch (Throwable ignored) {
+        }
+        overlayParams.x = defaultX;
+        overlayParams.y = defaultY;
+        clampOverlayPositionToScreen();
+
+        // Basit bir SurfaceView içeren küçük bir pencere
+        surfaceView = new SurfaceView(this);
+
+        overlayView = surfaceView;
+
+        scaleGestureDetector = new ScaleGestureDetector(this,
+                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    @Override
+                    public boolean onScale(ScaleGestureDetector detector) {
+                        float factor = detector.getScaleFactor();
+                        if (factor <= 0f || Float.isNaN(factor)) return true;
+                        int newW = Math.round(overlayWidthPx * factor);
+                        int[] wh = clampOverlaySize(newW);
+                        overlayWidthPx = wh[0];
+                        overlayHeightPx = wh[1];
+                        overlayParams.width = overlayWidthPx;
+                        overlayParams.height = overlayHeightPx;
+                        clampOverlayPositionToScreen();
+                        windowManager.updateViewLayout(overlayView, overlayParams);
+                        return true;
+                    }
+
+                    @Override
+                    public void onScaleEnd(ScaleGestureDetector detector) {
+                        saveOverlayLayoutPrefs();
+                    }
+                });
+
+        windowManager.addView(overlayView, overlayParams);
+
+        surfaceHolder = surfaceView.getHolder();
+        surfaceHolder.addCallback(this);
+
+        overlayView.setOnTouchListener((v, event) -> {
+            // İki parmak: pinch ölçekleme (sürükleme yok).
+            scaleGestureDetector.onTouchEvent(event);
+
+            int action = event.getActionMasked();
+            int pointerCount = event.getPointerCount();
+
+            if (pointerCount >= 2) {
+                if (action == MotionEvent.ACTION_POINTER_UP
+                        || action == MotionEvent.ACTION_CANCEL
+                        || action == MotionEvent.ACTION_UP) {
+                    saveOverlayLayoutPrefs();
+                }
+                return true;
+            }
+
+            switch (action) {
+                case MotionEvent.ACTION_DOWN:
+                    initialX = overlayParams.x;
+                    initialY = overlayParams.y;
+                    initialTouchX = event.getRawX();
+                    initialTouchY = event.getRawY();
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (scaleGestureDetector.isInProgress()) {
+                        return true;
+                    }
+                    float dx = event.getRawX() - initialTouchX;
+                    float dy = event.getRawY() - initialTouchY;
+                    int newX = (int) (initialX + dx);
+                    int newY = (int) (initialY + dy);
+                    overlayParams.x = newX;
+                    overlayParams.y = newY;
+                    clampOverlayPositionToScreen();
+                    windowManager.updateViewLayout(overlayView, overlayParams);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    saveOverlayLayoutPrefs();
+                    v.performClick();
+                    return true;
+                default:
+                    return false;
+            }
+        });
+    }
+
+    /** En-boy oranını (1000:480) koruyarak boyutu ekran ve min/max içinde tutar. */
+    private int[] clampOverlaySize(int w) {
+        float aspect = (float) DEFAULT_OVERLAY_WIDTH_PX / (float) DEFAULT_OVERLAY_HEIGHT_PX;
+        int maxW = OVERLAY_MAX_WIDTH_PX;
+        int maxH = OVERLAY_MAX_WIDTH_PX;
+        if (windowManager != null) {
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            windowManager.getDefaultDisplay().getMetrics(dm);
+            maxW = Math.min(maxW, dm.widthPixels);
+            maxH = Math.min(maxH, dm.heightPixels);
+        }
+        if (w < OVERLAY_MIN_WIDTH_PX) {
+            w = OVERLAY_MIN_WIDTH_PX;
+        }
+        if (w > maxW) {
+            w = maxW;
+        }
+        int h = Math.round(w / aspect);
+        if (h > maxH) {
+            h = maxH;
+            w = Math.round(h * aspect);
+            if (w < OVERLAY_MIN_WIDTH_PX) {
+                w = OVERLAY_MIN_WIDTH_PX;
+            }
+            if (w > maxW) {
+                w = maxW;
+            }
+            h = Math.round(w / aspect);
+        }
+        return new int[]{w, h};
+    }
+
+    private void clampOverlayPositionToScreen() {
+        if (windowManager == null || overlayParams == null) return;
+        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+        windowManager.getDefaultDisplay().getMetrics(dm);
+        int maxX = Math.max(0, dm.widthPixels - overlayParams.width);
+        int maxY = Math.max(0, dm.heightPixels - overlayParams.height);
+        if (overlayParams.x < 0) overlayParams.x = 0;
+        if (overlayParams.y < 0) overlayParams.y = 0;
+        if (overlayParams.x > maxX) overlayParams.x = maxX;
+        if (overlayParams.y > maxY) overlayParams.y = maxY;
+    }
+
+    private void saveOverlayLayoutPrefs() {
+        if (overlayParams == null) return;
+        try {
+            android.content.SharedPreferences sp =
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            sp.edit()
+                    .putInt(KEY_LAST_X, overlayParams.x)
+                    .putInt(KEY_LAST_Y, overlayParams.y)
+                    .putInt(KEY_OVERLAY_W, overlayWidthPx)
+                    .putInt(KEY_OVERLAY_H, overlayHeightPx)
+                    .apply();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (surfaceHolder != null) {
+            stopPreview();
+            surfaceHolder.removeCallback(this);
+        }
+        if (windowManager != null && overlayView != null) {
+            windowManager.removeView(overlayView);
+        }
+        overlayView = null;
+        surfaceView = null;
+        surfaceHolder = null;
+    }
+
+    private void createNotificationChannel() {
+        NotificationChannel ch = new NotificationChannel(
+                CHANNEL_ID,
+                "MG4 Overlay",
+                NotificationManager.IMPORTANCE_LOW
+        );
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.createNotificationChannel(ch);
+        }
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    // Surface callbacks
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        startPreview();
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        // no-op
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+        stopPreview();
+    }
+
+    private void startPreview() {
+        if (surfaceHolder == null || surfaceHolder.getSurface() == null ||
+                !surfaceHolder.getSurface().isValid()) {
+            return;
+        }
+        CameraProbe.stopPreview();
+        CameraProbe.startPreview(cameraIndex, surfaceHolder.getSurface());
+    }
+
+    private void stopPreview() {
+        CameraProbe.stopPreview();
+    }
+}
+
