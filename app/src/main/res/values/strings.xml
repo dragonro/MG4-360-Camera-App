@@ -2,4 +2,8 @@
     <string name="app_name">Drivehub Kamera</string>
     <string name="safety_warning_text">Please pay attention to the surrounding environment!</string>
     <string name="show_safety_warning">Show safety warning</string>
+    <string name="camera_front">Front</string>
+    <string name="camera_right">Right</string>
+    <string name="camera_left">Left</string>
+    <string name="camera_rear">Rear</string>
 </resources>
