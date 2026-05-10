@@ -2,7 +2,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="oval">
-            <solid android:color="#52363636" />
+            <solid android:color="@color/settings_button_surface" />
         </shape>
     </item>
     <item
