@@ -89,6 +89,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         btnSettings.setOnClickListener(v -> showSettingsDialog());
 
+        ImageButton btnClose = findViewById(R.id.btnClose);
+        btnClose.setOnClickListener(v -> finishAndRemoveTask());
+
         // Başlangıç etiketini göster
         if (tvStatus != null) {
             tvStatus.setText("Preview: " + cameraLabel(currentVideoIndex));
@@ -231,7 +234,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Window shownWindow = dialog.getWindow();
         if (shownWindow != null) {
             float density = getResources().getDisplayMetrics().density;
-            shownWindow.setLayout((int) (560 * density), WindowManager.LayoutParams.WRAP_CONTENT);
+            shownWindow.setLayout((int) (700 * density), WindowManager.LayoutParams.WRAP_CONTENT);
         }
     }
 

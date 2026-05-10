@@ -71,8 +71,8 @@
 
     <ImageButton
         android:id="@+id/btnSettings"
-        android:layout_width="70dp"
-        android:layout_height="70dp"
+        android:layout_width="108dp"
+        android:layout_height="108dp"
         android:layout_marginStart="16dp"
         android:layout_marginBottom="16dp"
         android:background="@android:color/transparent"
@@ -81,6 +81,21 @@
         android:scaleType="fitCenter"
         android:src="@drawable/selector_settings"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageButton
+        android:id="@+id/btnClose"
+        android:layout_width="148dp"
+        android:layout_height="148dp"
+        android:layout_marginStart="2dp"
+        android:layout_marginTop="2dp"
+        android:background="@drawable/bg_close_button"
+        android:contentDescription="Close App"
+        android:padding="34dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_close"
+        android:tint="#FFFFFF"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
