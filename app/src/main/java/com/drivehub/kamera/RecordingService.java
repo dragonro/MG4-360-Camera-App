@@ -66,16 +66,16 @@ public class RecordingService extends Service {
 
         if (ACTION_STOP.equals(action)) {
             stopRequested = true;
-            // Kayıt devam ediyorsa native tarafı da anında durdur.
-            // 4 slot sabit: 0=F (15), 1=R (17), 2=X (16), 3=Y (14)
+            // If recording is still running, stop the native side immediately too.
+            // The 4 slots are fixed: 0=F (15), 1=R (17), 2=X (16), 3=Y (14)
             try {
                 for (int s = 0; s < 4; s++) {
                     CameraProbe.stopMp4Record(s);
                 }
             } catch (Throwable ignored) {
-                // native hata verirse de servis yine kapanmaya devam etsin
+                // Even if the native layer fails, still continue shutting down the service.
             }
-            // Worker thread uyuyorsa uyanması için interrupt et.
+            // Interrupt the worker thread in case it is sleeping.
             if (worker != null) {
                 worker.interrupt();
             }
@@ -84,7 +84,7 @@ public class RecordingService extends Service {
         }
 
         if (worker != null) {
-            // zaten çalışıyorsa tekrar başlatma
+            // Do not start again if it is already running.
             return START_STICKY;
         }
 
@@ -96,7 +96,7 @@ public class RecordingService extends Service {
     }
 
     private void recordLoop() {
-        // NOT: Şimdilik hız bilgisini / sinyali değil; yalnızca MP4 kayıt çekiyoruz.
+        // NOTE: For now we only record MP4 clips, not speed or turn-signal data.
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
         int segmentMin = prefs.getInt(KEY_SEGMENT_MIN, 3);
@@ -111,21 +111,21 @@ public class RecordingService extends Service {
         //noinspection ResultOfMethodCallIgnored
         baseDir.mkdirs();
 
-        // output: 4 kameranın isimleri
-        // F = v15 (Ön), R = v17 (Arka), X = v16 (Sol), Y = v14 (Sağ)
+        // Output names for the 4 cameras.
+        // F = v15 (front), R = v17 (rear), X = v16 (left), Y = v14 (right)
         int[] slots = new int[]{0, 1, 2, 3};
         int[] videoIndices = new int[]{15, 17, 16, 14};
         char[] names = new char[]{'F', 'R', 'X', 'Y'};
 
         long segmentMs = segmentMin * 60L * 1000L;
 
-        // Toplam süreyi segment sayısına çevir: segmentMin=3, totalMin=30 => 10 segment tutulur
+        // Convert total duration into a segment count: segmentMin=3, totalMin=30 => keep 10 segments.
         int keepSegments = Math.max(1, totalMin / segmentMin);
 
         while (!stopRequested) {
             long now = System.currentTimeMillis();
             String ts = makeTimestampBase(now);
-            File clipDir = baseDir; // direkt klasör içine koyuyoruz
+            File clipDir = baseDir; // Store files directly in the folder.
 
             String[] outPaths = new String[4];
             for (int i = 0; i < 4; i++) {
@@ -134,13 +134,13 @@ public class RecordingService extends Service {
                 outPaths[i] = out.getAbsolutePath();
             }
 
-            // 4 kamerayı aynı anda kayda başlat
+            // Start recording all 4 cameras at the same time.
             for (int i = 0; i < 4; i++) {
                 // width=720 height=240 fps=15 bitrate default 2.5Mbps
                 CameraProbe.startMp4Record(slots[i], videoIndices[i], outPaths[i], 720, 240, 15, 2500000);
             }
 
-            // segment bitene kadar bekle
+            // Wait until the segment duration is reached.
             long start = SystemClock.elapsedRealtime();
             while (!stopRequested && (SystemClock.elapsedRealtime() - start) < segmentMs) {
                 try {
@@ -149,15 +149,15 @@ public class RecordingService extends Service {
                 }
             }
 
-            // 4 kamerayı durdur
+            // Stop all 4 cameras.
             for (int i = 0; i < 4; i++) {
                 CameraProbe.stopMp4Record(slots[i]);
             }
 
-            // Retention: en eski segmentleri sil
+            // Retention: delete the oldest segments.
             cleanupOldSegments(baseDir, keepSegments);
 
-            // prefs kapatıldı mı?
+            // Check whether recording has been disabled in prefs.
             enabled = prefs.getBoolean(KEY_ENABLED, false);
             if (!enabled) break;
         }
@@ -176,7 +176,7 @@ public class RecordingService extends Service {
         for (File f : files) {
             String name = f.getName();
             if (!name.endsWith(".mp4")) continue;
-            // yyaaggssdd_X.mp4
+            // yymmddhhmm_X.mp4
             int underscore = name.indexOf('_');
             if (underscore <= 0) continue;
             String base = name.substring(0, underscore);
@@ -202,7 +202,7 @@ public class RecordingService extends Service {
     }
 
     private File getRecordsBaseDir() {
-        // Android 9: Downloads klasörüne direkt yazacağız.
+        // Android 9: write directly into the Downloads folder.
         File downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         File dir = new File(downloads, "mg4_cam_records");
         //noinspection ResultOfMethodCallIgnored
@@ -259,4 +259,3 @@ public class RecordingService extends Service {
         super.onDestroy();
     }
 }
-

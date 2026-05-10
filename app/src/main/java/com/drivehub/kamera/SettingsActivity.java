@@ -95,16 +95,16 @@ public class SettingsActivity extends AppCompatActivity {
         etTotalMin.setText(String.valueOf(totalMin));
         etOverlayHideDelaySeconds.setText(formatDelaySeconds(overlayHideDelayMs));
 
-        // Kayıt kapalıyken diğer seçenekleri gizle
+        // Hide the other options while recording is disabled.
         setOptionsVisible(enabled);
 
         swEnabled.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            // Sadece UI görünürlüğünü anlık değiştir
+            // Update the UI visibility immediately.
             setOptionsVisible(isChecked);
-            // Kullanıcı kaydet'e basmasa bile son durum kalıcı olsun.
+            // Persist the state immediately even if the user does not press save.
             SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             sp.edit().putBoolean(KEY_ENABLED, isChecked).apply();
-            // Kayıt durumuna göre servisi anında yönet.
+            // Start or stop the service immediately based on the recording toggle.
             if (isChecked) {
                 if (!hasStoragePermission()) {
                     ActivityCompat.requestPermissions(
@@ -113,7 +113,7 @@ public class SettingsActivity extends AppCompatActivity {
                             REQ_STORAGE
                     );
                     Toast.makeText(this, "Depolama izni gerekli", Toast.LENGTH_SHORT).show();
-                    // İzin verilince tekrar açılabilir; şimdilik servisi başlatma.
+                    // It can be enabled again after permission is granted; do not start the service yet.
                     return;
                 }
                 RecordingService.startIfNeeded(SettingsActivity.this);
@@ -123,12 +123,12 @@ public class SettingsActivity extends AppCompatActivity {
         });
 
         swOverlayOnSignal.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            // Ayarı anlık kaydet.
+            // Persist the setting immediately.
             SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             sp.edit().putBoolean(KEY_OVERLAY_ON_SIGNAL, isChecked).apply();
-            // Dinleme artık her zaman açık; sadece overlay göster/gösterme.
+            // Listening now always stays active; only the overlay visibility changes.
             if (!isChecked) {
-                // Kullanıcı kapatınca varsa overlay'i gizle.
+                // Hide any active overlay when the user disables it.
                 OverlayService.hideOverlay(SettingsActivity.this);
             }
         });
@@ -139,7 +139,7 @@ public class SettingsActivity extends AppCompatActivity {
             applyOemAvmEnabledState(isChecked);
         });
 
-        // Süre alanları odak kaybedince anında kaydedilsin.
+        // Save duration fields as soon as they lose focus.
         View.OnFocusChangeListener durationFocusListener = (v, hasFocus) -> {
             if (hasFocus) return;
             int seg = parsePositiveInt(etSegmentMin.getText().toString(), 3);
@@ -154,20 +154,20 @@ public class SettingsActivity extends AppCompatActivity {
         etSegmentMin.setOnFocusChangeListener(durationFocusListener);
         etTotalMin.setOnFocusChangeListener(durationFocusListener);
 
-        // Overlay kapanma gecikmesi (sn) odak kaybedince kaydedilsin.
+        // Save the overlay hide delay (seconds) when the field loses focus.
         etOverlayHideDelaySeconds.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) return;
             long ms = parseDelaySecondsToMs(etOverlayHideDelaySeconds.getText().toString(), 1500L);
             SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             sp.edit().putLong(KEY_OVERLAY_HIDE_DELAY_MS, ms).apply();
-            // Kullanıcıya görünür hale getirmek için normalize edilmiş değeri geri yaz.
+            // Write the normalized value back so the user sees the cleaned-up version.
             isNormalizingOverlayDelay = true;
             etOverlayHideDelaySeconds.setText(formatDelaySeconds(ms));
             isNormalizingOverlayDelay = false;
         });
 
-        // Kullanıcı değer değiştirip odaktan çıkmadan beklerse, sinyal tarafı eski değeri kullanmasın.
-        // Bu yüzden her metin değişiminde mümkünse anında prefs'e yazıyoruz.
+        // If the user edits the value and pauses without leaving focus, do not let the signal side use the stale value.
+        // That is why we persist on every text change whenever possible.
         etOverlayHideDelaySeconds.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -191,7 +191,7 @@ public class SettingsActivity extends AppCompatActivity {
         });
 
         btnExportUsb.setOnClickListener(v -> {
-            // TODO: USB export kodu sonraki adım.
+            // TODO: USB export code will come in a later step.
             Toast.makeText(this, "USB export TODO (şimdilik kapalı)", Toast.LENGTH_LONG).show();
         });
 
@@ -211,22 +211,22 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void updateUsbButtonVisibility() {
-        // Basit yaklaşım: USB mount noktası varsa button görünür yap.
-        // Cihazdan bağımsız çalışsın diye genişletilebilir.
+        // Simple approach: show the button if a USB mount point exists.
+        // This can be expanded to be more device-agnostic if needed.
         boolean usbMounted = findMountedUsbRoot() != null;
         btnExportUsb.setVisibility(usbMounted ? View.VISIBLE : View.GONE);
     }
 
     private File findMountedUsbRoot() {
-        // Basit marker: `/storage/*/` içinde yazılabilir bir dizin varsa.
-        // (Bu kısım cihazdan cihaza değişebilir; gerekirse genişletiriz.)
+        // Simple marker: any writable directory inside `/storage/*/`.
+        // (This can vary by device; we can broaden it later if needed.)
         File storageDir = new File("/storage");
         if (!storageDir.exists()) return null;
         File[] roots = storageDir.listFiles();
         if (roots == null) return null;
         for (File r : roots) {
             if (r.isDirectory() && r.canRead() && r.canWrite()) {
-                // Uygulama ihtiyaçlarına göre filtre eklenebilir.
+                // Additional filtering can be added based on app requirements.
                 return r;
             }
         }
@@ -236,7 +236,7 @@ public class SettingsActivity extends AppCompatActivity {
     private File getRecordsBaseDir() {
         File downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         File dir = new File(downloads, "mg4_cam_records");
-        // klasör oluşturma
+        // Create the directory.
         //noinspection ResultOfMethodCallIgnored
         dir.mkdirs();
         return dir;
@@ -258,7 +258,7 @@ public class SettingsActivity extends AppCompatActivity {
             if (t.isEmpty()) return defMs;
             double sec = Double.parseDouble(t);
             if (sec < 0) sec = 0;
-            if (sec > 30) sec = 30; // güvenlik: 0..30 sn
+            if (sec > 30) sec = 30; // Safety clamp: 0..30 seconds
             return (long) (sec * 1000.0);
         } catch (Throwable ignored) {
             return defMs;
@@ -267,11 +267,11 @@ public class SettingsActivity extends AppCompatActivity {
 
     private String formatDelaySeconds(long ms) {
         double sec = ms / 1000.0;
-        // "1.5" gibi
+        // For values like "1.5"
         if (Math.abs(sec - Math.round(sec)) < 0.0001) {
             return String.valueOf((int) Math.round(sec));
         }
-        // max 1 decimal
+        // Max 1 decimal place
         return String.format(java.util.Locale.US, "%.1f", sec);
     }
 
@@ -303,14 +303,14 @@ public class SettingsActivity extends AppCompatActivity {
         tvTotal.setVisibility(vis);
         etTotalMin.setVisibility(vis);
         tvPath.setVisibility(vis);
-        // USB dışa aktarma butonu kayıt açıkken ve USB takılıyken gösterilir.
+        // The USB export button is shown only when recording is enabled and a USB device is mounted.
         if (btnExportUsb != null) {
             btnExportUsb.setVisibility(visible ? btnExportUsb.getVisibility() : View.GONE);
         }
     }
 
     /**
-     * Sistem imzası sayesinde OEM 360 paketini gerçekten devre dışı / tekrar etkin yapabiliyoruz.
+     * Thanks to the system signature, we can actually disable and re-enable the OEM 360 package.
      * isDisabled == true -> COMPONENT_ENABLED_STATE_DISABLED_USER
      * isDisabled == false -> COMPONENT_ENABLED_STATE_DEFAULT
      */
@@ -341,4 +341,3 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 }
-

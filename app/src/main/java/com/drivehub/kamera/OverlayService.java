@@ -19,13 +19,14 @@ import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 /**
- * En üste gelen, sürüklenebilir küçük kamera penceresi.
- * Şimdilik doğrudan bir kamera index'i alır; ileride sinyal bilgisinden tetiklenecek.
+ * Draggable floating camera window shown above other content.
+ * For now it takes a camera index directly; later it can be triggered from turn-signal state.
  */
 public class OverlayService extends Service implements TextureView.SurfaceTextureListener {
 
@@ -34,10 +35,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private static final String CHANNEL_ID = "mg4_overlay";
     private static final int NOTIF_ID = 99;
 
-    /** Varsayılan overlay boyutu (px); en-boy oranı korunur. */
+    /** Default overlay size in px; the aspect ratio is preserved. */
     private static final int DEFAULT_OVERLAY_WIDTH_PX = 1000;
     private static final int DEFAULT_OVERLAY_HEIGHT_PX = 480;
-    /** İki parmakla küçültme / büyütme sınırları. */
+    /** Min/max bounds for two-finger pinch resizing. */
     private static final int OVERLAY_MIN_WIDTH_PX = 240;
     private static final int OVERLAY_MAX_WIDTH_PX = 3840;
 
@@ -52,9 +53,9 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private TextureView textureView;
     private Surface textureSurface;
     private WindowManager.LayoutParams overlayParams;
-    private int cameraIndex = 15; // varsayılan: ön
+    private int cameraIndex = 15; // Default: front
 
-    /** Anlık pencere boyutu (pinch ile değişir). */
+    /** Current window size, updated via pinch gestures. */
     private int overlayWidthPx = DEFAULT_OVERLAY_WIDTH_PX;
     private int overlayHeightPx = DEFAULT_OVERLAY_HEIGHT_PX;
 
@@ -88,7 +89,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (intent != null && intent.hasExtra(EXTRA_CAMERA_INDEX)) {
             cameraIndex = intent.getIntExtra(EXTRA_CAMERA_INDEX, 15);
         }
-        // Uygulama arka planda kalsa bile overlay'in yaşaması için foreground service olarak çalış.
+        // Run as a foreground service so the overlay survives while the app is in the background.
         Notification notif = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
                 .setContentTitle("Drivehub Kamera")
@@ -101,7 +102,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (overlayView == null) {
             showFloatingWindow();
         } else {
-            // Overlay zaten açıksa ve sadece kamera index'i değiştiyse, akışı yeni kameraya çevir.
+            // If the overlay is already open and only the camera index changed, switch the feed.
             if (textureSurface != null && textureSurface.isValid()) {
                 startPreview();
             }
@@ -114,7 +115,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
         int layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 
-        // Boyut: kayıtlı veya varsayılan (en-boy oranı sabit).
+        // Size: use the saved value or the default while keeping the aspect ratio fixed.
         try {
             android.content.SharedPreferences sp =
                     getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -138,7 +139,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         );
         overlayParams.gravity = Gravity.TOP | Gravity.START;
 
-        // Son kullanılan konumu prefs'ten oku (yoksa varsayılan).
+        // Read the last saved position from prefs, or fall back to the default.
         int defaultX = 32;
         int defaultY = 120;
         try {
@@ -180,7 +181,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         windowManager.addView(overlayView, overlayParams);
 
         overlayView.setOnTouchListener((v, event) -> {
-            // İki parmak: pinch ölçekleme (sürükleme yok).
+            // Two fingers: pinch to resize, with no dragging.
             scaleGestureDetector.onTouchEvent(event);
 
             int action = event.getActionMasked();
@@ -243,10 +244,32 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         textureView.setOpaque(false);
         textureView.setSurfaceTextureListener(this);
         card.addView(textureView);
+
+        ImageButton btnDismissOverlay = new ImageButton(this);
+        FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
+                dpToPx(84),
+                dpToPx(84),
+                Gravity.TOP | Gravity.START
+        );
+        closeParams.leftMargin = dpToPx(8);
+        closeParams.topMargin = dpToPx(8);
+        btnDismissOverlay.setLayoutParams(closeParams);
+        btnDismissOverlay.setBackgroundResource(R.drawable.bg_close_button);
+        btnDismissOverlay.setImageResource(R.drawable.ic_close);
+        btnDismissOverlay.setColorFilter(0xFFFFFFFF);
+        btnDismissOverlay.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20));
+        btnDismissOverlay.setContentDescription("Close overlay");
+        btnDismissOverlay.setOnClickListener(v -> hideOverlay(OverlayService.this));
+        card.addView(btnDismissOverlay);
+
         return card;
     }
 
-    /** En-boy oranını (1000:480) koruyarak boyutu ekran ve min/max içinde tutar. */
+    private int dpToPx(int dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
+    /** Keeps the 1000:480 aspect ratio while clamping size to screen and min/max bounds. */
     private int[] clampOverlaySize(int w) {
         float aspect = (float) DEFAULT_OVERLAY_WIDTH_PX / (float) DEFAULT_OVERLAY_HEIGHT_PX;
         int maxW = OVERLAY_MAX_WIDTH_PX;
@@ -338,7 +361,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         return null;
     }
 
-    // Surface callbacks
+    // Texture callbacks
 
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {

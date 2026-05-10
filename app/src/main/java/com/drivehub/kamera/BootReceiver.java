@@ -10,8 +10,8 @@ public class BootReceiver extends BroadcastReceiver {
         if (intent == null || intent.getAction() == null) return;
         if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) return;
 
-        // Bootta hem kayıt (kayıt açıksa) hem sinyal dinleyicisini başlat.
-        // Overlay davranışını `overlayOnSignal` ayarı kontrol ediyor; sinyal servisi olmadan overlay tetiklenmez.
+        // On boot, start both recording (if enabled) and the signal listener.
+        // The `overlayOnSignal` setting controls overlay behavior; without the signal service, the overlay cannot trigger.
         RecordingService.startIfNeeded(context);
         try {
             SignalService.start(context);
@@ -19,4 +19,3 @@ public class BootReceiver extends BroadcastReceiver {
         }
     }
 }
-

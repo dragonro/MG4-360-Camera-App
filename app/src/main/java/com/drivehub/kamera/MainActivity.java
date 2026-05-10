@@ -34,11 +34,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
-    // Program açılınca başlangıç kamerası: ön kamera (v15)
+    // Initial camera when the app opens: front camera (v15)
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
 
-    // Swipe tespit eşiği (piksel)
+    // Swipe detection threshold in pixels
     private static final int SWIPE_THRESHOLD_PX = 140;
     private float downX = 0f;
     private float downY = 0f;
@@ -92,19 +92,19 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         ImageButton btnClose = findViewById(R.id.btnClose);
         btnClose.setOnClickListener(v -> finishAndRemoveTask());
 
-        // Başlangıç etiketini göster
+        // Show the initial status label.
         if (tvStatus != null) {
             tvStatus.setText("Preview: " + cameraLabel(currentVideoIndex));
         }
         applyWarningVisibility();
 
-        // Sinyal/vites dinleme her zaman açık kalsın; overlay sadece ayardan kontrol edilecek.
+        // Keep signal/gear listening always active; overlay visibility is controlled only by settings.
         try {
             SignalService.start(this);
         } catch (Throwable ignored) {
         }
 
-        // Swipe ile kamera değiştir (yatay)
+        // Change cameras with swipe gestures.
         surfaceView.setOnTouchListener((v, event) -> {
             if (event == null) return false;
 
@@ -119,24 +119,24 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     float dx = upX - downX;
                     float dy = upY - downY;
 
-                    // Baskın eksene göre karar ver:
-                    // - Yatayda: sola -> v16, sağa -> v14
-                    // - Dikeyde: yukarı -> v15, aşağı -> v17
+                    // Decide based on the dominant axis:
+                    // - Horizontal: left -> v16, right -> v14
+                    // - Vertical: up -> v15, down -> v17
                     if (Math.abs(dx) > Math.abs(dy)) {
-                        // yatay
+                        // horizontal
                         if (dx > SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 14; // sağ kamera
+                            currentVideoIndex = 14; // right camera
                         } else if (dx < -SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 16; // sol kamera
+                            currentVideoIndex = 16; // left camera
                         } else {
                             return true;
                         }
                     } else {
-                        // dikey
+                        // vertical
                         if (dy < -SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 15; // ön kamera
+                            currentVideoIndex = 15; // front camera
                         } else if (dy > SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 17; // arka kamera
+                            currentVideoIndex = 17; // rear camera
                         } else {
                             return true;
                         }
@@ -166,7 +166,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             );
         } catch (Throwable ignored) {
         }
-        // Main açıkken overlay görünmesin.
+        // Do not show the overlay while Main is open.
         OverlayService.hideOverlay(this);
         applyWarningVisibility();
     }
@@ -308,13 +308,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        // Yüzey hazır olur olmaz ilk kamerayı başlat.
+        // Start the initial camera as soon as the surface is ready.
         startPreviewIfReady();
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        // gerekirse yeniden başlat
+        // Restart here if needed.
     }
 
     @Override

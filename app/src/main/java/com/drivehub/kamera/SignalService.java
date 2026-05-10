@@ -22,12 +22,12 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
 /**
- * Sadece sinyal bilgisini dinler:
- * - sol sinyal -> overlay sol kamera (v16)
- * - sağ sinyal -> overlay sağ kamera (v14)
- * - sinyal yok  -> overlay kapat
+ * Listens only for turn-signal state:
+ * - left signal  -> left camera overlay (v16)
+ * - right signal -> right camera overlay (v14)
+ * - no signal    -> hide overlay
  *
- * Öncelik: Car API (reflection).
+ * Priority: Car API via reflection.
  * Fallback: SystemProperties polling (arcsoft.avm.mCurCarTurnLamp).
  */
 public class SignalService extends Service {
@@ -155,7 +155,7 @@ public class SignalService extends Service {
             Object valueObj = carPropertyValue.getClass().getMethod("getValue").invoke(carPropertyValue);
             int lamp = (valueObj instanceof Integer) ? (Integer) valueObj : Integer.MIN_VALUE;
             currentLamp = lamp;
-            // Car API başarısız/eksik olabileceği için vitesi mevcut property'den oku.
+            // The Car API can be incomplete or fail, so read the gear from the current system property.
             currentGear = readGearFromSystemProperty();
             updateOverlayDecision();
             return null;
@@ -214,7 +214,7 @@ public class SignalService extends Service {
     }
 
     private void updateOverlayDecision() {
-        // Değişiklik yoksa tekrar işlem yapma.
+        // Skip work if nothing changed.
         if (currentLamp == lastLamp && currentGear == readCachedGear()) {
             return;
         }
@@ -235,7 +235,7 @@ public class SignalService extends Service {
         if (nextMode == currentMode) return;
         currentMode = nextMode;
 
-        // MainActivity görünürdeyse overlay kullanma; ana preview kamerasını değiştir.
+        // If MainActivity is visible, do not use the overlay; route the main preview camera instead.
         if (MainActivity.shouldBlockOverlay()) {
             mainHandler.removeCallbacks(hideRunnable);
             OverlayService.hideOverlay(this);
@@ -248,9 +248,9 @@ public class SignalService extends Service {
             return;
         }
 
-        // Ana ekran görünür değilse, overlay sadece ayar açıksa kullanılacak.
+        // If the main screen is not visible, only use the overlay when the setting is enabled.
         if (!isOverlayEnabled()) {
-            // Ayar kapalıyken olası bir overlay kalıntısını da gizle.
+            // Also hide any leftover overlay if the setting is disabled.
             mainHandler.removeCallbacks(hideRunnable);
             OverlayService.hideOverlay(this);
             Log.i(TAG, "Overlay disabled in settings => no overlay, only listening.");
@@ -258,14 +258,14 @@ public class SignalService extends Service {
         }
 
         if (nextMode == 3) { // reverse
-            // Reverse için overlay İSTENMİYOR: varsa kapat, sadece OEM/ana ekran kalsın.
+            // No overlay is wanted for reverse: hide it if present and leave only OEM/main screen behavior.
             mainHandler.removeCallbacks(hideRunnable);
             OverlayService.hideOverlay(this);
             Log.i(TAG, "Reverse => no overlay (disabled for reverse)");
             return;
         }
 
-        // Reverse dışındaki sinyal durumları için: OEM öndeyse overlay göstermeyelim.
+        // For non-reverse signal states, skip the overlay if the OEM AVM is already in the foreground.
         if (isOemAvmInForeground()) {
             mainHandler.removeCallbacks(hideRunnable);
             OverlayService.hideOverlay(this);
@@ -289,7 +289,7 @@ public class SignalService extends Service {
         }
     }
 
-    // Basit gear değişimi cache'i (mode geçişlerinin kaçmaması için).
+    // Simple gear-change cache so mode transitions are not missed.
     private int lastGear = Integer.MIN_VALUE;
     private int readCachedGear() {
         return lastGear;
@@ -323,7 +323,7 @@ public class SignalService extends Service {
         try {
             ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
             if (am == null) return false;
-            // System app olduğumuz için getRunningTasks(1) genelde izinli.
+            // Because this is a system app, getRunningTasks(1) is usually permitted.
             java.util.List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
             if (tasks == null || tasks.isEmpty()) return false;
             ActivityManager.RunningTaskInfo t = tasks.get(0);

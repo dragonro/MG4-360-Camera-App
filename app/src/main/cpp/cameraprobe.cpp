@@ -177,7 +177,7 @@ static void *previewThread(void * /*arg*/)
 
     while (g_running)
     {
-        // Poll vor DQBUF — verhindert busy-waiting bei Treiber-Hängern
+        // Poll before DQBUF to avoid busy-waiting when the driver stalls.
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(g_fd, &fds);
@@ -198,7 +198,7 @@ static void *previewThread(void * /*arg*/)
             uint8_t *dst = static_cast<uint8_t *>(outBuf.bits);
             int dstStrideBytes = outBuf.stride * 4;
             int displayWidth = g_width;
-            int displayHeight = g_height / 2; // Sürücü kareyi dikeyde çiftliyor — üst yarıyı al
+            int displayHeight = g_height / 2; // The driver duplicates the frame vertically, so use the top half.
 
             // UYVY → RGBA via OpenCV (ARM NEON optimized)
             cv::Mat uyvyFrame(g_height, g_width, CV_8UC2,
@@ -207,7 +207,7 @@ static void *previewThread(void * /*arg*/)
             cv::Mat rgbaFrame(displayHeight, displayWidth, CV_8UC4, dst, dstStrideBytes);
             cv::cvtColor(uyvyCropped, rgbaFrame, cv::COLOR_YUV2RGBA_UYVY);
 
-            // Mirror für Rückkamera (videoIndex 17)
+            // Mirror the rear camera (videoIndex 17)
             if (g_videoIndex == 17)
             {
                 cv::flip(rgbaFrame, rgbaFrame, 1);
