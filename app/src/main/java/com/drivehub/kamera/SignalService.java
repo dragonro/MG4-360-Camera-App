@@ -221,7 +221,7 @@ public class SignalService extends Service {
         currentMode = nextMode;
 
         // MainActivity görünürdeyse overlay kullanma; ana preview kamerasını değiştir.
-        if (MainActivity.isMainVisible()) {
+        if (MainActivity.shouldBlockOverlay()) {
             mainHandler.removeCallbacks(hideRunnable);
             OverlayService.hideOverlay(this);
             int targetCamera = (nextMode == 3) ? 17 : (nextMode == 1) ? 16 : (nextMode == 2) ? 14 : 15;
@@ -368,4 +368,3 @@ public class SignalService extends Service {
         if (nm != null) nm.createNotificationChannel(ch);
     }
 }
-

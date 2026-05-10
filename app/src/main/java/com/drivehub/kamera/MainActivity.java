@@ -43,6 +43,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private float downX = 0f;
     private float downY = 0f;
     private static volatile boolean sMainVisible = false;
+    private static volatile boolean sSettingsDialogOpen = false;
 
     private final BroadcastReceiver cameraRouteReceiver = new BroadcastReceiver() {
         @Override
@@ -61,6 +62,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     public static boolean isMainVisible() {
         return sMainVisible;
+    }
+
+    public static boolean shouldBlockOverlay() {
+        return sMainVisible && !sSettingsDialogOpen;
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -167,6 +172,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onStop() {
         super.onStop();
         sMainVisible = false;
+        sSettingsDialogOpen = false;
         try {
             unregisterReceiver(cameraRouteReceiver);
         } catch (Throwable ignored) {
@@ -175,6 +181,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @SuppressWarnings("deprecation")
     private void showSettingsDialog() {
+        sSettingsDialogOpen = true;
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_settings);
@@ -214,6 +221,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
 
         dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
+        dialog.setOnDismissListener(d -> sSettingsDialogOpen = false);
         dialog.show();
 
         Window shownWindow = dialog.getWindow();
