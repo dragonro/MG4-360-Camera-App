@@ -182,6 +182,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     @SuppressWarnings("deprecation")
     private void showSettingsDialog() {
         sSettingsDialogOpen = true;
+        SignalService.requestRecheck();
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_settings);
@@ -221,7 +222,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
 
         dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
-        dialog.setOnDismissListener(d -> sSettingsDialogOpen = false);
+        dialog.setOnDismissListener(d -> {
+            sSettingsDialogOpen = false;
+            SignalService.requestRecheck();
+        });
         dialog.show();
 
         Window shownWindow = dialog.getWindow();

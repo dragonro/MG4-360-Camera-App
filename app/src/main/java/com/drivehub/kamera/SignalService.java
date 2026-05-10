@@ -41,6 +41,9 @@ public class SignalService extends Service {
     private static final String OEM_AVM_PACKAGE = "com.saicmotor.hmi.aroundview";
     public static final String ACTION_ROUTE_CAMERA = "com.drivehub.kamera.ACTION_ROUTE_CAMERA";
     public static final String EXTRA_CAMERA_INDEX = "camera_index";
+
+    private static volatile SignalService sInstance;
+
     private Object car;
     private Object lampManager;
     private Object lampCallbackProxy;
@@ -69,9 +72,21 @@ public class SignalService extends Service {
         context.startForegroundService(i);
     }
 
+    public static void requestRecheck() {
+        SignalService inst = sInstance;
+        if (inst == null) return;
+        inst.mainHandler.post(() -> {
+            inst.lastLamp = Integer.MIN_VALUE;
+            inst.lastGear = Integer.MIN_VALUE;
+            inst.currentMode = -1;
+            inst.updateOverlayDecision();
+        });
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        sInstance = this;
         createNotificationChannel();
     }
 
@@ -350,6 +365,7 @@ public class SignalService extends Service {
         }
         mainHandler.removeCallbacks(hideRunnable);
         OverlayService.hideOverlay(this);
+        sInstance = null;
     }
 
     @Nullable
