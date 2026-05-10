@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.22.1)
-
 project(cameraprobe LANGUAGES C CXX)
+
+set(OpenCV_STATIC ON)
+set(OpenCV_DIR "$ENV{HOME}/Projekts/OpenCV-android-sdk/sdk/native/jni")
+find_package(OpenCV REQUIRED core imgproc)
 
 add_library(cameraprobe SHARED
         cameraprobe.cpp
@@ -15,5 +18,5 @@ target_link_libraries(cameraprobe
         ${log-lib}
         ${android-lib}
         ${media-lib}
+        ${OpenCV_LIBS}
 )
-
