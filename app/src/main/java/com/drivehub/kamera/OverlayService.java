@@ -6,15 +6,19 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.SurfaceTexture;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -23,7 +27,7 @@ import androidx.core.app.NotificationCompat;
  * En üste gelen, sürüklenebilir küçük kamera penceresi.
  * Şimdilik doğrudan bir kamera index'i alır; ileride sinyal bilgisinden tetiklenecek.
  */
-public class OverlayService extends Service implements SurfaceHolder.Callback {
+public class OverlayService extends Service implements TextureView.SurfaceTextureListener {
 
     public static final String EXTRA_CAMERA_INDEX = "camera_index";
 
@@ -45,8 +49,8 @@ public class OverlayService extends Service implements SurfaceHolder.Callback {
 
     private WindowManager windowManager;
     private View overlayView;
-    private SurfaceView surfaceView;
-    private SurfaceHolder surfaceHolder;
+    private TextureView textureView;
+    private Surface textureSurface;
     private WindowManager.LayoutParams overlayParams;
     private int cameraIndex = 15; // varsayılan: ön
 
@@ -98,8 +102,7 @@ public class OverlayService extends Service implements SurfaceHolder.Callback {
             showFloatingWindow();
         } else {
             // Overlay zaten açıksa ve sadece kamera index'i değiştiyse, akışı yeni kameraya çevir.
-            if (surfaceHolder != null && surfaceHolder.getSurface() != null &&
-                    surfaceHolder.getSurface().isValid()) {
+            if (textureSurface != null && textureSurface.isValid()) {
                 startPreview();
             }
         }
@@ -149,10 +152,7 @@ public class OverlayService extends Service implements SurfaceHolder.Callback {
         overlayParams.y = defaultY;
         clampOverlayPositionToScreen();
 
-        // Basit bir SurfaceView içeren küçük bir pencere
-        surfaceView = new SurfaceView(this);
-
-        overlayView = surfaceView;
+        overlayView = createOverlayCard();
 
         scaleGestureDetector = new ScaleGestureDetector(this,
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -178,9 +178,6 @@ public class OverlayService extends Service implements SurfaceHolder.Callback {
                 });
 
         windowManager.addView(overlayView, overlayParams);
-
-        surfaceHolder = surfaceView.getHolder();
-        surfaceHolder.addCallback(this);
 
         overlayView.setOnTouchListener((v, event) -> {
             // İki parmak: pinch ölçekleme (sürükleme yok).
@@ -226,6 +223,27 @@ public class OverlayService extends Service implements SurfaceHolder.Callback {
                     return false;
             }
         });
+    }
+
+    private View createOverlayCard() {
+        FrameLayout card = new FrameLayout(this);
+        card.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        card.setBackgroundResource(R.drawable.bg_overlay_tile);
+        card.setClipToOutline(true);
+        card.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
+
+        textureView = new TextureView(this);
+        textureView.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        textureView.setOpaque(false);
+        textureView.setSurfaceTextureListener(this);
+        card.addView(textureView);
+        return card;
     }
 
     /** En-boy oranını (1000:480) koruyarak boyutu ekran ve min/max içinde tutar. */
@@ -290,16 +308,16 @@ public class OverlayService extends Service implements SurfaceHolder.Callback {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (surfaceHolder != null) {
-            stopPreview();
-            surfaceHolder.removeCallback(this);
+        stopPreview();
+        if (textureSurface != null) {
+            textureSurface.release();
+            textureSurface = null;
         }
         if (windowManager != null && overlayView != null) {
             windowManager.removeView(overlayView);
         }
         overlayView = null;
-        surfaceView = null;
-        surfaceHolder = null;
+        textureView = null;
     }
 
     private void createNotificationChannel() {
@@ -323,31 +341,40 @@ public class OverlayService extends Service implements SurfaceHolder.Callback {
     // Surface callbacks
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
+    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+        textureSurface = new Surface(surface);
         startPreview();
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
         // no-op
     }
 
     @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
         stopPreview();
+        if (textureSurface != null) {
+            textureSurface.release();
+            textureSurface = null;
+        }
+        return true;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+        // no-op
     }
 
     private void startPreview() {
-        if (surfaceHolder == null || surfaceHolder.getSurface() == null ||
-                !surfaceHolder.getSurface().isValid()) {
+        if (textureSurface == null || !textureSurface.isValid()) {
             return;
         }
         CameraProbe.stopPreview();
-        CameraProbe.startPreview(cameraIndex, surfaceHolder.getSurface());
+        CameraProbe.startPreview(cameraIndex, textureSurface);
     }
 
     private void stopPreview() {
         CameraProbe.stopPreview();
     }
 }
-
