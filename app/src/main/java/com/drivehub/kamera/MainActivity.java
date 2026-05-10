@@ -199,6 +199,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         SharedPreferences avmPrefs = getSharedPreferences(AVM_PREFS_NAME, MODE_PRIVATE);
         Switch swOverlay = dialog.findViewById(R.id.switchOverlayOnSignal);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
+        TextView tabSettings = dialog.findViewById(R.id.tabSettings);
+        TextView tabCredits = dialog.findViewById(R.id.tabCredits);
+        View sectionSettings = dialog.findViewById(R.id.sectionSettings);
+        View sectionCredits = dialog.findViewById(R.id.sectionCredits);
 
         swOverlay.setChecked(prefs.getBoolean("overlayOnSignal", false));
         swOverlay.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -213,6 +217,12 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, isChecked).apply();
             applyWarningVisibility();
         });
+
+        bindSimpleSettingsTab(tabSettings, tabCredits, sectionSettings, sectionCredits, true);
+        tabSettings.setOnClickListener(v ->
+                bindSimpleSettingsTab(tabSettings, tabCredits, sectionSettings, sectionCredits, true));
+        tabCredits.setOnClickListener(v ->
+                bindSimpleSettingsTab(tabSettings, tabCredits, sectionSettings, sectionCredits, false));
 
         TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
         try {
@@ -234,8 +244,27 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Window shownWindow = dialog.getWindow();
         if (shownWindow != null) {
             float density = getResources().getDisplayMetrics().density;
-            shownWindow.setLayout((int) (700 * density), WindowManager.LayoutParams.WRAP_CONTENT);
+            shownWindow.setLayout((int) (700 * density), (int) (560 * density));
         }
+    }
+
+    private void bindSimpleSettingsTab(
+            TextView tabSettings,
+            TextView tabCredits,
+            View sectionSettings,
+            View sectionCredits,
+            boolean showSettings
+    ) {
+        sectionSettings.setVisibility(showSettings ? View.VISIBLE : View.GONE);
+        sectionCredits.setVisibility(showSettings ? View.GONE : View.VISIBLE);
+        styleSimpleTab(tabSettings, showSettings);
+        styleSimpleTab(tabCredits, !showSettings);
+    }
+
+    private void styleSimpleTab(TextView tab, boolean active) {
+        tab.setTextColor(active ? 0xFFFFFFFF : 0xFF777777);
+        tab.setTextSize(active ? 21f : 20f);
+        tab.setTypeface(tab.getTypeface(), active ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
     }
 
     private void applyWarningVisibility() {
