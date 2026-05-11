@@ -53,7 +53,7 @@
             android:layout_height="28dp"
             android:layout_centerVertical="true"
             android:layout_marginEnd="12dp"
-            android:src="@drawable/pdc_icons_eye"
+            android:src="@drawable/ic_warning_visibility"
             android:layout_toStartOf="@+id/alertTextView" />
 
         <TextView
