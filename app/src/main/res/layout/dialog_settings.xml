@@ -35,25 +35,22 @@
 
         <TextView
             android:id="@+id/tabSettings"
+            style="@style/DrivehubSettingsTabActive"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="28dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            android:text="Settings"
-            android:textColor="@color/settings_tab_active"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:text="Settings" />
 
         <TextView
             android:id="@+id/tabCredits"
+            style="@style/DrivehubSettingsTabInactive"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            android:text="Credits"
-            android:textColor="@color/settings_tab_inactive"
-            android:textSize="20sp" />
+            android:text="Credits" />
 
     </LinearLayout>
 
@@ -88,13 +85,11 @@
                 android:orientation="vertical">
 
                 <TextView
+                    style="@style/DrivehubSettingsSectionHeader"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="18dp"
-                    android:text="DRIVING"
-                    android:textColor="@color/settings_text_secondary"
-                    android:textSize="16sp"
-                    android:letterSpacing="0.08" />
+                    android:text="DRIVING" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -103,12 +98,11 @@
                     android:gravity="center_vertical">
 
                     <TextView
+                        style="@style/DrivehubSettingsPrimaryText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Show tile view on turn signal"
-                        android:textColor="@color/settings_text_primary"
-                        android:textSize="22sp" />
+                        android:text="Show tile view on turn signal" />
 
                     <Switch
                         android:id="@+id/switchOverlayOnSignal"
@@ -132,13 +126,11 @@
                     android:background="@color/settings_divider" />
 
                 <TextView
+                    style="@style/DrivehubSettingsSectionHeader"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="18dp"
-                    android:text="DISPLAY"
-                    android:textColor="@color/settings_text_secondary"
-                    android:textSize="16sp"
-                    android:letterSpacing="0.08" />
+                    android:text="DISPLAY" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -147,12 +139,11 @@
                     android:gravity="center_vertical">
 
                     <TextView
+                        style="@style/DrivehubSettingsPrimaryText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/show_safety_warning"
-                        android:textColor="@color/settings_text_primary"
-                        android:textSize="22sp" />
+                        android:text="@string/show_safety_warning" />
 
                     <Switch
                         android:id="@+id/switchSafetyWarning"
@@ -177,22 +168,17 @@
                 android:visibility="gone">
 
                 <TextView
+                    style="@style/DrivehubSettingsSectionHeader"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    android:text="OPEN SOURCE CREDITS"
-                    android:textColor="@color/settings_text_secondary"
-                    android:textSize="17sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.05" />
+                    android:text="OPEN SOURCE CREDITS" />
 
                 <TextView
+                    style="@style/DrivehubSettingsCreditsBody"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:lineSpacingExtra="1dp"
-                    android:text="OpenCV 4.9.0 (opencv.org) - Apache License 2.0&#10;AndroidX AppCompat 1.7.1 - Apache License 2.0&#10;AndroidX Activity 1.12.4 - Apache License 2.0&#10;AndroidX ConstraintLayout 2.2.1 - Apache License 2.0&#10;Material Components for Android 1.13.0 - Apache License 2.0&#10;Icons based on Google Material Symbols - Apache License 2.0"
-                    android:textColor="@color/settings_text_primary"
-                    android:textSize="18sp" />
+                    android:text="OpenCV 4.9.0 (opencv.org) - Apache License 2.0&#10;AndroidX AppCompat 1.7.1 - Apache License 2.0&#10;AndroidX Activity 1.12.4 - Apache License 2.0&#10;AndroidX ConstraintLayout 2.2.1 - Apache License 2.0&#10;Material Components for Android 1.13.0 - Apache License 2.0&#10;Icons based on Google Material Symbols - Apache License 2.0" />
 
                 <View
                     android:layout_width="match_parent"
@@ -202,22 +188,17 @@
                     android:background="@color/settings_divider" />
 
                 <TextView
+                    style="@style/DrivehubSettingsSectionHeader"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    android:text="ADDITIONAL CREDITS"
-                    android:textColor="@color/settings_text_secondary"
-                    android:textSize="17sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.05" />
+                    android:text="ADDITIONAL CREDITS" />
 
                 <TextView
+                    style="@style/DrivehubSettingsCreditsBody"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:lineSpacingExtra="1dp"
-                    android:text="Thanks to the community from XDA Forums - MG4 Electric AAOS 9&#10;Thanks to merth4n for providing the base application"
-                    android:textColor="@color/settings_text_primary"
-                    android:textSize="18sp" />
+                    android:text="Thanks to the community from XDA Forums - MG4 Electric AAOS 9&#10;Thanks to merth4n for providing the base application" />
             </LinearLayout>
 
         </FrameLayout>
@@ -225,22 +206,20 @@
 
     <TextView
         android:id="@+id/tvDialogVersion"
+        style="@style/DrivehubSettingsFooterVersion"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="40dp"
-        android:textSize="18sp"
-        android:textColor="@color/settings_text_muted"
         android:text="Version: -" />
 
     <TextView
         android:id="@+id/tvDialogFooterAuthor"
+        style="@style/DrivehubSettingsFooterAuthor"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="40dp"
         android:layout_marginTop="4dp"
         android:layout_marginBottom="20dp"
-        android:textSize="14sp"
-        android:textColor="@color/settings_text_muted"
         android:text="by jamakr4 &amp; merth4n" />
 
 </LinearLayout>
