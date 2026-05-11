@@ -225,14 +225,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 bindSimpleSettingsTab(tabSettings, tabCredits, sectionSettings, sectionCredits, false));
 
         TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
+        TextView tvDialogVersionBeta = dialog.findViewById(R.id.tvDialogVersionBeta);
         try {
             String version = getPackageManager()
                     .getPackageInfo(getPackageName(), 0)
                     .versionName;
-            tvDialogVersion.setText("Version " + version);
+            tvDialogVersion.setText(getString(R.string.settings_version_format, version));
         } catch (Exception e) {
-            tvDialogVersion.setText("Version ?");
+            tvDialogVersion.setText(R.string.settings_version_unknown);
         }
+        tvDialogVersionBeta.setVisibility(BuildConfig.IS_BETA ? View.VISIBLE : View.GONE);
 
         dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
         dialog.setOnDismissListener(d -> {

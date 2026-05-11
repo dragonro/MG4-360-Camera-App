@@ -40,6 +40,13 @@
         <item name="android:textSize">16sp</item>
     </style>
 
+    <!-- Red beta badge shown next to the version when beta builds are enabled. -->
+    <style name="DrivehubSettingsFooterBeta" parent="">
+        <item name="android:textColor">@color/settings_beta</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
     <!-- Small author / attribution line below the version. -->
     <style name="DrivehubSettingsFooterAuthor" parent="">
         <item name="android:textColor">@color/settings_text_muted</item>

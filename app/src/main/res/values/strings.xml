@@ -6,4 +6,7 @@
     <string name="camera_right">Right</string>
     <string name="camera_left">Left</string>
     <string name="camera_rear">Rear</string>
+    <string name="settings_version_unknown">Version ?</string>
+    <string name="settings_version_format">Version %1$s</string>
+    <string name="settings_version_beta">BETA</string>
 </resources>

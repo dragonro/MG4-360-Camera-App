@@ -87,13 +87,30 @@
         </FrameLayout>
     </ScrollView>
 
-    <TextView
-        android:id="@+id/tvDialogVersion"
-        style="@style/DrivehubSettingsFooterVersion"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="40dp"
-        android:text="Version: -" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tvDialogVersion"
+            style="@style/DrivehubSettingsFooterVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Version: -" />
+
+        <TextView
+            android:id="@+id/tvDialogVersionBeta"
+            style="@style/DrivehubSettingsFooterBeta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/settings_version_beta"
+            android:visibility="gone" />
+
+    </LinearLayout>
 
     <TextView
         android:id="@+id/tvDialogFooterAuthor"
