@@ -7,7 +7,7 @@
     <string name="settings_overlay_on_signal">Kamera beim Blinken anzeigen</string>
     <string name="safety_warning_text">Bitte achte auf die Umgebung!</string>
     <string name="show_safety_warning">Sicherheitswarnung anzeigen</string>
-    <string name="settings_section_open_source_credits">OPEN-SOURCE-CREDITS</string>
+    <string name="settings_section_open_source_credits">OPEN-SOURCE CREDITS</string>
     <string name="settings_section_additional_credits">WEITERE CREDITS</string>
     <string name="settings_dialog_close">Schließen</string>
     <string name="settings_version_unknown">Version ?</string>
