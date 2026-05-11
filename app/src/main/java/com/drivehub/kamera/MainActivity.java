@@ -12,6 +12,10 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.widget.EditText;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.ImageButton;
 import android.widget.Switch;
@@ -200,8 +204,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Switch swOverlay = dialog.findViewById(R.id.switchOverlayOnSignal);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
         TextView tabSettings = dialog.findViewById(R.id.tabSettings);
+        TextView tabOptik = dialog.findViewById(R.id.tabOptik);
         TextView tabCredits = dialog.findViewById(R.id.tabCredits);
         View sectionSettings = dialog.findViewById(R.id.sectionSettings);
+        View sectionOptik = dialog.findViewById(R.id.sectionOptik);
         View sectionCredits = dialog.findViewById(R.id.sectionCredits);
 
         swOverlay.setChecked(prefs.getBoolean("overlayOnSignal", false));
@@ -218,11 +224,52 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             applyWarningVisibility();
         });
 
-        bindSimpleSettingsTab(tabSettings, tabCredits, sectionSettings, sectionCredits, true);
+        SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
+        EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
+        int savedRadius = prefs.getInt("tileCornerRadius", 16);
+        seekCorner.setProgress(savedRadius);
+        etCorner.setText(String.valueOf(savedRadius));
+
+        seekCorner.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                prefs.edit().putInt("tileCornerRadius", progress).apply();
+                if (fromUser) {
+                    etCorner.setText(String.valueOf(progress));
+                    etCorner.setSelection(etCorner.getText().length());
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+
+        etCorner.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                if (s.length() == 0) return;
+                try {
+                    int value = Math.min(100, Math.max(0, Integer.parseInt(s.toString())));
+                    String normalized = String.valueOf(value);
+                    if (!normalized.contentEquals(s)) {
+                        etCorner.setText(normalized);
+                        etCorner.setSelection(etCorner.getText().length());
+                        return;
+                    }
+                    prefs.edit().putInt("tileCornerRadius", value).apply();
+                    if (seekCorner.getProgress() != value) {
+                        seekCorner.setProgress(value);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        });
+
+        bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 0);
         tabSettings.setOnClickListener(v ->
-                bindSimpleSettingsTab(tabSettings, tabCredits, sectionSettings, sectionCredits, true));
+                bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 0));
+        tabOptik.setOnClickListener(v ->
+                bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 1));
         tabCredits.setOnClickListener(v ->
-                bindSimpleSettingsTab(tabSettings, tabCredits, sectionSettings, sectionCredits, false));
+                bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 2));
 
         TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
         TextView tvDialogVersionBeta = dialog.findViewById(R.id.tvDialogVersionBeta);
@@ -250,20 +297,20 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
     }
 
-    private void bindSimpleSettingsTab(
-            TextView tabSettings,
-            TextView tabCredits,
-            View sectionSettings,
-            View sectionCredits,
-            boolean showSettings
+    private void bindSettingsTab(
+            TextView tabSettings, TextView tabOptik, TextView tabCredits,
+            View sectionSettings, View sectionOptik, View sectionCredits,
+            int active
     ) {
-        sectionSettings.setVisibility(showSettings ? View.VISIBLE : View.GONE);
-        sectionCredits.setVisibility(showSettings ? View.GONE : View.VISIBLE);
-        styleSimpleTab(tabSettings, showSettings);
-        styleSimpleTab(tabCredits, !showSettings);
+        sectionSettings.setVisibility(active == 0 ? View.VISIBLE : View.GONE);
+        sectionOptik.setVisibility(active == 1 ? View.VISIBLE : View.GONE);
+        sectionCredits.setVisibility(active == 2 ? View.VISIBLE : View.GONE);
+        styleSettingsTab(tabSettings, active == 0);
+        styleSettingsTab(tabOptik, active == 1);
+        styleSettingsTab(tabCredits, active == 2);
     }
 
-    private void styleSimpleTab(TextView tab, boolean active) {
+    private void styleSettingsTab(TextView tab, boolean active) {
         tab.setTextColor(active ? 0xFFFFFFFF : 0xFF777777);
         tab.setTextSize(active ? 21f : 20f);
         tab.setTypeface(tab.getTypeface(), active ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);

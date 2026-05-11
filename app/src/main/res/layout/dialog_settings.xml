@@ -45,6 +45,16 @@
             android:text="@string/settings_tab_settings" />
 
         <TextView
+            android:id="@+id/tabOptik"
+            style="@style/DrivehubSettingsTabInactive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="28dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="@string/settings_tab_optik" />
+
+        <TextView
             android:id="@+id/tabCredits"
             style="@style/DrivehubSettingsTabInactive"
             android:layout_width="wrap_content"
@@ -82,6 +92,8 @@
             <!-- Android resource folders do not support free nested subfolders here,
                  so the dialog is split into separate include files with a clear prefix instead. -->
             <include layout="@layout/dialog_settings_section_settings" />
+
+            <include layout="@layout/dialog_settings_section_optik" />
 
             <include layout="@layout/dialog_settings_section_credits" />
 

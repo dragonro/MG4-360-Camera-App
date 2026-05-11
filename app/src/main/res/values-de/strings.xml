@@ -37,4 +37,9 @@
     <string name="main_camera_label_unknown">/dev/video%1$d</string>
     <string name="main_button_settings">Einstellungen</string>
     <string name="main_button_close_app">App schließen</string>
+    <string name="settings_tab_optik">Optik</string>
+    <string name="settings_section_tileview">Blinker-Kamera</string>
+    <string name="settings_tile_corner_radius">Rundung</string>
+    <string name="settings_tile_corner_square">Eckig</string>
+    <string name="settings_tile_corner_round">Rund</string>
 </resources>
