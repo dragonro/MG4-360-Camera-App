@@ -31,10 +31,6 @@ local.properties
 # Signing keys / certificates
 *.jks
 *.keystore
-tools/*.key
-tools/*.p12
-tools/*.pk8
-tools/*.pem
 
 # OS / editor noise
 .DS_Store
