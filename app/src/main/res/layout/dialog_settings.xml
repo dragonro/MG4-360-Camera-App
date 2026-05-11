@@ -21,7 +21,7 @@
             android:tint="@color/settings_text_primary"
             android:background="@android:color/transparent"
             android:padding="14dp"
-            android:contentDescription="Close"
+            android:contentDescription="@string/settings_dialog_close"
             android:focusable="false" />
 
     </LinearLayout>
@@ -41,7 +41,7 @@
             android:layout_marginEnd="28dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            android:text="Settings" />
+            android:text="@string/settings_tab_settings" />
 
         <TextView
             android:id="@+id/tabCredits"
@@ -50,7 +50,7 @@
             android:layout_height="wrap_content"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            android:text="Credits" />
+            android:text="@string/settings_tab_credits" />
 
     </LinearLayout>
 
@@ -99,7 +99,7 @@
             style="@style/DrivehubSettingsFooterVersion"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Version: -" />
+            android:text="@string/settings_version_unknown" />
 
         <TextView
             android:id="@+id/tvDialogVersionBeta"

@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
-        android:text="OPEN SOURCE CREDITS" />
+        android:text="@string/settings_section_open_source_credits" />
 
     <TextView
         style="@style/DrivehubSettingsCreditsBody"
@@ -31,7 +31,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
-        android:text="ADDITIONAL CREDITS" />
+        android:text="@string/settings_section_additional_credits" />
 
     <TextView
         style="@style/DrivehubSettingsCreditsBody"

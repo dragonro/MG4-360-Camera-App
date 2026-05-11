@@ -112,7 +112,7 @@ public class SettingsActivity extends AppCompatActivity {
                             new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE},
                             REQ_STORAGE
                     );
-                    Toast.makeText(this, "Depolama izni gerekli", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.settings_storage_permission_required, Toast.LENGTH_SHORT).show();
                     // It can be enabled again after permission is granted; do not start the service yet.
                     return;
                 }
@@ -192,7 +192,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         btnExportUsb.setOnClickListener(v -> {
             // TODO: USB export code will come in a later step.
-            Toast.makeText(this, "USB export TODO (şimdilik kapalı)", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.settings_usb_export_todo, Toast.LENGTH_LONG).show();
         });
 
         updateUsbButtonVisibility();

@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             if (idx == currentVideoIndex) return;
             currentVideoIndex = idx;
             if (tvStatus != null) {
-                tvStatus.setText("Preview: " + cameraLabel(currentVideoIndex));
+                tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
             }
             startPreviewIfReady();
         }
@@ -94,7 +94,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         // Show the initial status label.
         if (tvStatus != null) {
-            tvStatus.setText("Preview: " + cameraLabel(currentVideoIndex));
+            tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
         }
         applyWarningVisibility();
 
@@ -143,7 +143,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     }
 
                     if (tvStatus != null) {
-                        tvStatus.setText("Preview: " + cameraLabel(currentVideoIndex));
+                        tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
                     }
                     startPreviewIfReady();
                     return true;
@@ -282,14 +282,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private void startPreviewIfReady() {
         if (surfaceHolder == null || surfaceHolder.getSurface() == null ||
                 !surfaceHolder.getSurface().isValid()) {
-            if (tvStatus != null) tvStatus.setText("Surface not ready");
+            if (tvStatus != null) tvStatus.setText(R.string.main_surface_not_ready);
             return;
         }
         stopPreview();
         boolean ok = CameraProbe.startPreview(currentVideoIndex, surfaceHolder.getSurface());
         previewRunning = ok;
         if (tvStatus != null) {
-            tvStatus.setText(ok ? "Preview: " + cameraLabel(currentVideoIndex) : "Başlatılamadı");
+            tvStatus.setText(ok
+                    ? getString(R.string.main_preview_status, cameraLabel(currentVideoIndex))
+                    : getString(R.string.main_preview_stopped));
         }
     }
 
@@ -297,7 +299,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if (previewRunning) {
             CameraProbe.stopPreview();
             previewRunning = false;
-            if (tvStatus != null) tvStatus.setText("Stopped");
+            if (tvStatus != null) tvStatus.setText(R.string.main_preview_stopped);
         }
     }
 
@@ -327,15 +329,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private String cameraLabel(int videoIndex) {
         switch (videoIndex) {
             case 14:
-                return "Sağ kamera (/dev/video14)";
+                return getString(R.string.main_camera_label_right);
             case 15:
-                return "Ön kamera (/dev/video15)";
+                return getString(R.string.main_camera_label_front);
             case 16:
-                return "Sol kamera (/dev/video16)";
+                return getString(R.string.main_camera_label_left);
             case 17:
-                return "Arka kamera (/dev/video17)";
+                return getString(R.string.main_camera_label_rear);
             default:
-                return "/dev/video" + videoIndex;
+                return getString(R.string.main_camera_label_unknown, videoIndex);
         }
     }
 }

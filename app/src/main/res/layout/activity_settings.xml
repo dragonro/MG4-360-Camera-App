@@ -14,7 +14,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@android:color/transparent"
-            android:contentDescription="Geri"
+            android:contentDescription="@string/settings_back"
             android:src="@android:drawable/ic_menu_revert"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
@@ -23,7 +23,7 @@
             android:id="@+id/swRecordEnabled"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Kayıt açık (Bootta otomatik başlasın)"
+            android:text="@string/settings_record_enabled"
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -34,7 +34,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Sinyalde kamera overlay aç"
+            android:text="@string/settings_overlay_on_signal"
             app:layout_constraintTop_toBottomOf="@id/swRecordEnabled"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -44,7 +44,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="OEM 360 kamera uygulamasını devre dışı bırak"
+            android:text="@string/settings_kill_oem_on_reverse"
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -55,7 +55,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Overlay kapanma gecikmesi (sn)"
+            android:text="@string/settings_overlay_hide_delay"
             app:layout_constraintTop_toBottomOf="@id/swKillOemOnReverse"
             app:layout_constraintStart_toStartOf="parent" />
 
@@ -75,7 +75,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Kayıt döngüsü (dk)"
+            android:text="@string/settings_record_loop"
             app:layout_constraintTop_toBottomOf="@id/tvOverlayHideDelay"
             app:layout_constraintStart_toStartOf="parent" />
 
@@ -95,7 +95,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Toplam saklama (dk)"
+            android:text="@string/settings_total_retention"
             app:layout_constraintTop_toBottomOf="@id/tvSegment"
             app:layout_constraintStart_toStartOf="parent" />
 
@@ -115,7 +115,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Kayıt yolu"
+            android:text="@string/settings_records_path"
             app:layout_constraintTop_toBottomOf="@id/etTotalMin"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -125,7 +125,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Kayıtları USB’ye aktar (TODO)"
+            android:text="@string/settings_export_usb"
             android:visibility="gone"
             app:layout_constraintTop_toBottomOf="@id/tvRecordsPath"
             app:layout_constraintStart_toStartOf="parent"
@@ -133,4 +133,3 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>
-

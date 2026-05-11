@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="18dp"
-        android:text="DRIVING" />
+        android:text="@string/settings_section_driving" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -23,7 +23,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Show tile view on turn signal" />
+            android:text="@string/settings_overlay_on_signal" />
 
         <Switch
             android:id="@+id/switchOverlayOnSignal"
@@ -51,7 +51,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="18dp"
-        android:text="DISPLAY" />
+        android:text="@string/settings_section_display" />
 
     <LinearLayout
         android:layout_width="match_parent"
