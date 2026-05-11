@@ -265,8 +265,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private void styleSimpleTab(TextView tab, boolean active) {
         tab.setTextColor(active ? 0xFFFFFFFF : 0xFF777777);
-        tab.setTextSize(active ? 21f : 20f);
-        tab.setTypeface(tab.getTypeface(), active ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        tab.setTextSize(20f);
+        tab.setTypeface(tab.getTypeface(), android.graphics.Typeface.BOLD);
     }
 
     private void applyWarningVisibility() {
