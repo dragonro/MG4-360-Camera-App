@@ -9,12 +9,12 @@
         style="@style/DrivehubSettingsSectionHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="18dp"
+        android:layout_marginBottom="2dp"
         android:text="@string/settings_section_driving" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="70dp"
+        android:layout_height="60dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -35,20 +35,20 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="24dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
         android:background="@color/settings_divider" />
 
     <TextView
         style="@style/DrivehubSettingsSectionHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="18dp"
+        android:layout_marginBottom="2dp"
         android:text="@string/settings_section_display" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="70dp"
+        android:layout_height="60dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
