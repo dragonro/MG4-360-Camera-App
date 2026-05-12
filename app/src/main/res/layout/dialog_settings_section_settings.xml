@@ -26,16 +26,9 @@
             android:text="@string/settings_overlay_on_signal" />
 
         <Switch
+            style="@style/DrivehubSettingsSwitch"
             android:id="@+id/switchOverlayOnSignal"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:focusable="false"
-            android:scaleX="1.1"
-            android:scaleY="1.1"
-            android:showText="false"
-            android:splitTrack="false"
-            android:thumb="@drawable/switch_white_circle_selector"
-            android:track="@drawable/switch_selector_green" />
+            />
 
     </LinearLayout>
 
@@ -67,16 +60,9 @@
             android:text="@string/show_safety_warning" />
 
         <Switch
+            style="@style/DrivehubSettingsSwitch"
             android:id="@+id/switchSafetyWarning"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:focusable="false"
-            android:scaleX="1.1"
-            android:scaleY="1.1"
-            android:showText="false"
-            android:splitTrack="false"
-            android:thumb="@drawable/switch_white_circle_selector"
-            android:track="@drawable/switch_selector_green" />
+            />
 
     </LinearLayout>
 </LinearLayout>
