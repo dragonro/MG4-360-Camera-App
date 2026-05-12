@@ -232,7 +232,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        //card.setBackgroundResource(R.drawable.bg_overlay_tile);
+        card.setBackgroundResource(R.drawable.bg_overlay_tile);
         card.setClipToOutline(true);
         card.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
 
@@ -254,7 +254,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         closeParams.leftMargin = dpToPx(3);
         closeParams.topMargin = dpToPx(3);
         btnDismissOverlay.setLayoutParams(closeParams);
-        //btnDismissOverlay.setBackgroundResource(R.drawable.bg_close_button);
+        btnDismissOverlay.setBackgroundResource(R.drawable.bg_close_button);
         btnDismissOverlay.setImageResource(R.drawable.ic_close);
         btnDismissOverlay.setColorFilter(0xFFFFFFFF);
         btnDismissOverlay.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20));
