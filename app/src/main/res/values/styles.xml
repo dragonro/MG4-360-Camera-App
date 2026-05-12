@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Active tab label in the settings dialog header. -->
+    <style name="DrivehubSettingsTabActive" parent="">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">@color/settings_tab_active</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- Inactive tab label in the settings dialog header. -->
+    <style name="DrivehubSettingsTabInactive" parent="">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">@color/settings_tab_inactive</item>
+    </style>
+
+    <!-- Small uppercase subsection title like DRIVING, DISPLAY or CREDITS headers. -->
+    <style name="DrivehubSettingsSectionHeader" parent="">
+        <item name="android:textColor">@color/settings_text_secondary</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.08</item>
+    </style>
+
+    <!-- Main row label text for settings options. -->
+    <style name="DrivehubSettingsPrimaryText" parent="">
+        <item name="android:textColor">@color/settings_text_primary</item>
+        <item name="android:textSize">22sp</item>
+    </style>
+
+    <!-- Body text used for credit lists and acknowledgements. -->
+    <style name="DrivehubSettingsCreditsBody" parent="">
+        <item name="android:textColor">@color/settings_text_primary</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:lineSpacingExtra">1dp</item>
+    </style>
+
+    <!-- Version label shown at the bottom of the dialog. -->
+    <style name="DrivehubSettingsFooterVersion" parent="">
+        <item name="android:textColor">@color/settings_text_muted</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <!-- Red beta badge shown next to the version when beta builds are enabled. -->
+    <style name="DrivehubSettingsFooterBeta" parent="">
+        <item name="android:textColor">@color/settings_beta</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- Small author / attribution line below the version. -->
+    <style name="DrivehubSettingsFooterAuthor" parent="">
+        <item name="android:textColor">@color/settings_text_muted</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+</resources>
