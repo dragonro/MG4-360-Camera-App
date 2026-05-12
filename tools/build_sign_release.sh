@@ -1,0 +1,1 @@
+./gradlew clean assembleRelease && APKSIGNER=$(ls ~/Library/Android/sdk/build-tools/*/apksigner | tail -1) && $APKSIGNER sign --key tools/platform.pk8 --cert tools/platform.x509.pem --out app/build/outputs/apk/release/app-release-signed.apk app/build/outputs/apk/release/app-release-unsigned.apk

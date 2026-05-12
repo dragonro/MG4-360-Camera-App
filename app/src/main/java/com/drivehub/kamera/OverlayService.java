@@ -65,6 +65,13 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private float initialY;
     private float initialTouchX;
     private float initialTouchY;
+    private android.content.SharedPreferences uiPrefs;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener =
+            (sharedPreferences, key) -> {
+                if (UiPrefs.KEY_TILE_CORNER_RADIUS.equals(key)) {
+                    applyOverlayCornerRadius();
+                }
+            };
 
     public static void showOverlay(Context context, int cameraIndex) {
         Intent i = new Intent(context, OverlayService.class);
@@ -81,6 +88,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     public void onCreate() {
         super.onCreate();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        uiPrefs = UiPrefs.getPrefs(this);
+        uiPrefs.registerOnSharedPreferenceChangeListener(prefListener);
         createNotificationChannel();
     }
 
@@ -102,6 +111,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (overlayView == null) {
             showFloatingWindow();
         } else {
+            applyOverlayCornerRadius();
             // If the overlay is already open and only the camera index changed, switch the feed.
             if (textureSurface != null && textureSurface.isValid()) {
                 startPreview();
@@ -232,7 +242,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        //card.setBackgroundResource(R.drawable.bg_overlay_tile);
+        card.setBackgroundResource(R.drawable.bg_overlay_tile);
         card.setClipToOutline(true);
         card.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
 
@@ -254,15 +264,33 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         closeParams.leftMargin = dpToPx(3);
         closeParams.topMargin = dpToPx(3);
         btnDismissOverlay.setLayoutParams(closeParams);
-        //btnDismissOverlay.setBackgroundResource(R.drawable.bg_close_button);
+        btnDismissOverlay.setBackground(null);
         btnDismissOverlay.setImageResource(R.drawable.ic_close);
         btnDismissOverlay.setColorFilter(0xFFFFFFFF);
         btnDismissOverlay.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20));
         btnDismissOverlay.setContentDescription("Close overlay");
         btnDismissOverlay.setOnClickListener(v -> hideOverlay(OverlayService.this));
         card.addView(btnDismissOverlay);
+        applyOverlayCornerRadius(card);
 
         return card;
+    }
+
+    private void applyOverlayCornerRadius() {
+        applyOverlayCornerRadius(overlayView);
+    }
+
+    private void applyOverlayCornerRadius(View target) {
+        if (target == null || uiPrefs == null) return;
+        target.post(() -> {
+            if (!(target.getBackground() instanceof android.graphics.drawable.GradientDrawable)) {
+                return;
+            }
+            android.graphics.drawable.GradientDrawable background =
+                    (android.graphics.drawable.GradientDrawable) target.getBackground().mutate();
+            background.setCornerRadius(UiPrefs.getCornerRadiusPx(target, uiPrefs));
+            target.invalidateOutline();
+        });
     }
 
     private int dpToPx(int dp) {
@@ -331,6 +359,9 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (uiPrefs != null) {
+            uiPrefs.unregisterOnSharedPreferenceChangeListener(prefListener);
+        }
         stopPreview();
         if (textureSurface != null) {
             textureSurface.release();

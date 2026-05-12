@@ -199,7 +199,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
 
-        SharedPreferences prefs = getSharedPreferences("rec_prefs", MODE_PRIVATE);
+        SharedPreferences prefs = UiPrefs.getPrefs(this);
         SharedPreferences avmPrefs = getSharedPreferences(AVM_PREFS_NAME, MODE_PRIVATE);
         Switch swOverlay = dialog.findViewById(R.id.switchOverlayOnSignal);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
@@ -226,13 +226,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
         EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
-        int savedRadius = prefs.getInt("tileCornerRadius", 16);
+        int savedRadius = UiPrefs.getTileCornerRadiusSetting(prefs);
         seekCorner.setProgress(savedRadius);
         etCorner.setText(String.valueOf(savedRadius));
 
         seekCorner.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                prefs.edit().putInt("tileCornerRadius", progress).apply();
+                prefs.edit().putInt(UiPrefs.KEY_TILE_CORNER_RADIUS, progress).apply();
                 if (fromUser) {
                     etCorner.setText(String.valueOf(progress));
                     etCorner.setSelection(etCorner.getText().length());
@@ -255,7 +255,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                         etCorner.setSelection(etCorner.getText().length());
                         return;
                     }
-                    prefs.edit().putInt("tileCornerRadius", value).apply();
+                    prefs.edit().putInt(UiPrefs.KEY_TILE_CORNER_RADIUS, value).apply();
                     if (seekCorner.getProgress() != value) {
                         seekCorner.setProgress(value);
                     }
