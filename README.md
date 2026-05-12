@@ -9,6 +9,15 @@ Community mod for the MG4 EV (AAOS 9, pre-2026 facelift) that improves the 360°
 
 > **Work in progress.** Check the [Wiki](https://github.com/jamakr4/MG4-360-Camera-App/wiki) for technical details and the [Project Board](https://github.com/users/jamakr4/projects/4) for current progress.
 
+## Build Setup
+
+OpenCV is referenced from a local path, so Android builds can fail if `OpenCV_DIR` is not set correctly.
+
+Before building:
+- Download the OpenCV Android SDK from [opencv/opencv releases](https://github.com/opencv/opencv/releases)
+- Use `opencv-android-sdk.zip` and not the Windows or macOS packages
+- Update `OpenCV_DIR` in [app/src/main/cpp/CMakeLists.txt](/Users/jan/Projekts/MG4-360-Camera-App/app/src/main/cpp/CMakeLists.txt:1) so it matches your local OpenCV Android SDK path
+
 ## ⚠️ Disclaimer
 
 **Use at your own risk.**
