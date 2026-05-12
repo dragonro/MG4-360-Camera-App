@@ -254,7 +254,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         closeParams.leftMargin = dpToPx(3);
         closeParams.topMargin = dpToPx(3);
         btnDismissOverlay.setLayoutParams(closeParams);
-        btnDismissOverlay.setBackgroundResource(R.drawable.bg_close_button);
+        btnDismissOverlay.setBackground(null);
         btnDismissOverlay.setImageResource(R.drawable.ic_close);
         btnDismissOverlay.setColorFilter(0xFFFFFFFF);
         btnDismissOverlay.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20));
