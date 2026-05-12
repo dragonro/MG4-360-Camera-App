@@ -26,6 +26,16 @@ This is an independent community project and is **not affiliated with SAIC, MG M
 - Material Components for Android 1.13.0 — Apache License 2.0
 - Icons based on [Google Material Symbols](https://developers.google.com/fonts/docs/material_symbols) — Apache License 2.0
 
+## Support the Project
+
+If you'd like to support this project financially — thank you for the thought! Unfortunately, due to German tax regulations, setting up donation platforms like Buy Me a Coffee creates more bureaucratic overhead than it's worth for a hobby project like this.
+
+If you want to show your appreciation, the best ways to help are:
+- **Star the repository** on GitHub
+- **Contribute ideas**, feedback, or feature requests via Issues or in discussions
+- **Share the project** with others who might find it useful
+
+That means a lot and keeps the project going!
 
 ## License
 
