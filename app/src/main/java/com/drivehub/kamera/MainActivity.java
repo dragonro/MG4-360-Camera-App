@@ -227,6 +227,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
         EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
         int savedRadius = UiPrefs.getTileCornerRadiusSetting(prefs);
+        seekCorner.setMax(UiPrefs.MAX_TILE_CORNER_RADIUS);
         seekCorner.setProgress(savedRadius);
         etCorner.setText(String.valueOf(savedRadius));
 
@@ -248,7 +249,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             @Override public void afterTextChanged(Editable s) {
                 if (s.length() == 0) return;
                 try {
-                    int value = Math.min(100, Math.max(0, Integer.parseInt(s.toString())));
+                    int value = Math.min(UiPrefs.MAX_TILE_CORNER_RADIUS, Math.max(0, Integer.parseInt(s.toString())));
                     String normalized = String.valueOf(value);
                     if (!normalized.contentEquals(s)) {
                         etCorner.setText(normalized);

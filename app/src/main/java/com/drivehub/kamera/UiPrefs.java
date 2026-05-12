@@ -8,6 +8,7 @@ final class UiPrefs {
 
     static final String REC_PREFS_NAME = "rec_prefs";
     static final String KEY_TILE_CORNER_RADIUS = "tileCornerRadius";
+    static final int MAX_TILE_CORNER_RADIUS = 35;
     private static final int DEFAULT_TILE_CORNER_RADIUS = 16;
 
     private UiPrefs() {
@@ -22,7 +23,7 @@ final class UiPrefs {
     }
 
     static float getCornerRadiusFraction(SharedPreferences prefs) {
-        return clampRadiusSetting(getTileCornerRadiusSetting(prefs)) / 100f;
+        return clampRadiusSetting(getTileCornerRadiusSetting(prefs)) / (float) MAX_TILE_CORNER_RADIUS;
     }
 
     static float getCornerRadiusPx(View view, SharedPreferences prefs) {
@@ -31,6 +32,6 @@ final class UiPrefs {
     }
 
     private static int clampRadiusSetting(int value) {
-        return Math.max(0, Math.min(100, value));
+        return Math.max(0, Math.min(MAX_TILE_CORNER_RADIUS, value));
     }
 }

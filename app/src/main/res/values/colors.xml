@@ -13,6 +13,9 @@
     <color name="settings_button_surface">#52363636</color>
     <color name="settings_button_surface_pressed">#7A4A4A4A</color>
     <color name="settings_button_stroke">#33FFFFFF</color>
+    <color name="settings_slider_track_bg">#383838</color>
+    <color name="settings_slider_track_fill">#E7E7E7</color>
+    <color name="settings_slider_thumb_stroke">#909090</color>
     <color name="close_button_surface">#4D2B2B2B</color>
     <color name="overlay_tile_surface">#FF050505</color>
     <color name="overlay_tile_stroke">#1FFFFFFF</color>

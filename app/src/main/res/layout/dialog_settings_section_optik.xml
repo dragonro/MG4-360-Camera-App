@@ -29,22 +29,28 @@
         <SeekBar
             android:id="@+id/seekCornerRadius"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
             android:layout_weight="1"
-            android:max="100"
+            android:max="35"
             android:progress="16"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:progressDrawable="@drawable/settings_slider_track"
+            android:thumb="@drawable/settings_slider_thumb"
+            android:thumbOffset="0dp"
+            android:splitTrack="false"
             android:focusable="false" />
 
         <EditText
             android:id="@+id/etCornerRadius"
-            android:layout_width="64dp"
+            android:layout_width="44dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:gravity="center"
+            android:layout_marginStart="10dp"
+            android:gravity="end|center_vertical"
             android:inputType="number"
-            android:maxLength="3"
-            android:textColor="@color/settings_text_primary"
-            android:textSize="20sp"
+            android:maxLength="2"
+            android:textColor="@color/settings_text_secondary"
+            android:textSize="18sp"
             android:background="@android:color/transparent"
             android:focusable="true" />
 
