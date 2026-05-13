@@ -64,6 +64,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private final Handler otaProgressHandler = new Handler(Looper.getMainLooper());
     private Runnable otaProgressRunnable;
     private Dialog otaProgressDialog;
+    private long otaVerificationDownloadId = -1L;
+    private boolean otaVerificationInFlight = false;
+    private boolean otaVerificationPassed = false;
+    private OtaUpdateManager.UpdateInfo activeOtaDownloadInfo;
 
     private final BroadcastReceiver cameraRouteReceiver = new BroadcastReceiver() {
         @Override
@@ -358,6 +362,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private void startOtaDownload(OtaUpdateManager.UpdateInfo info) {
         try {
             long downloadId = OtaUpdateManager.enqueueDownload(MainActivity.this, info);
+            activeOtaDownloadInfo = info;
             showOtaProgressDialog(info, downloadId);
         } catch (Throwable t) {
             OtaDialogs.showMessageDialog(
@@ -377,6 +382,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         );
         otaProgressDialog = handle.dialog;
         otaProgressDialog.setOnDismissListener(d -> stopOtaProgressWatcher());
+        otaVerificationDownloadId = -1L;
+        otaVerificationInFlight = false;
+        otaVerificationPassed = false;
 
         final TextView finalTvStatus = handle.statusView;
         final android.widget.ProgressBar finalProgressBar = handle.progressBar;
@@ -431,8 +439,30 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             if (statusView != null) {
                 statusView.setText(getOtaProgressStatusText(status, progress, downloaded, total));
             }
-            if (installButton != null) {
-                installButton.setVisibility(status == DownloadManager.STATUS_SUCCESSFUL ? View.VISIBLE : View.GONE);
+            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                if (installButton != null) {
+                    installButton.setVisibility(otaVerificationPassed ? View.VISIBLE : View.GONE);
+                }
+                if (progressBar != null) {
+                    progressBar.setIndeterminate(false);
+                    progressBar.setMax(100);
+                    progressBar.setProgress(100);
+                }
+                if (otaVerificationPassed) {
+                    return false;
+                }
+                if (otaVerificationInFlight && otaVerificationDownloadId == downloadId) {
+                    if (statusView != null) {
+                        statusView.setText(R.string.ota_progress_verifying);
+                    }
+                    return true;
+                }
+                startOtaIntegrityVerification(downloadId, statusView, installButton);
+                return true;
+            } else {
+                if (installButton != null) {
+                    installButton.setVisibility(View.GONE);
+                }
             }
 
             return status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING || status == DownloadManager.STATUS_PAUSED;
@@ -443,6 +473,40 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             if (installButton != null) installButton.setVisibility(View.GONE);
             return false;
         }
+    }
+
+    private void startOtaIntegrityVerification(long downloadId, TextView statusView, View installButton) throws Exception {
+        if (otaVerificationInFlight && otaVerificationDownloadId == downloadId) {
+            return;
+        }
+        otaVerificationDownloadId = downloadId;
+        otaVerificationInFlight = true;
+        otaVerificationPassed = false;
+        if (installButton != null) {
+            installButton.setVisibility(View.GONE);
+        }
+        if (statusView != null) {
+            statusView.setText(R.string.ota_progress_verifying);
+        }
+
+        File apkFile = resolveDownloadedApkFile(downloadId);
+        OtaUpdateManager.verifyDownloadedApk(apkFile, activeOtaDownloadInfo, (success, computedSha256, message) -> {
+            if (downloadId != otaVerificationDownloadId) {
+                return;
+            }
+            otaVerificationInFlight = false;
+            otaVerificationPassed = success;
+            if (statusView != null) {
+                if (success) {
+                    statusView.setText(R.string.ota_progress_verified);
+                } else {
+                    statusView.setText(getString(R.string.ota_progress_integrity_failed, message));
+                }
+            }
+            if (installButton != null) {
+                installButton.setVisibility(success ? View.VISIBLE : View.GONE);
+            }
+        });
     }
 
     private void installDownloadedUpdate(long downloadId) {
@@ -540,6 +604,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             otaProgressHandler.removeCallbacks(otaProgressRunnable);
             otaProgressRunnable = null;
         }
+        otaVerificationDownloadId = -1L;
+        otaVerificationInFlight = false;
+        otaVerificationPassed = false;
+        activeOtaDownloadInfo = null;
         otaProgressDialog = null;
     }
 

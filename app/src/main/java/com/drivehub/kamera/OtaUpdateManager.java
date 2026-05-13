@@ -11,9 +11,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +46,7 @@ final class OtaUpdateManager {
         final String releaseName;
         final String downloadUrl;
         final String assetFileName;
+        final String expectedSha256;
         final String message;
 
         UpdateInfo(
@@ -53,6 +57,7 @@ final class OtaUpdateManager {
                 String releaseName,
                 String downloadUrl,
                 String assetFileName,
+                String expectedSha256,
                 String message
         ) {
             this.success = success;
@@ -62,8 +67,13 @@ final class OtaUpdateManager {
             this.releaseName = releaseName;
             this.downloadUrl = downloadUrl;
             this.assetFileName = assetFileName;
+            this.expectedSha256 = expectedSha256;
             this.message = message;
         }
+    }
+
+    interface VerifyCallback {
+        void onResult(boolean success, String computedSha256, String message);
     }
 
     static void checkForUpdates(Context context, CheckCallback callback) {
@@ -101,6 +111,32 @@ final class OtaUpdateManager {
         return dm.enqueue(request);
     }
 
+    static void verifyDownloadedApk(File apkFile, UpdateInfo info, VerifyCallback callback) {
+        EXECUTOR.execute(() -> {
+            boolean success;
+            String computed = "";
+            String message;
+            try {
+                if (apkFile == null || !apkFile.exists()) {
+                    throw new IllegalStateException("Downloaded APK not found");
+                }
+                if (info == null || info.expectedSha256 == null || info.expectedSha256.isEmpty()) {
+                    throw new IllegalStateException("Missing expected SHA-256");
+                }
+                computed = computeSha256(apkFile);
+                success = computed.equalsIgnoreCase(info.expectedSha256);
+                message = success ? "OK" : "SHA256 mismatch";
+            } catch (Exception e) {
+                success = false;
+                message = e.getClass().getSimpleName();
+            }
+            final boolean resultSuccess = success;
+            final String resultComputed = computed;
+            final String resultMessage = message;
+            MAIN_HANDLER.post(() -> callback.onResult(resultSuccess, resultComputed, resultMessage));
+        });
+    }
+
     private static UpdateInfo fetchLatestRelease(Context context) {
         HttpURLConnection connection = null;
         try {
@@ -118,6 +154,7 @@ final class OtaUpdateManager {
                         false,
                         BuildConfig.VERSION_NAME,
                         BuildConfig.VERSION_NAME,
+                        null,
                         null,
                         null,
                         null,
@@ -146,11 +183,44 @@ final class OtaUpdateManager {
                         releaseName,
                         null,
                         null,
+                        null,
                         context.getString(R.string.ota_error_no_apk)
                 );
             }
 
             boolean updateAvailable = compareVersions(latestVersion, BuildConfig.VERSION_NAME) > 0;
+            String expectedSha256 = null;
+            if (updateAvailable) {
+                HashAsset hashAsset = selectHashAsset(release.optJSONArray("assets"), apkAsset.name);
+                if (hashAsset == null) {
+                    return new UpdateInfo(
+                            false,
+                            false,
+                            BuildConfig.VERSION_NAME,
+                            latestVersion,
+                            releaseName,
+                            null,
+                            null,
+                            null,
+                            context.getString(R.string.ota_error_no_hash)
+                    );
+                }
+                String hashFileContent = readUrl(hashAsset.downloadUrl);
+                expectedSha256 = parseExpectedSha256(hashFileContent, apkAsset.name);
+                if (expectedSha256 == null || expectedSha256.isEmpty()) {
+                    return new UpdateInfo(
+                            false,
+                            false,
+                            BuildConfig.VERSION_NAME,
+                            latestVersion,
+                            releaseName,
+                            null,
+                            null,
+                            null,
+                            context.getString(R.string.ota_error_invalid_hash)
+                    );
+                }
+            }
             return new UpdateInfo(
                     true,
                     updateAvailable,
@@ -159,6 +229,7 @@ final class OtaUpdateManager {
                     releaseName,
                     apkAsset.downloadUrl,
                     apkAsset.name,
+                    expectedSha256,
                     updateAvailable
                             ? context.getString(R.string.ota_status_update_available, latestVersion)
                             : context.getString(R.string.ota_status_up_to_date)
@@ -169,6 +240,7 @@ final class OtaUpdateManager {
                     false,
                     BuildConfig.VERSION_NAME,
                     BuildConfig.VERSION_NAME,
+                    null,
                     null,
                     null,
                     null,
@@ -208,6 +280,26 @@ final class OtaUpdateManager {
         return best;
     }
 
+    private static HashAsset selectHashAsset(JSONArray assets, String apkFileName) {
+        if (assets == null || assets.length() == 0 || apkFileName == null || apkFileName.isEmpty()) return null;
+        String expectedSidecarName = apkFileName + ".sha256";
+        HashAsset fallback = null;
+        for (int i = 0; i < assets.length(); i += 1) {
+            JSONObject asset = assets.optJSONObject(i);
+            if (asset == null) continue;
+            String name = asset.optString("name", "");
+            String downloadUrl = asset.optString("browser_download_url", "");
+            if (downloadUrl.isEmpty()) continue;
+            if (expectedSidecarName.equalsIgnoreCase(name)) {
+                return new HashAsset(name, downloadUrl);
+            }
+            if ("SHA256SUMS".equalsIgnoreCase(name)) {
+                fallback = new HashAsset(name, downloadUrl);
+            }
+        }
+        return fallback;
+    }
+
     private static int scoreAsset(String name) {
         String lower = name.toLowerCase(Locale.US);
         int score = 0;
@@ -228,6 +320,68 @@ final class OtaUpdateManager {
             }
             return out.toString(StandardCharsets.UTF_8.name());
         }
+    }
+
+    private static String readUrl(String url) throws Exception {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(7000);
+            connection.setReadTimeout(7000);
+            connection.setRequestProperty("Accept", "text/plain, application/octet-stream");
+            connection.setRequestProperty("User-Agent", "MG4-360-Camera-App/" + BuildConfig.VERSION_NAME);
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) {
+                throw new IllegalStateException("HTTP " + status);
+            }
+            return readFully(connection.getInputStream());
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static String parseExpectedSha256(String hashFileContent, String apkFileName) {
+        if (hashFileContent == null) return null;
+        String[] lines = hashFileContent.split("\\r?\\n");
+        for (String line : lines) {
+            String trimmed = line == null ? "" : line.trim();
+            if (trimmed.isEmpty()) continue;
+            String[] parts = trimmed.split("\\s+");
+            if (parts.length == 1 && isSha256(parts[0])) {
+                return parts[0].toLowerCase(Locale.US);
+            }
+            if (parts.length >= 2 && isSha256(parts[0])) {
+                String candidateName = parts[parts.length - 1].replace("*", "");
+                if (apkFileName.equals(candidateName) || trimmed.endsWith(apkFileName)) {
+                    return parts[0].toLowerCase(Locale.US);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean isSha256(String value) {
+        return value != null && value.matches("(?i)[a-f0-9]{64}");
+    }
+
+    private static String computeSha256(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (FileInputStream in = new FileInputStream(file)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        byte[] hash = digest.digest();
+        StringBuilder sb = new StringBuilder(hash.length * 2);
+        for (byte b : hash) {
+            sb.append(String.format(Locale.US, "%02x", b));
+        }
+        return sb.toString();
     }
 
     private static String normalizeVersion(String raw) {
@@ -283,6 +437,16 @@ final class OtaUpdateManager {
         final String downloadUrl;
 
         ApkAsset(String name, String downloadUrl) {
+            this.name = name;
+            this.downloadUrl = downloadUrl;
+        }
+    }
+
+    private static final class HashAsset {
+        final String name;
+        final String downloadUrl;
+
+        HashAsset(String name, String downloadUrl) {
             this.name = name;
             this.downloadUrl = downloadUrl;
         }
