@@ -66,6 +66,15 @@
             android:text="@string/ota_action_open_downloads" />
 
         <TextView
+            android:id="@+id/btnOtaRetryDownload"
+            style="@style/DrivehubDialogButtonPrimary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="@string/ota_action_retry_download"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/btnOtaInstallUpdate"
             style="@style/DrivehubDialogButtonPrimary"
             android:layout_width="wrap_content"

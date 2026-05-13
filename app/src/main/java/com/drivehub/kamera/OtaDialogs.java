@@ -77,6 +77,7 @@ final class OtaDialogs {
             Context context,
             String titleText,
             Runnable onOpenDownloads,
+            Runnable onRetryDownload,
             Runnable onInstallUpdate
     ) {
         Dialog dialog = createBaseDialog(context, R.layout.dialog_ota_download_progress);
@@ -84,6 +85,7 @@ final class OtaDialogs {
         TextView status = dialog.findViewById(R.id.tvOtaProgressStatus);
         ProgressBar progress = dialog.findViewById(R.id.pbOtaDownload);
         View openDownloadsButton = dialog.findViewById(R.id.btnOtaOpenDownloads);
+        View retryDownloadButton = dialog.findViewById(R.id.btnOtaRetryDownload);
         View installUpdateButton = dialog.findViewById(R.id.btnOtaInstallUpdate);
         View closeButton = dialog.findViewById(R.id.btnOtaClose);
 
@@ -93,6 +95,11 @@ final class OtaDialogs {
         if (openDownloadsButton != null) {
             openDownloadsButton.setOnClickListener(v -> {
                 if (onOpenDownloads != null) onOpenDownloads.run();
+            });
+        }
+        if (retryDownloadButton != null) {
+            retryDownloadButton.setOnClickListener(v -> {
+                if (onRetryDownload != null) onRetryDownload.run();
             });
         }
         if (installUpdateButton != null) {
@@ -105,7 +112,7 @@ final class OtaDialogs {
         }
 
         showCentered(dialog, 560, 0);
-        return new ProgressDialogHandle(dialog, status, progress, installUpdateButton);
+        return new ProgressDialogHandle(dialog, status, progress, retryDownloadButton, installUpdateButton);
     }
 
     static Dialog showMessageDialog(Context context, String message) {
@@ -163,12 +170,14 @@ final class OtaDialogs {
         final Dialog dialog;
         final TextView statusView;
         final ProgressBar progressBar;
+        final View retryButton;
         final View installButton;
 
-        ProgressDialogHandle(Dialog dialog, TextView statusView, ProgressBar progressBar, View installButton) {
+        ProgressDialogHandle(Dialog dialog, TextView statusView, ProgressBar progressBar, View retryButton, View installButton) {
             this.dialog = dialog;
             this.statusView = statusView;
             this.progressBar = progressBar;
+            this.retryButton = retryButton;
             this.installButton = installButton;
         }
     }
