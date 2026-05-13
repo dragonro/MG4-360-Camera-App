@@ -1,11 +1,15 @@
 package com.drivehub.kamera;
 
 import android.annotation.SuppressLint;
+import android.app.DownloadManager;
 import android.app.Dialog;
+import android.database.Cursor;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.MotionEvent;
@@ -23,6 +27,14 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Environment;
+import android.widget.Toast;
+
+import androidx.core.content.FileProvider;
+
+import java.io.File;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -48,6 +60,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private float downY = 0f;
     private static volatile boolean sMainVisible = false;
     private static volatile boolean sSettingsDialogOpen = false;
+    private OtaUpdateManager.UpdateInfo lastOtaUpdateInfo;
+    private final Handler otaProgressHandler = new Handler(Looper.getMainLooper());
+    private Runnable otaProgressRunnable;
+    private Dialog otaProgressDialog;
 
     private final BroadcastReceiver cameraRouteReceiver = new BroadcastReceiver() {
         @Override
@@ -180,6 +196,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         super.onStop();
         sMainVisible = false;
         sSettingsDialogOpen = false;
+        stopOtaProgressWatcher();
+        if (otaProgressDialog != null && otaProgressDialog.isShowing()) {
+            otaProgressDialog.dismiss();
+        }
         try {
             unregisterReceiver(cameraRouteReceiver);
         } catch (Throwable ignored) {
@@ -189,6 +209,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     @SuppressWarnings("deprecation")
     private void showSettingsDialog() {
         sSettingsDialogOpen = true;
+        lastOtaUpdateInfo = null;
         SignalService.requestRecheck();
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -274,6 +295,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
         TextView tvDialogVersionBeta = dialog.findViewById(R.id.tvDialogVersionBeta);
+        TextView tvDialogUpdateTag = dialog.findViewById(R.id.tvDialogUpdateTag);
         try {
             String version = getPackageManager()
                     .getPackageInfo(getPackageName(), 0)
@@ -283,6 +305,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             tvDialogVersion.setText(R.string.settings_version_unknown);
         }
         tvDialogVersionBeta.setVisibility(BuildConfig.IS_BETA ? View.VISIBLE : View.GONE);
+        setupOtaUpdateTag(dialog, tvDialogUpdateTag);
 
         dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
         dialog.setOnDismissListener(d -> {
@@ -296,6 +319,284 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             float density = getResources().getDisplayMetrics().density;
             shownWindow.setLayout((int) (700 * density), (int) (560 * density));
         }
+    }
+
+    private void setupOtaUpdateTag(Dialog dialog, TextView updateTag) {
+        if (updateTag == null) return;
+        renderOtaTagState(updateTag, null, true);
+        updateTag.setClickable(true);
+        updateTag.setFocusable(true);
+        updateTag.setOnClickListener(v -> {
+            OtaUpdateManager.UpdateInfo info =
+                    (OtaUpdateManager.UpdateInfo) updateTag.getTag(R.id.tag_ota_update_info);
+            if (info == null) {
+                info = lastOtaUpdateInfo;
+            }
+            if (info != null && info.success && info.updateAvailable) {
+                maybeStartOtaDownload(info);
+                return;
+            }
+            showOtaRefreshDialog(dialog, updateTag);
+        });
+        triggerOtaCheck(dialog, updateTag, false);
+    }
+
+    private void maybeStartOtaDownload(OtaUpdateManager.UpdateInfo info) {
+        NetworkStateHelper.Transport transport = NetworkStateHelper.getActiveTransport(this);
+        if (transport == NetworkStateHelper.Transport.CELLULAR) {
+            OtaDialogs.showConfirmDialog(
+                    this,
+                    getString(R.string.ota_dialog_mobile_warning_message, info.latestVersion),
+                    getString(R.string.ota_action_download_anyway),
+                    () -> startOtaDownload(info)
+            );
+            return;
+        }
+        startOtaDownload(info);
+    }
+
+    private void startOtaDownload(OtaUpdateManager.UpdateInfo info) {
+        try {
+            long downloadId = OtaUpdateManager.enqueueDownload(MainActivity.this, info);
+            showOtaProgressDialog(info, downloadId);
+        } catch (Throwable t) {
+            OtaDialogs.showMessageDialog(
+                    this,
+                    getString(R.string.ota_dialog_download_failed_message, t.getClass().getSimpleName())
+            );
+        }
+    }
+
+    private void showOtaProgressDialog(OtaUpdateManager.UpdateInfo info, long downloadId) {
+        stopOtaProgressWatcher();
+        OtaDialogs.ProgressDialogHandle handle = OtaDialogs.showProgressDialog(
+                this,
+                getString(R.string.ota_dialog_download_started_message, info.latestVersion),
+                this::openDownloadsFolder,
+                () -> installDownloadedUpdate(downloadId)
+        );
+        otaProgressDialog = handle.dialog;
+        otaProgressDialog.setOnDismissListener(d -> stopOtaProgressWatcher());
+
+        final TextView finalTvStatus = handle.statusView;
+        final android.widget.ProgressBar finalProgressBar = handle.progressBar;
+        final View finalInstallButton = handle.installButton;
+        otaProgressRunnable = new Runnable() {
+            @Override
+            public void run() {
+                boolean shouldContinue = updateOtaProgress(downloadId, finalProgressBar, finalTvStatus, finalInstallButton);
+                if (shouldContinue && otaProgressDialog != null && otaProgressDialog.isShowing()) {
+                    otaProgressHandler.postDelayed(this, 500L);
+                }
+            }
+        };
+        otaProgressHandler.post(otaProgressRunnable);
+    }
+
+    private boolean updateOtaProgress(long downloadId, android.widget.ProgressBar progressBar, TextView statusView, View installButton) {
+        DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        if (dm == null) {
+            if (statusView != null) {
+                statusView.setText(R.string.ota_progress_unavailable);
+            }
+            if (installButton != null) installButton.setVisibility(View.GONE);
+            return false;
+        }
+
+        DownloadManager.Query query = new DownloadManager.Query().setFilterById(downloadId);
+        try (Cursor cursor = dm.query(query)) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                if (statusView != null) {
+                    statusView.setText(R.string.ota_progress_missing);
+                }
+                if (installButton != null) installButton.setVisibility(View.GONE);
+                return false;
+            }
+
+            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+            long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+            int progress = (total > 0L) ? (int) ((downloaded * 100L) / total) : 0;
+
+            if (progressBar != null) {
+                if (total > 0L) {
+                    progressBar.setIndeterminate(false);
+                    progressBar.setMax(100);
+                    progressBar.setProgress(Math.max(0, Math.min(100, progress)));
+                } else {
+                    progressBar.setIndeterminate(true);
+                }
+            }
+
+            if (statusView != null) {
+                statusView.setText(getOtaProgressStatusText(status, progress, downloaded, total));
+            }
+            if (installButton != null) {
+                installButton.setVisibility(status == DownloadManager.STATUS_SUCCESSFUL ? View.VISIBLE : View.GONE);
+            }
+
+            return status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING || status == DownloadManager.STATUS_PAUSED;
+        } catch (Throwable t) {
+            if (statusView != null) {
+                statusView.setText(getString(R.string.ota_progress_failed_reason, t.getClass().getSimpleName()));
+            }
+            if (installButton != null) installButton.setVisibility(View.GONE);
+            return false;
+        }
+    }
+
+    private void installDownloadedUpdate(long downloadId) {
+        try {
+            File apkFile = resolveDownloadedApkFile(downloadId);
+            if (apkFile == null || !apkFile.exists()) {
+                throw new IllegalStateException("Downloaded APK not found");
+            }
+
+            Uri apkUri = FileProvider.getUriForFile(
+                    this,
+                    BuildConfig.APPLICATION_ID + ".fileprovider",
+                    apkFile
+            );
+
+            Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+            installIntent.setData(apkUri);
+            installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            installIntent.putExtra(Intent.EXTRA_RETURN_RESULT, false);
+
+            PackageManager pm = getPackageManager();
+            if (pm != null && installIntent.resolveActivity(pm) != null) {
+                startActivity(installIntent);
+                return;
+            }
+
+            Intent fallbackIntent = new Intent(Intent.ACTION_VIEW);
+            fallbackIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            fallbackIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(fallbackIntent);
+        } catch (Exception t) {
+            OtaDialogs.showMessageDialog(
+                    this,
+                    getString(R.string.ota_dialog_install_failed_message, t.getClass().getSimpleName())
+            );
+        }
+    }
+
+    private File resolveDownloadedApkFile(long downloadId) throws Exception {
+        DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        if (dm == null) return null;
+        DownloadManager.Query query = new DownloadManager.Query().setFilterById(downloadId);
+        try (Cursor cursor = dm.query(query)) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                return null;
+            }
+            String localUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
+            if (localUri == null || localUri.isEmpty()) {
+                return null;
+            }
+            Uri uri = Uri.parse(localUri);
+            if (!"file".equalsIgnoreCase(uri.getScheme())) {
+                return null;
+            }
+            return new File(uri.getPath());
+        }
+    }
+
+    private CharSequence getOtaProgressStatusText(int status, int progress, long downloaded, long total) {
+        if (status == DownloadManager.STATUS_SUCCESSFUL) {
+            return getString(R.string.ota_progress_complete);
+        }
+        if (status == DownloadManager.STATUS_FAILED) {
+            return getString(R.string.ota_progress_failed);
+        }
+        if (status == DownloadManager.STATUS_PAUSED) {
+            return getString(R.string.ota_progress_paused, progress);
+        }
+        if (status == DownloadManager.STATUS_PENDING) {
+            return getString(R.string.ota_progress_pending);
+        }
+        if (total > 0L) {
+            return getString(
+                    R.string.ota_progress_downloading,
+                    progress,
+                    formatBytes(downloaded),
+                    formatBytes(total)
+            );
+        }
+        return getString(R.string.ota_progress_running_unknown, formatBytes(downloaded));
+    }
+
+    private String formatBytes(long bytes) {
+        if (bytes < 1024L) return bytes + " B";
+        double kb = bytes / 1024.0;
+        if (kb < 1024.0) return String.format(java.util.Locale.US, "%.1f KB", kb);
+        double mb = kb / 1024.0;
+        if (mb < 1024.0) return String.format(java.util.Locale.US, "%.1f MB", mb);
+        double gb = mb / 1024.0;
+        return String.format(java.util.Locale.US, "%.2f GB", gb);
+    }
+
+    private void stopOtaProgressWatcher() {
+        if (otaProgressRunnable != null) {
+            otaProgressHandler.removeCallbacks(otaProgressRunnable);
+            otaProgressRunnable = null;
+        }
+        otaProgressDialog = null;
+    }
+
+    private void openDownloadsFolder() {
+        Intent downloadsIntent = new Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS);
+        downloadsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(downloadsIntent);
+        } catch (Throwable t) {
+            Toast.makeText(this, R.string.ota_toast_open_downloads_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showOtaRefreshDialog(Dialog parentDialog, TextView updateTag) {
+        OtaDialogs.showRefreshDialog(
+                this,
+                lastOtaUpdateInfo,
+                () -> triggerOtaCheck(parentDialog, updateTag, true)
+        );
+    }
+
+    private void triggerOtaCheck(Dialog dialog, TextView updateTag, boolean showToast) {
+        if (showToast) {
+            Toast.makeText(this, R.string.ota_toast_checking, Toast.LENGTH_SHORT).show();
+        }
+        renderOtaTagState(updateTag, null, true);
+        OtaUpdateManager.checkForUpdates(this, info -> {
+            lastOtaUpdateInfo = info;
+            if (dialog == null || !dialog.isShowing()) return;
+            renderOtaTagState(updateTag, info, false);
+        });
+    }
+
+    private void renderOtaTagState(TextView updateTag, OtaUpdateManager.UpdateInfo info, boolean checking) {
+        if (updateTag == null) return;
+        updateTag.setTag(R.id.tag_ota_update_info, info);
+        if (checking) {
+            updateTag.setText(R.string.ota_status_checking);
+            updateTag.setTextColor(ContextCompat.getColor(this, R.color.settings_update_error_text));
+            updateTag.setBackgroundResource(R.drawable.bg_settings_footer_tag_neutral);
+            return;
+        }
+        if (info != null && info.success && info.updateAvailable) {
+            updateTag.setText(getString(R.string.ota_status_update_available, info.latestVersion));
+            updateTag.setTextColor(ContextCompat.getColor(this, R.color.settings_update_available_text));
+            updateTag.setBackgroundResource(R.drawable.bg_settings_footer_tag_update);
+            return;
+        }
+        if (info != null && info.success) {
+            updateTag.setText(R.string.ota_status_up_to_date);
+            updateTag.setTextColor(ContextCompat.getColor(this, R.color.settings_update_ok_text));
+            updateTag.setBackgroundResource(R.drawable.bg_settings_footer_tag_ok);
+            return;
+        }
+        updateTag.setText(R.string.ota_status_check_failed);
+        updateTag.setTextColor(ContextCompat.getColor(this, R.color.settings_update_error_text));
+        updateTag.setBackgroundResource(R.drawable.bg_settings_footer_tag_neutral);
     }
 
     private void bindSettingsTab(
@@ -355,6 +656,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onDestroy() {
         super.onDestroy();
         sMainVisible = false;
+        stopOtaProgressWatcher();
         stopPreview();
     }
 
