@@ -13,13 +13,6 @@
         android:layout_marginBottom="14dp"
         android:text="@string/settings_section_tileview" />
 
-    <TextView
-        style="@style/DrivehubSettingsPrimaryText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp"
-        android:text="@string/settings_tile_corner_radius" />
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
