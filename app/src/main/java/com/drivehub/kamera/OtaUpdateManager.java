@@ -194,13 +194,13 @@ final class OtaUpdateManager {
                 HashAsset hashAsset = selectHashAsset(release.optJSONArray("assets"), apkAsset.name);
                 if (hashAsset == null) {
                     return new UpdateInfo(
-                            false,
-                            false,
+                            true,
+                            true,
                             BuildConfig.VERSION_NAME,
                             latestVersion,
                             releaseName,
-                            null,
-                            null,
+                            apkAsset.downloadUrl,
+                            apkAsset.name,
                             null,
                             context.getString(R.string.ota_error_no_hash)
                     );
@@ -209,13 +209,13 @@ final class OtaUpdateManager {
                 expectedSha256 = parseExpectedSha256(hashFileContent, apkAsset.name);
                 if (expectedSha256 == null || expectedSha256.isEmpty()) {
                     return new UpdateInfo(
-                            false,
-                            false,
+                            true,
+                            true,
                             BuildConfig.VERSION_NAME,
                             latestVersion,
                             releaseName,
-                            null,
-                            null,
+                            apkAsset.downloadUrl,
+                            apkAsset.name,
                             null,
                             context.getString(R.string.ota_error_invalid_hash)
                     );

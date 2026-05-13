@@ -346,6 +346,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void maybeStartOtaDownload(OtaUpdateManager.UpdateInfo info) {
+        if (info == null || info.expectedSha256 == null || info.expectedSha256.trim().isEmpty()) {
+            OtaDialogs.showMessageDialog(
+                    this,
+                    info != null && info.message != null && !info.message.trim().isEmpty()
+                            ? info.message
+                            : getString(R.string.ota_error_no_hash)
+            );
+            return;
+        }
         NetworkStateHelper.Transport transport = NetworkStateHelper.getActiveTransport(this);
         if (transport == NetworkStateHelper.Transport.CELLULAR) {
             OtaDialogs.showConfirmDialog(
