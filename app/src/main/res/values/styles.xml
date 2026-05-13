@@ -3,7 +3,7 @@
     <!-- Active tab label in the settings dialog header. -->
     <style name="DrivehubSettingsTabActive" parent="">
         <item name="android:textSize">20sp</item>
-        <item name="android:textColor">@color/settings_tab_active</item>
+        <item name="android:textColor">@color/settings_accent</item>
         <item name="android:textStyle">bold</item>
     </style>
 
@@ -15,7 +15,7 @@
 
     <!-- Small uppercase subsection title like DRIVING, DISPLAY or CREDITS headers. -->
     <style name="DrivehubSettingsSectionHeader" parent="">
-        <item name="android:textColor">@color/settings_text_secondary</item>
+        <item name="android:textColor">@color/settings_text_highlight</item>
         <item name="android:textSize">16sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.08</item>
@@ -32,10 +32,14 @@
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:focusable">false</item>
-        <item name="android:scaleX">0.88</item>
-        <item name="android:scaleY">0.88</item>
+        <item name="android:scaleX">0.9</item>
+        <item name="android:scaleY">0.9</item>
         <item name="android:showText">false</item>
         <item name="android:splitTrack">false</item>
+        <item name="android:switchMinWidth">54dp</item>
+        <item name="android:switchPadding">0dp</item>
+        <item name="android:thumbTextPadding">0dp</item>
+        <item name="android:minHeight">28dp</item>
         <item name="android:thumb">@drawable/switch_white_circle_selector</item>
         <item name="android:track">@drawable/switch_selector_green</item>
     </style>

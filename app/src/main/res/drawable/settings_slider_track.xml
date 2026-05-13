@@ -13,7 +13,7 @@
             <shape android:shape="rectangle">
                 <size android:height="6dp" />
                 <corners android:radius="3dp" />
-                <solid android:color="@color/settings_slider_track_fill" />
+                <solid android:color="@color/settings_accent" />
             </shape>
         </clip>
     </item>

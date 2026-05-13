@@ -18,7 +18,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:src="@drawable/ic_close"
-            android:tint="@color/settings_text_primary"
+            android:tint="@color/settings_accent"
             android:background="@android:color/transparent"
             android:padding="10dp"
             android:scaleType="centerInside"
