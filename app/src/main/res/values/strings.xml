@@ -77,4 +77,8 @@
     <string name="ota_toast_checking">Checking for updates…</string>
     <string name="ota_toast_open_downloads_failed">Could not open Downloads</string>
     <string name="ota_error_no_apk">Latest release has no APK asset</string>
+    <string name="notification_signal_text">Turn signal listener active</string>
+    <string name="notification_overlay_text">Signal camera overlay active</string>
+    <string name="notification_recording_starting">Starting recording…</string>
+    <string name="notification_channel_recording">360 Cam Recording</string>
 </resources>

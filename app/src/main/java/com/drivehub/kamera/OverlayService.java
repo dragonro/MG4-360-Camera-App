@@ -101,8 +101,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         // Run as a foreground service so the overlay survives while the app is in the background.
         Notification notif = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
-                .setContentTitle("Drivehub Kamera")
-                .setContentText("Sinyal kamerası overlay açık")
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.notification_overlay_text))
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();

@@ -77,4 +77,8 @@
     <string name="ota_toast_checking">Suche nach Updates…</string>
     <string name="ota_toast_open_downloads_failed">Downloads konnten nicht geöffnet werden</string>
     <string name="ota_error_no_apk">Im neuesten Release wurde kein APK-Asset gefunden</string>
+    <string name="notification_signal_text">Blinker-Listener aktiv</string>
+    <string name="notification_overlay_text">Signal-Kamera-Overlay aktiv</string>
+    <string name="notification_recording_starting">Aufnahme wird gestartet…</string>
+    <string name="notification_channel_recording">360 Cam Aufnahme</string>
 </resources>
