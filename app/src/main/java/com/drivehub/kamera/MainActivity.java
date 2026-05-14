@@ -204,13 +204,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, checked).apply();
             applyWarningVisibility();
         });
+        Switch swAllowBetaUpdates = dialog.findViewById(R.id.switchAllowBetaUpdates);
 
         SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
         EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
+        ImageButton dialogClose = dialog.findViewById(R.id.btnClose);
+        TextView tabUpdate = dialog.findViewById(R.id.tabUpdate);
         TextView tabSettings = dialog.findViewById(R.id.tabSettings);
         TextView tabOptik = dialog.findViewById(R.id.tabOptik);
         TextView tabCredits = dialog.findViewById(R.id.tabCredits);
-        ImageButton dialogClose = dialog.findViewById(R.id.btnClose);
+        View sectionUpdate = dialog.findViewById(R.id.sectionUpdate);
         View sectionSettings = dialog.findViewById(R.id.sectionSettings);
         View sectionOptik = dialog.findViewById(R.id.sectionOptik);
         View sectionCredits = dialog.findViewById(R.id.sectionCredits);
@@ -221,29 +224,40 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 prefs,
                 swOverlay,
                 swSafetyWarning,
+                swAllowBetaUpdates,
                 dialogClose,
                 seekCorner,
                 etCorner,
                 accentRow,
                 accentPreview,
                 etAccentColor,
+                tabUpdate,
                 tabSettings,
                 tabOptik,
                 tabCredits
         );
 
-        bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 0);
-        tabSettings.setOnClickListener(v -> {
-            bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 0);
+        bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 0);
+        tabUpdate.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 0);
             appearanceController.reapplyForActiveTab(0);
         });
-        tabOptik.setOnClickListener(v -> {
-            bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 1);
+        tabSettings.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 1);
             appearanceController.reapplyForActiveTab(1);
         });
-        tabCredits.setOnClickListener(v -> {
-            bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 2);
+        tabOptik.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 2);
             appearanceController.reapplyForActiveTab(2);
+        });
+        tabCredits.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 3);
+            appearanceController.reapplyForActiveTab(3);
         });
 
         TextView tvVersion = dialog.findViewById(R.id.tvDialogVersion);
@@ -256,7 +270,14 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
         tvBeta.setVisibility(BuildConfig.IS_BETA ? View.VISIBLE : View.GONE);
 
-        otaController.setup(dialog, dialog.findViewById(R.id.tvDialogUpdateTag));
+        otaController.setup(
+                dialog,
+                dialog.findViewById(R.id.tvDialogUpdateTag),
+                dialog.findViewById(R.id.switchAllowBetaUpdates),
+                dialog.findViewById(R.id.tvUpdateReleaseTitle),
+                dialog.findViewById(R.id.tvUpdateChannelStatus),
+                dialog.findViewById(R.id.tvUpdateChangelog)
+        );
 
         dialogClose.setOnClickListener(v -> dialog.dismiss());
         dialog.setOnDismissListener(d -> {
@@ -274,16 +295,18 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void bindSettingsTab(
-            TextView tabSettings, TextView tabOptik, TextView tabCredits,
-            View sectionSettings, View sectionOptik, View sectionCredits,
+            TextView tabUpdate, TextView tabSettings, TextView tabOptik, TextView tabCredits,
+            View sectionUpdate, View sectionSettings, View sectionOptik, View sectionCredits,
             int active
     ) {
-        sectionSettings.setVisibility(active == 0 ? View.VISIBLE : View.GONE);
-        sectionOptik.setVisibility(active == 1 ? View.VISIBLE : View.GONE);
-        sectionCredits.setVisibility(active == 2 ? View.VISIBLE : View.GONE);
-        styleSettingsTab(tabSettings, active == 0);
-        styleSettingsTab(tabOptik, active == 1);
-        styleSettingsTab(tabCredits, active == 2);
+        sectionUpdate.setVisibility(active == 0 ? View.VISIBLE : View.GONE);
+        sectionSettings.setVisibility(active == 1 ? View.VISIBLE : View.GONE);
+        sectionOptik.setVisibility(active == 2 ? View.VISIBLE : View.GONE);
+        sectionCredits.setVisibility(active == 3 ? View.VISIBLE : View.GONE);
+        styleSettingsTab(tabUpdate, active == 0);
+        styleSettingsTab(tabSettings, active == 1);
+        styleSettingsTab(tabOptik, active == 2);
+        styleSettingsTab(tabCredits, active == 3);
     }
 
     private void styleSettingsTab(TextView tab, boolean active) {

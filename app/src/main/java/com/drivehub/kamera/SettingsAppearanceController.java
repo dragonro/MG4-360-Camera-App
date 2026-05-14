@@ -27,12 +27,14 @@ final class SettingsAppearanceController {
     private SharedPreferences prefs;
     private Switch swOverlay;
     private Switch swSafetyWarning;
+    private Switch swAllowBetaUpdates;
     private ImageButton dialogClose;
     private SeekBar seekCorner;
     private EditText etCorner;
     private View accentRow;
     private View accentPreview;
     private EditText etAccentColor;
+    private TextView tabUpdate;
     private TextView tabSettings;
     private TextView tabOptik;
     private TextView tabCredits;
@@ -53,12 +55,14 @@ final class SettingsAppearanceController {
             SharedPreferences prefs,
             Switch swOverlay,
             Switch swSafetyWarning,
+            Switch swAllowBetaUpdates,
             ImageButton dialogClose,
             SeekBar seekCorner,
             EditText etCorner,
             View accentRow,
             View accentPreview,
             EditText etAccentColor,
+            TextView tabUpdate,
             TextView tabSettings,
             TextView tabOptik,
             TextView tabCredits
@@ -66,12 +70,14 @@ final class SettingsAppearanceController {
         this.prefs = prefs;
         this.swOverlay = swOverlay;
         this.swSafetyWarning = swSafetyWarning;
+        this.swAllowBetaUpdates = swAllowBetaUpdates;
         this.dialogClose = dialogClose;
         this.seekCorner = seekCorner;
         this.etCorner = etCorner;
         this.accentRow = accentRow;
         this.accentPreview = accentPreview;
         this.etAccentColor = etAccentColor;
+        this.tabUpdate = tabUpdate;
         this.tabSettings = tabSettings;
         this.tabOptik = tabOptik;
         this.tabCredits = tabCredits;
@@ -268,15 +274,19 @@ final class SettingsAppearanceController {
         if (swSafetyWarning != null) {
             swSafetyWarning.setTrackTintList(buildToggleTrackTint(accentColor));
         }
+        if (swAllowBetaUpdates != null) {
+            swAllowBetaUpdates.setTrackTintList(buildToggleTrackTint(accentColor));
+        }
         if (accentPreview != null) {
             Drawable background = accentPreview.getBackground();
             if (background instanceof GradientDrawable) {
                 ((GradientDrawable) background.mutate()).setColor(accentColor);
             }
         }
-        if (tabSettings != null) tabSettings.setTextColor(activeTab == 0 ? accentColor : 0xFF777777);
-        if (tabOptik != null) tabOptik.setTextColor(activeTab == 1 ? accentColor : 0xFF777777);
-        if (tabCredits != null) tabCredits.setTextColor(activeTab == 2 ? accentColor : 0xFF777777);
+        if (tabUpdate != null) tabUpdate.setTextColor(activeTab == 0 ? accentColor : 0xFF777777);
+        if (tabSettings != null) tabSettings.setTextColor(activeTab == 1 ? accentColor : 0xFF777777);
+        if (tabOptik != null) tabOptik.setTextColor(activeTab == 2 ? accentColor : 0xFF777777);
+        if (tabCredits != null) tabCredits.setTextColor(activeTab == 3 ? accentColor : 0xFF777777);
     }
 
     private ColorStateList buildToggleTrackTint(int accentColor) {
