@@ -37,4 +37,13 @@ final class NetworkStateHelper {
             return Transport.UNKNOWN;
         }
     }
+
+    static boolean isActiveNetworkMetered(Context context) {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            return cm != null && cm.isActiveNetworkMetered();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
 }

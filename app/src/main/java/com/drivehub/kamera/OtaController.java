@@ -17,9 +17,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import androidx.core.content.FileProvider;
-
-import java.io.File;
 import java.util.Locale;
 
 final class OtaController {
@@ -115,7 +112,11 @@ final class OtaController {
             return;
         }
         NetworkStateHelper.Transport transport = NetworkStateHelper.getActiveTransport(activity);
-        if (transport == NetworkStateHelper.Transport.CELLULAR) {
+        boolean warnForMeteredDownload = transport == NetworkStateHelper.Transport.CELLULAR
+                || (NetworkStateHelper.isActiveNetworkMetered(activity)
+                && transport != NetworkStateHelper.Transport.WIFI
+                && transport != NetworkStateHelper.Transport.ETHERNET);
+        if (warnForMeteredDownload) {
             OtaDialogs.showConfirmDialog(
                     activity,
                     activity.getString(R.string.ota_dialog_mobile_warning_message, info.latestVersion),
@@ -261,9 +262,9 @@ final class OtaController {
         if (installButton != null) installButton.setVisibility(View.GONE);
         if (statusView != null) statusView.setText(R.string.ota_progress_verifying);
 
-        File apkFile;
+        Uri apkUri;
         try {
-            apkFile = resolveApkFile(downloadId);
+            apkUri = resolveDownloadedApkUri(downloadId);
         } catch (Exception e) {
             verificationInFlight = false;
             if (statusView != null) {
@@ -273,7 +274,7 @@ final class OtaController {
             return;
         }
 
-        OtaUpdateManager.verifyDownloadedApk(apkFile, activeDownloadInfo, (success, computedSha256, message) -> {
+        OtaUpdateManager.verifyDownloadedApk(activity, apkUri, activeDownloadInfo, (success, computedSha256, message) -> {
             if (downloadId != verificationDownloadId) return;
             verificationInFlight = false;
             verificationPassed = success;
@@ -296,15 +297,10 @@ final class OtaController {
 
     private void installUpdate(long downloadId) {
         try {
-            File apkFile = resolveApkFile(downloadId);
-            if (apkFile == null || !apkFile.exists()) {
+            Uri apkUri = resolveDownloadedApkUri(downloadId);
+            if (apkUri == null) {
                 throw new IllegalStateException("Downloaded APK not found");
             }
-            Uri apkUri = FileProvider.getUriForFile(
-                    activity,
-                    BuildConfig.APPLICATION_ID + ".fileprovider",
-                    apkFile
-            );
             Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
             installIntent.setData(apkUri);
             installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -327,16 +323,18 @@ final class OtaController {
         }
     }
 
-    private File resolveApkFile(long downloadId) throws Exception {
+    private Uri resolveDownloadedApkUri(long downloadId) throws Exception {
         DownloadManager dm = activity.getSystemService(DownloadManager.class);
         if (dm == null) return null;
+        Uri downloadedUri = dm.getUriForDownloadedFile(downloadId);
+        if (downloadedUri != null) {
+            return downloadedUri;
+        }
         try (Cursor cursor = dm.query(new DownloadManager.Query().setFilterById(downloadId))) {
             if (cursor == null || !cursor.moveToFirst()) return null;
             String localUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
             if (localUri == null || localUri.isEmpty()) return null;
-            Uri uri = Uri.parse(localUri);
-            if (!"file".equalsIgnoreCase(uri.getScheme())) return null;
-            return new File(uri.getPath());
+            return Uri.parse(localUri);
         }
     }
 
