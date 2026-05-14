@@ -6,23 +6,20 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-import android.text.Editable;
-import android.text.TextWatcher;
-import android.widget.EditText;
-import android.widget.SeekBar;
-import android.widget.TextView;
-import android.widget.ImageButton;
-import android.widget.Switch;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.view.MotionEvent;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.Window;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.SeekBar;
+import android.widget.Switch;
+import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -48,6 +45,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private float downY = 0f;
     private static volatile boolean sMainVisible = false;
     private static volatile boolean sSettingsDialogOpen = false;
+    private final SettingsAppearanceController appearanceController = new SettingsAppearanceController(this);
 
     private final BroadcastReceiver cameraRouteReceiver = new BroadcastReceiver() {
         @Override
@@ -100,6 +98,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if (tvStatus != null) {
             tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
         }
+        appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
 
         // Keep signal/gear listening always active; overlay visibility is controlled only by settings.
@@ -206,6 +205,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         TextView tabSettings = dialog.findViewById(R.id.tabSettings);
         TextView tabOptik = dialog.findViewById(R.id.tabOptik);
         TextView tabCredits = dialog.findViewById(R.id.tabCredits);
+        ImageButton dialogClose = dialog.findViewById(R.id.btnClose);
         View sectionSettings = dialog.findViewById(R.id.sectionSettings);
         View sectionOptik = dialog.findViewById(R.id.sectionOptik);
         View sectionCredits = dialog.findViewById(R.id.sectionCredits);
@@ -226,51 +226,35 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
         EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
-        int savedRadius = UiPrefs.getTileCornerRadiusSetting(prefs);
-        seekCorner.setMax(UiPrefs.MAX_TILE_CORNER_RADIUS);
-        seekCorner.setProgress(savedRadius);
-        etCorner.setText(String.valueOf(savedRadius));
-
-        seekCorner.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                prefs.edit().putInt(UiPrefs.KEY_TILE_CORNER_RADIUS, progress).apply();
-                if (fromUser) {
-                    etCorner.setText(String.valueOf(progress));
-                    etCorner.setSelection(etCorner.getText().length());
-                }
-            }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-
-        etCorner.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {
-                if (s.length() == 0) return;
-                try {
-                    int value = Math.min(UiPrefs.MAX_TILE_CORNER_RADIUS, Math.max(0, Integer.parseInt(s.toString())));
-                    String normalized = String.valueOf(value);
-                    if (!normalized.contentEquals(s)) {
-                        etCorner.setText(normalized);
-                        etCorner.setSelection(etCorner.getText().length());
-                        return;
-                    }
-                    prefs.edit().putInt(UiPrefs.KEY_TILE_CORNER_RADIUS, value).apply();
-                    if (seekCorner.getProgress() != value) {
-                        seekCorner.setProgress(value);
-                    }
-                } catch (NumberFormatException ignored) {}
-            }
-        });
+        View accentPreview = dialog.findViewById(R.id.viewAccentPreview);
+        EditText etAccentColor = dialog.findViewById(R.id.etAccentColor);
+        appearanceController.bindSettingsAppearance(
+                prefs,
+                swOverlay,
+                swSafetyWarning,
+                dialogClose,
+                seekCorner,
+                etCorner,
+                accentPreview,
+                etAccentColor,
+                tabSettings,
+                tabOptik,
+                tabCredits
+        );
 
         bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 0);
-        tabSettings.setOnClickListener(v ->
-                bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 0));
-        tabOptik.setOnClickListener(v ->
-                bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 1));
-        tabCredits.setOnClickListener(v ->
-                bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 2));
+        tabSettings.setOnClickListener(v -> {
+            bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 0);
+            appearanceController.reapplyForActiveTab(0);
+        });
+        tabOptik.setOnClickListener(v -> {
+            bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 1);
+            appearanceController.reapplyForActiveTab(1);
+        });
+        tabCredits.setOnClickListener(v -> {
+            bindSettingsTab(tabSettings, tabOptik, tabCredits, sectionSettings, sectionOptik, sectionCredits, 2);
+            appearanceController.reapplyForActiveTab(2);
+        });
 
         TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
         TextView tvDialogVersionBeta = dialog.findViewById(R.id.tvDialogVersionBeta);
@@ -284,9 +268,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
         tvDialogVersionBeta.setVisibility(BuildConfig.IS_BETA ? View.VISIBLE : View.GONE);
 
-        dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
+        dialogClose.setOnClickListener(v -> dialog.dismiss());
         dialog.setOnDismissListener(d -> {
             sSettingsDialogOpen = false;
+            appearanceController.applyMainUiIconColors();
             SignalService.requestRecheck();
         });
         dialog.show();
@@ -312,9 +297,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void styleSettingsTab(TextView tab, boolean active) {
-        tab.setTextColor(active ? 0xFFFFFFFF : 0xFF777777);
-        tab.setTextSize(20f);
-        tab.setTypeface(tab.getTypeface(), android.graphics.Typeface.BOLD);
+        appearanceController.styleSettingsTab(tab, active);
     }
 
     private void applyWarningVisibility() {

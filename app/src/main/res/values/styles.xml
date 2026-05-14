@@ -70,6 +70,16 @@
         <item name="android:focusable">true</item>
     </style>
 
+    <style name="DrivehubSettingsAccentValue" parent="">
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:inputType">textNoSuggestions|textCapCharacters</item>
+        <item name="android:maxLength">9</item>
+        <item name="android:textColor">@color/settings_text_secondary</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:focusable">true</item>
+    </style>
+
     <!-- Body text used for credit lists and acknowledgements. -->
     <style name="DrivehubSettingsCreditsBody" parent="">
         <item name="android:textColor">@color/settings_text_primary</item>
