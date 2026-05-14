@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.view.ViewGroup;
 import android.view.View;
 import android.view.Window;
@@ -22,13 +23,14 @@ final class OtaDialogs {
     ) {
         Dialog dialog = createBaseDialog(context, R.layout.dialog_ota_refresh);
         TextView message = dialog.findViewById(R.id.tvOtaRefreshMessage);
-        View refreshButton = dialog.findViewById(R.id.btnOtaRefresh);
+        TextView refreshButton = dialog.findViewById(R.id.btnOtaRefresh);
         View closeButton = dialog.findViewById(R.id.btnOtaClose);
 
         if (message != null) {
             message.setText(resolveRefreshMessage(context, info));
         }
         if (refreshButton != null) {
+            stylePrimaryButton(context, refreshButton);
             refreshButton.setOnClickListener(v -> {
                 dialog.dismiss();
                 if (onRefresh != null) onRefresh.run();
@@ -60,6 +62,7 @@ final class OtaDialogs {
         }
         if (refreshButton != null) {
             refreshButton.setText(confirmText);
+            stylePrimaryButton(context, refreshButton);
             refreshButton.setOnClickListener(v -> {
                 dialog.dismiss();
                 if (onConfirm != null) onConfirm.run();
@@ -84,25 +87,28 @@ final class OtaDialogs {
         TextView title = dialog.findViewById(R.id.tvOtaProgressTitle);
         TextView status = dialog.findViewById(R.id.tvOtaProgressStatus);
         ProgressBar progress = dialog.findViewById(R.id.pbOtaDownload);
-        View openDownloadsButton = dialog.findViewById(R.id.btnOtaOpenDownloads);
-        View retryDownloadButton = dialog.findViewById(R.id.btnOtaRetryDownload);
-        View installUpdateButton = dialog.findViewById(R.id.btnOtaInstallUpdate);
+        TextView openDownloadsButton = dialog.findViewById(R.id.btnOtaOpenDownloads);
+        TextView retryDownloadButton = dialog.findViewById(R.id.btnOtaRetryDownload);
+        TextView installUpdateButton = dialog.findViewById(R.id.btnOtaInstallUpdate);
         View closeButton = dialog.findViewById(R.id.btnOtaClose);
 
         if (title != null) {
             title.setText(titleText);
         }
         if (openDownloadsButton != null) {
+            stylePrimaryButton(context, openDownloadsButton);
             openDownloadsButton.setOnClickListener(v -> {
                 if (onOpenDownloads != null) onOpenDownloads.run();
             });
         }
         if (retryDownloadButton != null) {
+            stylePrimaryButton(context, retryDownloadButton);
             retryDownloadButton.setOnClickListener(v -> {
                 if (onRetryDownload != null) onRetryDownload.run();
             });
         }
         if (installUpdateButton != null) {
+            stylePrimaryButton(context, installUpdateButton);
             installUpdateButton.setOnClickListener(v -> {
                 if (onInstallUpdate != null) onInstallUpdate.run();
             });
@@ -164,6 +170,34 @@ final class OtaDialogs {
             return context.getString(R.string.ota_dialog_up_to_date_message);
         }
         return context.getString(R.string.ota_dialog_check_failed_message);
+    }
+
+    private static void stylePrimaryButton(Context context, TextView button) {
+        int accentColor = UiPrefs.getAccentColorInt(UiPrefs.getPrefs(context));
+        GradientDrawable background = new GradientDrawable();
+        background.setCornerRadius(dp(context, 14f));
+        background.setColor(accentColor);
+        if (isLightColor(accentColor)) {
+            background.setStroke((int) dp(context, 1f), 0x33000000);
+            button.setTextColor(0xFF111111);
+        } else {
+            background.setStroke(0, Color.TRANSPARENT);
+            button.setTextColor(Color.WHITE);
+        }
+        button.setBackground(background);
+    }
+
+    private static boolean isLightColor(int color) {
+        double luminance = (
+                (0.299 * Color.red(color)) +
+                (0.587 * Color.green(color)) +
+                (0.114 * Color.blue(color))
+        ) / 255d;
+        return luminance >= 0.72d;
+    }
+
+    private static float dp(Context context, float value) {
+        return value * context.getResources().getDisplayMetrics().density;
     }
 
     static final class ProgressDialogHandle {

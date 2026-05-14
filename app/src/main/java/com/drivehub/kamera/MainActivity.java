@@ -10,8 +10,6 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -45,6 +43,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private static volatile boolean sMainVisible = false;
     private static volatile boolean sSettingsDialogOpen = false;
+    private final SettingsAppearanceController appearanceController = new SettingsAppearanceController(this);
 
     private final OtaController otaController = new OtaController(this);
 
@@ -98,6 +97,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         ImageButton btnClose = findViewById(R.id.btnClose);
         btnClose.setOnClickListener(v -> finishAndRemoveTask());
 
+        appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
 
         try {
@@ -204,45 +204,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, checked).apply();
             applyWarningVisibility();
         });
+        Switch swAllowBetaUpdates = dialog.findViewById(R.id.switchAllowBetaUpdates);
 
         SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
         EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
-        int savedRadius = UiPrefs.getTileCornerRadiusSetting(prefs);
-        seekCorner.setMax(UiPrefs.MAX_TILE_CORNER_RADIUS);
-        seekCorner.setProgress(savedRadius);
-        etCorner.setText(String.valueOf(savedRadius));
-
-        seekCorner.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                prefs.edit().putInt(UiPrefs.KEY_TILE_CORNER_RADIUS, progress).apply();
-                if (fromUser) {
-                    etCorner.setText(String.valueOf(progress));
-                    etCorner.setSelection(etCorner.getText().length());
-                }
-            }
-            @Override public void onStartTrackingTouch(SeekBar bar) {}
-            @Override public void onStopTrackingTouch(SeekBar bar) {}
-        });
-
-        etCorner.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {
-                if (s.length() == 0) return;
-                try {
-                    int value = Math.min(UiPrefs.MAX_TILE_CORNER_RADIUS, Math.max(0, Integer.parseInt(s.toString())));
-                    String normalized = String.valueOf(value);
-                    if (!normalized.contentEquals(s)) {
-                        etCorner.setText(normalized);
-                        etCorner.setSelection(etCorner.getText().length());
-                        return;
-                    }
-                    prefs.edit().putInt(UiPrefs.KEY_TILE_CORNER_RADIUS, value).apply();
-                    if (seekCorner.getProgress() != value) seekCorner.setProgress(value);
-                } catch (NumberFormatException ignored) {}
-            }
-        });
-
+        ImageButton dialogClose = dialog.findViewById(R.id.btnClose);
         TextView tabUpdate = dialog.findViewById(R.id.tabUpdate);
         TextView tabSettings = dialog.findViewById(R.id.tabSettings);
         TextView tabOptik = dialog.findViewById(R.id.tabOptik);
@@ -251,17 +217,48 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         View sectionSettings = dialog.findViewById(R.id.sectionSettings);
         View sectionOptik = dialog.findViewById(R.id.sectionOptik);
         View sectionCredits = dialog.findViewById(R.id.sectionCredits);
+        View accentRow = dialog.findViewById(R.id.rowAccentColor);
+        View accentPreview = dialog.findViewById(R.id.viewAccentPreview);
+        EditText etAccentColor = dialog.findViewById(R.id.etAccentColor);
+        appearanceController.bindSettingsAppearance(
+                prefs,
+                swOverlay,
+                swSafetyWarning,
+                swAllowBetaUpdates,
+                dialogClose,
+                seekCorner,
+                etCorner,
+                accentRow,
+                accentPreview,
+                etAccentColor,
+                tabUpdate,
+                tabSettings,
+                tabOptik,
+                tabCredits
+        );
 
         bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
                 sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 0);
-        tabUpdate.setOnClickListener(v -> bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
-                sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 0));
-        tabSettings.setOnClickListener(v -> bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
-                sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 1));
-        tabOptik.setOnClickListener(v -> bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
-                sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 2));
-        tabCredits.setOnClickListener(v -> bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
-                sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 3));
+        tabUpdate.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 0);
+            appearanceController.reapplyForActiveTab(0);
+        });
+        tabSettings.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 1);
+            appearanceController.reapplyForActiveTab(1);
+        });
+        tabOptik.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 2);
+            appearanceController.reapplyForActiveTab(2);
+        });
+        tabCredits.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
+                    sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 3);
+            appearanceController.reapplyForActiveTab(3);
+        });
 
         TextView tvVersion = dialog.findViewById(R.id.tvDialogVersion);
         TextView tvBeta = dialog.findViewById(R.id.tvDialogVersionBeta);
@@ -279,12 +276,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 dialog.findViewById(R.id.switchAllowBetaUpdates),
                 dialog.findViewById(R.id.tvUpdateReleaseTitle),
                 dialog.findViewById(R.id.tvUpdateChannelStatus),
-                dialog.findViewById(R.id.tvUpdateChangelog)
+                dialog.findViewById(R.id.tvUpdateChangelog),
+                dialog.findViewById(R.id.tvUpdateSourceGithub),
+                dialog.findViewById(R.id.tvUpdateSourceGitlab)
         );
 
-        dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
+        dialogClose.setOnClickListener(v -> dialog.dismiss());
         dialog.setOnDismissListener(d -> {
             sSettingsDialogOpen = false;
+            appearanceController.applyMainUiIconColors();
             SignalService.requestRecheck();
         });
         dialog.show();
@@ -312,9 +312,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void styleSettingsTab(TextView tab, boolean active) {
-        tab.setTextColor(active ? 0xFFFFFFFF : 0xFF777777);
-        tab.setTextSize(20f);
-        tab.setTypeface(tab.getTypeface(), android.graphics.Typeface.BOLD);
+        appearanceController.styleSettingsTab(tab, active);
     }
 
     // -------------------------------------------------------------------------

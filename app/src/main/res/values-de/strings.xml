@@ -11,6 +11,7 @@
     <string name="settings_section_open_source_credits">OPEN-SOURCE CREDITS</string>
     <string name="settings_section_additional_credits">WEITERE CREDITS</string>
     <string name="settings_section_update_channel">UPDATE-KANAL</string>
+    <string name="settings_section_update_status">STATUS</string>
     <string name="settings_section_latest_release">LETZTES RELEASE</string>
     <string name="settings_section_changelog">CHANGELOG</string>
     <string name="settings_allow_beta_updates">Beta-Releases zulassen</string>
@@ -42,11 +43,17 @@
     <string name="main_camera_label_unknown">/dev/video%1$d</string>
     <string name="main_button_settings">Einstellungen</string>
     <string name="main_button_close_app">App schließen</string>
-    <string name="settings_tab_optik">Optik</string>
+    <string name="settings_tab_optik">Darstellung</string>
     <string name="settings_section_tileview">Blinker-Kamera</string>
     <string name="settings_tile_corner_radius">Rundung</string>
     <string name="settings_tile_corner_square">Eckig</string>
     <string name="settings_tile_corner_round">Rund</string>
+    <string name="settings_accent_color">Akzentfarbe</string>
+    <string name="settings_accent_color_hint">#E7E7E7</string>
+    <string name="settings_color_picker_title">Akzentfarbe wählen</string>
+    <string name="settings_color_picker_hint">Im Farbfeld wählen und unten über den Farbton fein abstimmen.</string>
+    <string name="settings_color_picker_cancel">Abbrechen</string>
+    <string name="settings_color_picker_apply">Übernehmen</string>
     <string name="ota_status_checking">Suche nach Updates…</string>
     <string name="ota_status_up_to_date">Du bist aktuell</string>
     <string name="ota_status_update_available">Update verfügbar: %1$s</string>
@@ -92,6 +99,9 @@
     <string name="ota_update_channel_error">Der gewählte Update-Kanal konnte nicht geprüft werden.</string>
     <string name="ota_update_channel_stable_only">Stable-Kanal aktiv. Neuestes passendes Release: %1$s.</string>
     <string name="ota_update_channel_beta_enabled">Beta-Kanal aktiv. Neuestes passendes Release: %1$s.</string>
+    <string name="ota_source_status_loading">Quellen werden geprüft…</string>
+    <string name="ota_source_status_available">✓ %1$s verfügbar</string>
+    <string name="ota_source_status_unavailable">✗ %1$s nicht verfügbar</string>
     <string name="ota_release_type_stable">Stable</string>
     <string name="ota_release_type_beta">Beta</string>
     <string name="ota_release_title_stable">Stable %1$s</string>

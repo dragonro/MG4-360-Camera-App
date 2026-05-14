@@ -76,3 +76,4 @@ jobs:
                 \"url\": \"https://gitlab.com/jamakr4/mg4-360-camera-app/-/package_files/generic/${TAG}/1.0.0/${filename}\"
               }"
           done
+

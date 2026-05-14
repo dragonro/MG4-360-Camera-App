@@ -37,6 +37,8 @@ final class OtaController {
     private TextView releaseTitleView;
     private TextView releaseChannelView;
     private TextView changelogView;
+    private TextView githubStatusView;
+    private TextView gitlabStatusView;
     private Switch betaSwitch;
     private boolean suppressBetaToggleCallback = false;
 
@@ -51,12 +53,16 @@ final class OtaController {
             Switch allowBetaSwitch,
             TextView releaseTitle,
             TextView releaseChannel,
-            TextView changelog
+            TextView changelog,
+            TextView githubStatus,
+            TextView gitlabStatus
     ) {
         lastCheckInfo = null;
         releaseTitleView = releaseTitle;
         releaseChannelView = releaseChannel;
         changelogView = changelog;
+        githubStatusView = githubStatus;
+        gitlabStatusView = gitlabStatus;
         betaSwitch = allowBetaSwitch;
 
         SharedPreferences prefs = UiPrefs.getPrefs(activity);
@@ -441,7 +447,7 @@ final class OtaController {
                 String versionLabel = info.prerelease
                         ? activity.getString(R.string.ota_release_title_beta, info.latestVersion)
                         : activity.getString(R.string.ota_release_title_stable, info.latestVersion);
-                releaseTitleView.setText(firstNonEmpty(info.releaseName, versionLabel));
+                releaseTitleView.setText(OtaReleaseAssets.firstNonEmpty(info.releaseName, versionLabel));
             } else {
                 releaseTitleView.setText(R.string.ota_update_section_unavailable);
             }
@@ -467,7 +473,7 @@ final class OtaController {
             if (checking) {
                 changelogView.setText(R.string.ota_update_changelog_loading);
             } else if (info != null && info.success) {
-                String notes = normalizeReleaseNotes(info.releaseNotes);
+                String notes = OtaReleaseAssets.normalizeReleaseNotes(info.releaseNotes);
                 changelogView.setText(notes.isEmpty()
                         ? activity.getString(R.string.ota_update_changelog_empty)
                         : notes);
@@ -475,59 +481,37 @@ final class OtaController {
                 changelogView.setText(R.string.ota_update_changelog_error);
             }
         }
+
+        OtaUpdateManager.SourceStatus githubStatus = checking
+                ? null
+                : (info != null ? info.githubStatus : null);
+        OtaUpdateManager.SourceStatus gitlabStatus = checking
+                ? null
+                : (info != null ? info.gitlabStatus : null);
+        renderSourceStatus(githubStatusView, githubStatus, checking);
+        renderSourceStatus(gitlabStatusView, gitlabStatus, checking);
     }
 
-    private static String normalizeReleaseNotes(String notes) {
-        if (notes == null) return "";
-        String normalized = notes.replace("\r\n", "\n").trim();
-        String[] lines = normalized.split("\n");
-        StringBuilder cleaned = new StringBuilder(normalized.length());
-        boolean lastWasBlank = false;
+    private void renderSourceStatus(TextView view, OtaUpdateManager.SourceStatus status, boolean checking) {
+        if (view == null) return;
 
-        for (String rawLine : lines) {
-            String line = rawLine == null ? "" : rawLine.trim();
-            line = stripMarkdownPrefix(line);
-            line = line.replace("**", "").replace("__", "").replace("`", "").trim();
-
-            if (line.isEmpty()) {
-                if (!lastWasBlank && cleaned.length() > 0) {
-                    cleaned.append("\n\n");
-                }
-                lastWasBlank = true;
-                continue;
-            }
-
-            if (cleaned.length() > 0 && !lastWasBlank) {
-                cleaned.append('\n');
-            }
-            cleaned.append(line);
-            lastWasBlank = false;
+        if (checking) {
+            view.setText(R.string.ota_source_status_loading);
+            view.setTextColor(ContextCompat.getColor(activity, R.color.settings_text_secondary));
+            return;
         }
-        return cleaned.toString().trim();
-    }
 
-    private static String stripMarkdownPrefix(String line) {
-        if (line == null || line.isEmpty()) return "";
-
-        String normalized = line.replaceFirst("^#{1,6}\\s*", "");
-        normalized = normalized.replaceFirst("^>\\s*", "");
-
-        if (normalized.matches("^[-*+]\\s+.*")) {
-            return "\u2022 " + normalized.substring(2).trim();
+        if (status != null && status.available) {
+            view.setText(activity.getString(R.string.ota_source_status_available, status.sourceName));
+            view.setTextColor(ContextCompat.getColor(activity, R.color.settings_update_ok_text));
+            return;
         }
-        if (normalized.matches("^\\d+\\.\\s+.*")) {
-            return normalized;
-        }
-        return normalized.trim();
-    }
 
-    private static String firstNonEmpty(String... values) {
-        for (String value : values) {
-            if (value != null && !value.trim().isEmpty()) {
-                return value;
-            }
-        }
-        return "";
+        String sourceName = status != null && status.sourceName != null && !status.sourceName.trim().isEmpty()
+                ? status.sourceName
+                : "";
+        view.setText(activity.getString(R.string.ota_source_status_unavailable, sourceName));
+        view.setTextColor(ContextCompat.getColor(activity, R.color.settings_beta));
     }
 
     // -------------------------------------------------------------------------

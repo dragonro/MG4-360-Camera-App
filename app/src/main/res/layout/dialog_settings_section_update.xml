@@ -39,6 +39,29 @@
         android:layout_marginTop="0dp"
         android:text="@string/ota_update_channel_loading" />
 
+    <TextView
+        style="@style/DrivehubSettingsSectionHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:layout_marginBottom="10dp"
+        android:text="@string/settings_section_update_status" />
+
+    <TextView
+        android:id="@+id/tvUpdateSourceGithub"
+        style="@style/DrivehubSettingsDetailText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/ota_source_status_loading" />
+
+    <TextView
+        android:id="@+id/tvUpdateSourceGitlab"
+        style="@style/DrivehubSettingsDetailText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/ota_source_status_loading" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"

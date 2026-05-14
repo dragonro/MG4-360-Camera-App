@@ -8,9 +8,11 @@ final class UiPrefs {
 
     static final String REC_PREFS_NAME = "rec_prefs";
     static final String KEY_TILE_CORNER_RADIUS = "tileCornerRadius";
+    static final String KEY_ACCENT_COLOR = "accentColor";
     static final String KEY_ALLOW_BETA_UPDATES = "allowBetaUpdates";
     static final int MAX_TILE_CORNER_RADIUS = 35;
     private static final int DEFAULT_TILE_CORNER_RADIUS = 16;
+    private static final String DEFAULT_ACCENT_COLOR = "#E7E7E7";
 
     private UiPrefs() {
     }
@@ -24,7 +26,7 @@ final class UiPrefs {
     }
 
     static boolean isBetaUpdatesEnabled(SharedPreferences prefs) {
-        return prefs.getBoolean(KEY_ALLOW_BETA_UPDATES, BuildConfig.IS_BETA);
+        return prefs.getBoolean(KEY_ALLOW_BETA_UPDATES, false);
     }
 
     static float getCornerRadiusFraction(SharedPreferences prefs) {
@@ -34,6 +36,51 @@ final class UiPrefs {
     static float getCornerRadiusPx(View view, SharedPreferences prefs) {
         int minSize = Math.min(view.getWidth(), view.getHeight());
         return minSize * 0.5f * getCornerRadiusFraction(prefs);
+    }
+
+    static String getAccentColorSetting(SharedPreferences prefs) {
+        return normalizeAccentColor(prefs.getString(KEY_ACCENT_COLOR, DEFAULT_ACCENT_COLOR));
+    }
+
+    static int getAccentColorInt(SharedPreferences prefs) {
+        try {
+            return android.graphics.Color.parseColor(getAccentColorSetting(prefs));
+        } catch (IllegalArgumentException ignored) {
+            return android.graphics.Color.parseColor(DEFAULT_ACCENT_COLOR);
+        }
+    }
+
+    static String normalizeAccentColor(String value) {
+        if (value == null) return DEFAULT_ACCENT_COLOR;
+        String trimmed = value.trim().toUpperCase(java.util.Locale.US);
+        if (trimmed.isEmpty()) return DEFAULT_ACCENT_COLOR;
+        if (!trimmed.startsWith("#")) {
+            trimmed = "#" + trimmed;
+        }
+        if (trimmed.matches("^#[0-9A-F]{6}$")) {
+            return trimmed;
+        }
+        if (trimmed.matches("^#[0-9A-F]{8}$")) {
+            return trimmed;
+        }
+        return DEFAULT_ACCENT_COLOR;
+    }
+
+    static Integer tryParseAccentColorOrNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim().toUpperCase(java.util.Locale.US);
+        if (trimmed.isEmpty()) return null;
+        if (!trimmed.startsWith("#")) {
+            trimmed = "#" + trimmed;
+        }
+        if (!trimmed.matches("^#[0-9A-F]{6}$") && !trimmed.matches("^#[0-9A-F]{8}$")) {
+            return null;
+        }
+        try {
+            return android.graphics.Color.parseColor(trimmed);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     private static int clampRadiusSetting(int value) {

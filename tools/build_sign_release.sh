@@ -37,6 +37,8 @@ echo "Created release artifacts:"
 echo "  APK: ${SIGNED_APK}"
 echo "  SHA: ${SHA_FILE}"
 echo
+# The GitLab mirror job copies release assets from GitHub, so uploading the SHA sidecar
+# here is required for both sources to offer a verifiable OTA download.
 echo "Upload both files as GitHub release assets:"
 echo "  - ${ARTIFACT_BASENAME}"
 echo "  - ${ARTIFACT_BASENAME}.sha256"
