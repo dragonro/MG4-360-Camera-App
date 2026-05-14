@@ -26,8 +26,8 @@ import java.util.concurrent.Executors;
 
 final class OtaUpdateManager {
 
-    private static final String LATEST_RELEASE_URL =
-            "https://api.github.com/repos/jamakr4/MG4-360-Camera-App/releases/latest";
+    private static final String RELEASES_URL =
+            "https://api.github.com/repos/jamakr4/MG4-360-Camera-App/releases?per_page=20";
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
 
@@ -44,10 +44,13 @@ final class OtaUpdateManager {
         final String currentVersion;
         final String latestVersion;
         final String releaseName;
+        final String releaseNotes;
         final String downloadUrl;
         final String assetFileName;
         final String expectedSha256;
         final String message;
+        final boolean prerelease;
+        final boolean betaAllowed;
 
         UpdateInfo(
                 boolean success,
@@ -55,20 +58,26 @@ final class OtaUpdateManager {
                 String currentVersion,
                 String latestVersion,
                 String releaseName,
+                String releaseNotes,
                 String downloadUrl,
                 String assetFileName,
                 String expectedSha256,
-                String message
+                String message,
+                boolean prerelease,
+                boolean betaAllowed
         ) {
             this.success = success;
             this.updateAvailable = updateAvailable;
             this.currentVersion = currentVersion;
             this.latestVersion = latestVersion;
             this.releaseName = releaseName;
+            this.releaseNotes = releaseNotes;
             this.downloadUrl = downloadUrl;
             this.assetFileName = assetFileName;
             this.expectedSha256 = expectedSha256;
             this.message = message;
+            this.prerelease = prerelease;
+            this.betaAllowed = betaAllowed;
         }
     }
 
@@ -76,10 +85,10 @@ final class OtaUpdateManager {
         void onResult(boolean success, String computedSha256, String message);
     }
 
-    static void checkForUpdates(Context context, CheckCallback callback) {
+    static void checkForUpdates(Context context, boolean allowBetaUpdates, CheckCallback callback) {
         final Context appContext = context.getApplicationContext();
         EXECUTOR.execute(() -> {
-            UpdateInfo info = fetchLatestRelease(appContext);
+            UpdateInfo info = fetchLatestRelease(appContext, allowBetaUpdates);
             MAIN_HANDLER.post(() -> callback.onResult(info));
         });
     }
@@ -137,10 +146,10 @@ final class OtaUpdateManager {
         });
     }
 
-    private static UpdateInfo fetchLatestRelease(Context context) {
+    private static UpdateInfo fetchLatestRelease(Context context, boolean allowBetaUpdates) {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(LATEST_RELEASE_URL).openConnection();
+            connection = (HttpURLConnection) new URL(RELEASES_URL).openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(7000);
             connection.setReadTimeout(7000);
@@ -158,12 +167,32 @@ final class OtaUpdateManager {
                         null,
                         null,
                         null,
-                        "HTTP " + status
+                        null,
+                        "HTTP " + status,
+                        false,
+                        allowBetaUpdates
                 );
             }
 
             String json = readFully(connection.getInputStream());
-            JSONObject release = new JSONObject(json);
+            JSONArray releases = new JSONArray(json);
+            JSONObject release = selectRelease(releases, allowBetaUpdates);
+            if (release == null) {
+                return new UpdateInfo(
+                        false,
+                        false,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_NAME,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        context.getString(R.string.ota_error_no_release),
+                        false,
+                        allowBetaUpdates
+                );
+            }
             String latestVersion = normalizeVersion(
                     firstNonEmpty(
                             release.optString("tag_name", null),
@@ -172,6 +201,8 @@ final class OtaUpdateManager {
                     )
             );
             String releaseName = firstNonEmpty(release.optString("name", null), latestVersion);
+            String releaseNotes = firstNonEmpty(release.optString("body", null), "");
+            boolean prerelease = release.optBoolean("prerelease", false);
 
             ApkAsset apkAsset = selectApkAsset(release.optJSONArray("assets"));
             if (apkAsset == null) {
@@ -181,10 +212,13 @@ final class OtaUpdateManager {
                         BuildConfig.VERSION_NAME,
                         latestVersion,
                         releaseName,
+                        releaseNotes,
                         null,
                         null,
                         null,
-                        context.getString(R.string.ota_error_no_apk)
+                        context.getString(R.string.ota_error_no_apk),
+                        prerelease,
+                        allowBetaUpdates
                 );
             }
 
@@ -199,10 +233,13 @@ final class OtaUpdateManager {
                             BuildConfig.VERSION_NAME,
                             latestVersion,
                             releaseName,
+                            releaseNotes,
                             apkAsset.downloadUrl,
                             apkAsset.name,
                             null,
-                            context.getString(R.string.ota_error_no_hash)
+                            context.getString(R.string.ota_error_no_hash),
+                            prerelease,
+                            allowBetaUpdates
                     );
                 }
                 String hashFileContent = readUrl(hashAsset.downloadUrl);
@@ -214,10 +251,13 @@ final class OtaUpdateManager {
                             BuildConfig.VERSION_NAME,
                             latestVersion,
                             releaseName,
+                            releaseNotes,
                             apkAsset.downloadUrl,
                             apkAsset.name,
                             null,
-                            context.getString(R.string.ota_error_invalid_hash)
+                            context.getString(R.string.ota_error_invalid_hash),
+                            prerelease,
+                            allowBetaUpdates
                     );
                 }
             }
@@ -227,12 +267,15 @@ final class OtaUpdateManager {
                     BuildConfig.VERSION_NAME,
                     latestVersion,
                     releaseName,
+                    releaseNotes,
                     apkAsset.downloadUrl,
                     apkAsset.name,
                     expectedSha256,
                     updateAvailable
                             ? context.getString(R.string.ota_status_update_available, latestVersion)
-                            : context.getString(R.string.ota_status_up_to_date)
+                            : context.getString(R.string.ota_status_up_to_date),
+                    prerelease,
+                    allowBetaUpdates
             );
         } catch (Exception t) {
             return new UpdateInfo(
@@ -244,13 +287,49 @@ final class OtaUpdateManager {
                     null,
                     null,
                     null,
-                    t.getClass().getSimpleName()
+                    null,
+                    t.getClass().getSimpleName(),
+                    false,
+                    allowBetaUpdates
             );
         } finally {
             if (connection != null) {
                 connection.disconnect();
             }
         }
+    }
+
+    private static JSONObject selectRelease(JSONArray releases, boolean allowBetaUpdates) {
+        if (releases == null || releases.length() == 0) return null;
+
+        JSONObject best = null;
+        String bestVersion = null;
+        for (int i = 0; i < releases.length(); i += 1) {
+            JSONObject candidate = releases.optJSONObject(i);
+            if (candidate == null || candidate.optBoolean("draft", false)) continue;
+            boolean prerelease = candidate.optBoolean("prerelease", false);
+            if (prerelease && !allowBetaUpdates) continue;
+
+            String candidateVersion = normalizeVersion(firstNonEmpty(
+                    candidate.optString("tag_name", null),
+                    candidate.optString("name", null),
+                    ""
+            ));
+            if (candidateVersion.isEmpty()) continue;
+
+            if (best == null) {
+                best = candidate;
+                bestVersion = candidateVersion;
+                continue;
+            }
+
+            int compare = compareVersions(candidateVersion, bestVersion);
+            if (compare > 0 || (compare == 0 && !prerelease && best.optBoolean("prerelease", false))) {
+                best = candidate;
+                bestVersion = candidateVersion;
+            }
+        }
+        return best;
     }
 
     private static ApkAsset selectApkAsset(JSONArray assets) {

@@ -8,6 +8,7 @@ final class UiPrefs {
 
     static final String REC_PREFS_NAME = "rec_prefs";
     static final String KEY_TILE_CORNER_RADIUS = "tileCornerRadius";
+    static final String KEY_ALLOW_BETA_UPDATES = "allowBetaUpdates";
     static final int MAX_TILE_CORNER_RADIUS = 35;
     private static final int DEFAULT_TILE_CORNER_RADIUS = 16;
 
@@ -20,6 +21,10 @@ final class UiPrefs {
 
     static int getTileCornerRadiusSetting(SharedPreferences prefs) {
         return clampRadiusSetting(prefs.getInt(KEY_TILE_CORNER_RADIUS, DEFAULT_TILE_CORNER_RADIUS));
+    }
+
+    static boolean isBetaUpdatesEnabled(SharedPreferences prefs) {
+        return prefs.getBoolean(KEY_ALLOW_BETA_UPDATES, BuildConfig.IS_BETA);
     }
 
     static float getCornerRadiusFraction(SharedPreferences prefs) {

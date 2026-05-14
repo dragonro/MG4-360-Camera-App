@@ -3,12 +3,15 @@ package com.drivehub.kamera;
 import android.app.Dialog;
 import android.app.DownloadManager;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.CompoundButton;
 import android.widget.ProgressBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,16 +34,46 @@ final class OtaController {
     private boolean verificationInFlight = false;
     private boolean verificationPassed = false;
     private OtaUpdateManager.UpdateInfo activeDownloadInfo;
+    private TextView releaseTitleView;
+    private TextView releaseChannelView;
+    private TextView changelogView;
+    private Switch betaSwitch;
+    private boolean suppressBetaToggleCallback = false;
 
     OtaController(AppCompatActivity activity) {
         this.activity = activity;
     }
 
     // Called once per settings dialog open.
-    void setup(Dialog settingsDialog, TextView updateTag) {
+    void setup(
+            Dialog settingsDialog,
+            TextView updateTag,
+            Switch allowBetaSwitch,
+            TextView releaseTitle,
+            TextView releaseChannel,
+            TextView changelog
+    ) {
         lastCheckInfo = null;
+        releaseTitleView = releaseTitle;
+        releaseChannelView = releaseChannel;
+        changelogView = changelog;
+        betaSwitch = allowBetaSwitch;
+
+        SharedPreferences prefs = UiPrefs.getPrefs(activity);
+        if (betaSwitch != null) {
+            suppressBetaToggleCallback = true;
+            betaSwitch.setChecked(UiPrefs.isBetaUpdatesEnabled(prefs));
+            suppressBetaToggleCallback = false;
+            betaSwitch.setOnCheckedChangeListener((CompoundButton buttonView, boolean isChecked) -> {
+                if (suppressBetaToggleCallback) return;
+                prefs.edit().putBoolean(UiPrefs.KEY_ALLOW_BETA_UPDATES, isChecked).apply();
+                triggerCheck(settingsDialog, updateTag, true);
+            });
+        }
+
         if (updateTag == null) return;
         renderTagState(updateTag, null, true);
+        renderUpdateSection(null, true);
         updateTag.setClickable(true);
         updateTag.setFocusable(true);
         updateTag.setOnClickListener(v -> {
@@ -359,10 +392,14 @@ final class OtaController {
             Toast.makeText(activity, R.string.ota_toast_checking, Toast.LENGTH_SHORT).show();
         }
         renderTagState(updateTag, null, true);
-        OtaUpdateManager.checkForUpdates(activity, info -> {
+        renderUpdateSection(null, true);
+        SharedPreferences prefs = UiPrefs.getPrefs(activity);
+        boolean allowBetaUpdates = UiPrefs.isBetaUpdatesEnabled(prefs);
+        OtaUpdateManager.checkForUpdates(activity, allowBetaUpdates, info -> {
             lastCheckInfo = info;
             if (settingsDialog == null || !settingsDialog.isShowing()) return;
             renderTagState(updateTag, info, false);
+            renderUpdateSection(info, false);
         });
     }
 
@@ -394,6 +431,103 @@ final class OtaController {
         tag.setText(R.string.ota_status_check_failed);
         tag.setTextColor(ContextCompat.getColor(activity, R.color.settings_update_error_text));
         tag.setBackgroundResource(R.drawable.bg_settings_footer_tag_neutral);
+    }
+
+    private void renderUpdateSection(OtaUpdateManager.UpdateInfo info, boolean checking) {
+        if (releaseTitleView != null) {
+            if (checking) {
+                releaseTitleView.setText(R.string.ota_update_section_loading);
+            } else if (info != null && info.success) {
+                String versionLabel = info.prerelease
+                        ? activity.getString(R.string.ota_release_title_beta, info.latestVersion)
+                        : activity.getString(R.string.ota_release_title_stable, info.latestVersion);
+                releaseTitleView.setText(firstNonEmpty(info.releaseName, versionLabel));
+            } else {
+                releaseTitleView.setText(R.string.ota_update_section_unavailable);
+            }
+        }
+
+        if (releaseChannelView != null) {
+            if (checking) {
+                releaseChannelView.setText(R.string.ota_update_channel_loading);
+            } else if (info != null && info.success) {
+                int channelString = info.betaAllowed
+                        ? R.string.ota_update_channel_beta_enabled
+                        : R.string.ota_update_channel_stable_only;
+                String releaseType = activity.getString(
+                        info.prerelease ? R.string.ota_release_type_beta : R.string.ota_release_type_stable
+                );
+                releaseChannelView.setText(activity.getString(channelString, releaseType));
+            } else {
+                releaseChannelView.setText(R.string.ota_update_channel_error);
+            }
+        }
+
+        if (changelogView != null) {
+            if (checking) {
+                changelogView.setText(R.string.ota_update_changelog_loading);
+            } else if (info != null && info.success) {
+                String notes = normalizeReleaseNotes(info.releaseNotes);
+                changelogView.setText(notes.isEmpty()
+                        ? activity.getString(R.string.ota_update_changelog_empty)
+                        : notes);
+            } else {
+                changelogView.setText(R.string.ota_update_changelog_error);
+            }
+        }
+    }
+
+    private static String normalizeReleaseNotes(String notes) {
+        if (notes == null) return "";
+        String normalized = notes.replace("\r\n", "\n").trim();
+        String[] lines = normalized.split("\n");
+        StringBuilder cleaned = new StringBuilder(normalized.length());
+        boolean lastWasBlank = false;
+
+        for (String rawLine : lines) {
+            String line = rawLine == null ? "" : rawLine.trim();
+            line = stripMarkdownPrefix(line);
+            line = line.replace("**", "").replace("__", "").replace("`", "").trim();
+
+            if (line.isEmpty()) {
+                if (!lastWasBlank && cleaned.length() > 0) {
+                    cleaned.append("\n\n");
+                }
+                lastWasBlank = true;
+                continue;
+            }
+
+            if (cleaned.length() > 0 && !lastWasBlank) {
+                cleaned.append('\n');
+            }
+            cleaned.append(line);
+            lastWasBlank = false;
+        }
+        return cleaned.toString().trim();
+    }
+
+    private static String stripMarkdownPrefix(String line) {
+        if (line == null || line.isEmpty()) return "";
+
+        String normalized = line.replaceFirst("^#{1,6}\\s*", "");
+        normalized = normalized.replaceFirst("^>\\s*", "");
+
+        if (normalized.matches("^[-*+]\\s+.*")) {
+            return "\u2022 " + normalized.substring(2).trim();
+        }
+        if (normalized.matches("^\\d+\\.\\s+.*")) {
+            return normalized;
+        }
+        return normalized.trim();
+    }
+
+    private static String firstNonEmpty(String... values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return "";
     }
 
     // -------------------------------------------------------------------------
