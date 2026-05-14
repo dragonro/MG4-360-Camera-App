@@ -20,6 +20,7 @@ jobs:
         env:
           GITLAB_URL: ${{ secrets.GITLAB_URL }}        
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}    
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         run: |
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@${GITLAB_URL#https://}"
           git push gitlab --all --force
