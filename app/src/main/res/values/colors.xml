@@ -10,6 +10,12 @@
     <color name="settings_text_highlight">#B3E7E7E7</color>
     <color name="settings_text_muted">#555555</color>
     <color name="settings_beta">#FF5A5A</color>
+    <color name="settings_update_ok_bg">#1F5E9F3A</color>
+    <color name="settings_update_ok_text">#BDE99C</color>
+    <color name="settings_update_available_bg">#1FCC8B00</color>
+    <color name="settings_update_available_text">#FFD786</color>
+    <color name="settings_update_error_bg">#26A0A0A0</color>
+    <color name="settings_update_error_text">#D1D1D1</color>
     <color name="settings_divider">#2D2D2D</color>
     <color name="settings_button_surface">#26E7E7E7</color>
     <color name="settings_button_surface_pressed">#3DE7E7E7</color>

@@ -1,0 +1,474 @@
+package com.drivehub.kamera;
+
+import android.app.Dialog;
+import android.app.DownloadManager;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
+
+import java.io.File;
+import java.util.Locale;
+
+final class OtaController {
+
+    private final AppCompatActivity activity;
+
+    private OtaUpdateManager.UpdateInfo lastCheckInfo;
+    private final Handler progressHandler = new Handler(Looper.getMainLooper());
+    private Runnable progressRunnable;
+    private Dialog progressDialog;
+    private long verificationDownloadId = -1L;
+    private boolean verificationInFlight = false;
+    private boolean verificationPassed = false;
+    private OtaUpdateManager.UpdateInfo activeDownloadInfo;
+
+    OtaController(AppCompatActivity activity) {
+        this.activity = activity;
+    }
+
+    // Called once per settings dialog open.
+    void setup(Dialog settingsDialog, TextView updateTag) {
+        lastCheckInfo = null;
+        if (updateTag == null) return;
+        renderTagState(updateTag, null, true);
+        updateTag.setClickable(true);
+        updateTag.setFocusable(true);
+        updateTag.setOnClickListener(v -> {
+            OtaUpdateManager.UpdateInfo info =
+                    (OtaUpdateManager.UpdateInfo) updateTag.getTag(R.id.tag_ota_update_info);
+            if (info == null) info = lastCheckInfo;
+            if (info != null && info.success && info.updateAvailable) {
+                maybeStartDownload(info);
+                return;
+            }
+            showRefreshDialog(settingsDialog, updateTag);
+        });
+        triggerCheck(settingsDialog, updateTag, false);
+    }
+
+    // Called from onStop and onDestroy.
+    void stop() {
+        stopProgressWatcher();
+    }
+
+    // -------------------------------------------------------------------------
+    // Download flow
+    // -------------------------------------------------------------------------
+
+    private void maybeStartDownload(OtaUpdateManager.UpdateInfo info) {
+        if (info == null || info.expectedSha256 == null || info.expectedSha256.trim().isEmpty()) {
+            OtaDialogs.showMessageDialog(
+                    activity,
+                    info != null && info.message != null && !info.message.trim().isEmpty()
+                            ? info.message
+                            : activity.getString(R.string.ota_error_no_hash)
+            );
+            return;
+        }
+        NetworkStateHelper.Transport transport = NetworkStateHelper.getActiveTransport(activity);
+        if (transport == NetworkStateHelper.Transport.CELLULAR) {
+            OtaDialogs.showConfirmDialog(
+                    activity,
+                    activity.getString(R.string.ota_dialog_mobile_warning_message, info.latestVersion),
+                    activity.getString(R.string.ota_action_download_anyway),
+                    () -> startDownload(info)
+            );
+            return;
+        }
+        startDownload(info);
+    }
+
+    private void startDownload(OtaUpdateManager.UpdateInfo info) {
+        try {
+            long downloadId = OtaUpdateManager.enqueueDownload(activity, info);
+            activeDownloadInfo = info;
+            showProgressDialog(info, downloadId);
+        } catch (Throwable t) {
+            OtaDialogs.showMessageDialog(
+                    activity,
+                    activity.getString(R.string.ota_dialog_download_failed_message, t.getClass().getSimpleName())
+            );
+        }
+    }
+
+    private void showProgressDialog(OtaUpdateManager.UpdateInfo info, long downloadId) {
+        stopProgressWatcher();
+        OtaDialogs.ProgressDialogHandle handle = OtaDialogs.showProgressDialog(
+                activity,
+                activity.getString(R.string.ota_dialog_download_started_message, info.latestVersion),
+                this::openDownloads,
+                () -> retryDownload(downloadId),
+                () -> installUpdate(downloadId)
+        );
+        progressDialog = handle.dialog;
+        progressDialog.setOnDismissListener(d -> stopProgressWatcher());
+        verificationDownloadId = -1L;
+        verificationInFlight = false;
+        verificationPassed = false;
+
+        final TextView statusView = handle.statusView;
+        final ProgressBar progressBar = handle.progressBar;
+        final View retryButton = handle.retryButton;
+        final View installButton = handle.installButton;
+        progressRunnable = new Runnable() {
+            @Override
+            public void run() {
+                boolean cont = tickProgress(downloadId, progressBar, statusView, retryButton, installButton);
+                if (cont && progressDialog != null && progressDialog.isShowing()) {
+                    progressHandler.postDelayed(this, 500L);
+                }
+            }
+        };
+        progressHandler.post(progressRunnable);
+    }
+
+    private boolean tickProgress(long downloadId, ProgressBar progressBar, TextView statusView,
+                                 View retryButton, View installButton) {
+        DownloadManager dm = activity.getSystemService(DownloadManager.class);
+        if (dm == null) {
+            if (statusView != null) statusView.setText(R.string.ota_progress_unavailable);
+            if (retryButton != null) retryButton.setVisibility(View.GONE);
+            if (installButton != null) installButton.setVisibility(View.GONE);
+            return false;
+        }
+
+        try (Cursor cursor = dm.query(new DownloadManager.Query().setFilterById(downloadId))) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                if (statusView != null) statusView.setText(R.string.ota_progress_missing);
+                if (retryButton != null) retryButton.setVisibility(View.VISIBLE);
+                if (installButton != null) installButton.setVisibility(View.GONE);
+                return false;
+            }
+
+            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+            long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+            int pct = (total > 0L) ? (int) ((downloaded * 100L) / total) : 0;
+            int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+
+            updateProgressBar(progressBar, total, pct);
+            if (statusView != null) {
+                statusView.setText(progressStatusText(status, pct, downloaded, total, reason));
+            }
+
+            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                if (retryButton != null) retryButton.setVisibility(View.GONE);
+                if (progressBar != null) {
+                    progressBar.setIndeterminate(false);
+                    progressBar.setMax(100);
+                    progressBar.setProgress(100);
+                }
+                if (verificationPassed) {
+                    if (installButton != null) installButton.setVisibility(View.VISIBLE);
+                    return false;
+                }
+                if (installButton != null) installButton.setVisibility(View.GONE);
+                if (!verificationInFlight || verificationDownloadId != downloadId) {
+                    startVerification(downloadId, statusView, installButton);
+                } else if (statusView != null) {
+                    statusView.setText(R.string.ota_progress_verifying);
+                }
+                return true;
+            }
+
+            if (retryButton != null) {
+                retryButton.setVisibility(status == DownloadManager.STATUS_FAILED ? View.VISIBLE : View.GONE);
+            }
+            if (installButton != null) installButton.setVisibility(View.GONE);
+            return status == DownloadManager.STATUS_PENDING
+                    || status == DownloadManager.STATUS_RUNNING
+                    || status == DownloadManager.STATUS_PAUSED;
+
+        } catch (Throwable t) {
+            if (statusView != null) {
+                statusView.setText(activity.getString(R.string.ota_progress_failed_reason, t.getClass().getSimpleName()));
+            }
+            if (retryButton != null) retryButton.setVisibility(View.VISIBLE);
+            if (installButton != null) installButton.setVisibility(View.GONE);
+            return false;
+        }
+    }
+
+    private void updateProgressBar(ProgressBar bar, long total, int pct) {
+        if (bar == null) return;
+        if (total > 0L) {
+            bar.setIndeterminate(false);
+            bar.setMax(100);
+            bar.setProgress(Math.max(0, Math.min(100, pct)));
+        } else {
+            bar.setIndeterminate(true);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Verification
+    // -------------------------------------------------------------------------
+
+    private void startVerification(long downloadId, TextView statusView, View installButton) {
+        if (verificationInFlight && verificationDownloadId == downloadId) return;
+        verificationDownloadId = downloadId;
+        verificationInFlight = true;
+        verificationPassed = false;
+        if (installButton != null) installButton.setVisibility(View.GONE);
+        if (statusView != null) statusView.setText(R.string.ota_progress_verifying);
+
+        File apkFile;
+        try {
+            apkFile = resolveApkFile(downloadId);
+        } catch (Exception e) {
+            verificationInFlight = false;
+            if (statusView != null) {
+                statusView.setText(activity.getString(
+                        R.string.ota_progress_integrity_failed, e.getClass().getSimpleName()));
+            }
+            return;
+        }
+
+        OtaUpdateManager.verifyDownloadedApk(apkFile, activeDownloadInfo, (success, computedSha256, message) -> {
+            if (downloadId != verificationDownloadId) return;
+            verificationInFlight = false;
+            verificationPassed = success;
+            if (statusView != null) {
+                if (success) {
+                    statusView.setText(R.string.ota_progress_verified);
+                } else {
+                    statusView.setText(activity.getString(R.string.ota_progress_integrity_failed, message));
+                }
+            }
+            if (installButton != null) {
+                installButton.setVisibility(success ? View.VISIBLE : View.GONE);
+            }
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Install
+    // -------------------------------------------------------------------------
+
+    private void installUpdate(long downloadId) {
+        try {
+            File apkFile = resolveApkFile(downloadId);
+            if (apkFile == null || !apkFile.exists()) {
+                throw new IllegalStateException("Downloaded APK not found");
+            }
+            Uri apkUri = FileProvider.getUriForFile(
+                    activity,
+                    BuildConfig.APPLICATION_ID + ".fileprovider",
+                    apkFile
+            );
+            Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+            installIntent.setData(apkUri);
+            installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            installIntent.putExtra(Intent.EXTRA_RETURN_RESULT, false);
+
+            android.content.pm.PackageManager pm = activity.getPackageManager();
+            if (pm != null && installIntent.resolveActivity(pm) != null) {
+                activity.startActivity(installIntent);
+                return;
+            }
+            Intent fallback = new Intent(Intent.ACTION_VIEW);
+            fallback.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            fallback.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            activity.startActivity(fallback);
+        } catch (Exception e) {
+            OtaDialogs.showMessageDialog(
+                    activity,
+                    activity.getString(R.string.ota_dialog_install_failed_message, e.getClass().getSimpleName())
+            );
+        }
+    }
+
+    private File resolveApkFile(long downloadId) throws Exception {
+        DownloadManager dm = activity.getSystemService(DownloadManager.class);
+        if (dm == null) return null;
+        try (Cursor cursor = dm.query(new DownloadManager.Query().setFilterById(downloadId))) {
+            if (cursor == null || !cursor.moveToFirst()) return null;
+            String localUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
+            if (localUri == null || localUri.isEmpty()) return null;
+            Uri uri = Uri.parse(localUri);
+            if (!"file".equalsIgnoreCase(uri.getScheme())) return null;
+            return new File(uri.getPath());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Retry & cleanup
+    // -------------------------------------------------------------------------
+
+    private void retryDownload(long failedDownloadId) {
+        OtaUpdateManager.UpdateInfo info = activeDownloadInfo;
+        cleanupFailedDownload(failedDownloadId);
+        if (progressDialog != null && progressDialog.isShowing()) {
+            progressDialog.dismiss();
+        }
+        if (info != null) {
+            startDownload(info);
+        } else {
+            OtaDialogs.showMessageDialog(activity, activity.getString(R.string.ota_status_check_failed));
+        }
+    }
+
+    private void cleanupFailedDownload(long downloadId) {
+        if (downloadId <= 0L) return;
+        try {
+            DownloadManager dm = activity.getSystemService(DownloadManager.class);
+            if (dm != null) dm.remove(downloadId);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void stopProgressWatcher() {
+        if (progressRunnable != null) {
+            progressHandler.removeCallbacks(progressRunnable);
+            progressRunnable = null;
+        }
+        verificationDownloadId = -1L;
+        verificationInFlight = false;
+        verificationPassed = false;
+        activeDownloadInfo = null;
+        if (progressDialog != null && progressDialog.isShowing()) {
+            progressDialog.dismiss();
+        }
+        progressDialog = null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Check flow
+    // -------------------------------------------------------------------------
+
+    private void showRefreshDialog(Dialog settingsDialog, TextView updateTag) {
+        OtaDialogs.showRefreshDialog(
+                activity,
+                lastCheckInfo,
+                () -> triggerCheck(settingsDialog, updateTag, true)
+        );
+    }
+
+    private void triggerCheck(Dialog settingsDialog, TextView updateTag, boolean showToast) {
+        if (showToast) {
+            Toast.makeText(activity, R.string.ota_toast_checking, Toast.LENGTH_SHORT).show();
+        }
+        renderTagState(updateTag, null, true);
+        OtaUpdateManager.checkForUpdates(activity, info -> {
+            lastCheckInfo = info;
+            if (settingsDialog == null || !settingsDialog.isShowing()) return;
+            renderTagState(updateTag, info, false);
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Tag rendering
+    // -------------------------------------------------------------------------
+
+    private void renderTagState(TextView tag, OtaUpdateManager.UpdateInfo info, boolean checking) {
+        if (tag == null) return;
+        tag.setTag(R.id.tag_ota_update_info, info);
+        if (checking) {
+            tag.setText(R.string.ota_status_checking);
+            tag.setTextColor(ContextCompat.getColor(activity, R.color.settings_update_error_text));
+            tag.setBackgroundResource(R.drawable.bg_settings_footer_tag_neutral);
+            return;
+        }
+        if (info != null && info.success && info.updateAvailable) {
+            tag.setText(activity.getString(R.string.ota_status_update_available, info.latestVersion));
+            tag.setTextColor(ContextCompat.getColor(activity, R.color.settings_update_available_text));
+            tag.setBackgroundResource(R.drawable.bg_settings_footer_tag_update);
+            return;
+        }
+        if (info != null && info.success) {
+            tag.setText(R.string.ota_status_up_to_date);
+            tag.setTextColor(ContextCompat.getColor(activity, R.color.settings_update_ok_text));
+            tag.setBackgroundResource(R.drawable.bg_settings_footer_tag_ok);
+            return;
+        }
+        tag.setText(R.string.ota_status_check_failed);
+        tag.setTextColor(ContextCompat.getColor(activity, R.color.settings_update_error_text));
+        tag.setBackgroundResource(R.drawable.bg_settings_footer_tag_neutral);
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    private void openDownloads() {
+        Intent intent = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            activity.startActivity(intent);
+        } catch (Throwable t) {
+            Toast.makeText(activity, R.string.ota_toast_open_downloads_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private CharSequence progressStatusText(int status, int pct, long downloaded, long total, int reason) {
+        if (status == DownloadManager.STATUS_SUCCESSFUL) {
+            return activity.getString(R.string.ota_progress_complete);
+        }
+        if (status == DownloadManager.STATUS_FAILED) {
+            String r = reasonText(status, reason);
+            return r == null
+                    ? activity.getString(R.string.ota_progress_failed)
+                    : activity.getString(R.string.ota_progress_failed_reason, r);
+        }
+        if (status == DownloadManager.STATUS_PAUSED) {
+            String r = reasonText(status, reason);
+            return r == null
+                    ? activity.getString(R.string.ota_progress_paused, pct)
+                    : activity.getString(R.string.ota_progress_paused_reason, pct, r);
+        }
+        if (status == DownloadManager.STATUS_PENDING) {
+            return activity.getString(R.string.ota_progress_pending);
+        }
+        if (total > 0L) {
+            return activity.getString(R.string.ota_progress_downloading,
+                    pct, formatBytes(downloaded), formatBytes(total));
+        }
+        return activity.getString(R.string.ota_progress_running_unknown, formatBytes(downloaded));
+    }
+
+    private static String formatBytes(long bytes) {
+        if (bytes < 1024L) return bytes + " B";
+        double kb = bytes / 1024.0;
+        if (kb < 1024.0) return String.format(Locale.US, "%.1f KB", kb);
+        double mb = kb / 1024.0;
+        if (mb < 1024.0) return String.format(Locale.US, "%.1f MB", mb);
+        return String.format(Locale.US, "%.2f GB", mb / 1024.0);
+    }
+
+    private static String reasonText(int status, int reason) {
+        if (status == DownloadManager.STATUS_PAUSED) {
+            switch (reason) {
+                case DownloadManager.PAUSED_WAITING_TO_RETRY:    return "waiting to retry";
+                case DownloadManager.PAUSED_WAITING_FOR_NETWORK: return "waiting for network";
+                case DownloadManager.PAUSED_QUEUED_FOR_WIFI:     return "queued for Wi-Fi";
+                case DownloadManager.PAUSED_UNKNOWN:             return "paused by system";
+                default:                                         return "reason " + reason;
+            }
+        }
+        if (status == DownloadManager.STATUS_FAILED) {
+            switch (reason) {
+                case DownloadManager.ERROR_CANNOT_RESUME:       return "cannot resume";
+                case DownloadManager.ERROR_DEVICE_NOT_FOUND:    return "storage device not found";
+                case DownloadManager.ERROR_FILE_ALREADY_EXISTS: return "file already exists";
+                case DownloadManager.ERROR_FILE_ERROR:          return "file error";
+                case DownloadManager.ERROR_HTTP_DATA_ERROR:     return "HTTP data error";
+                case DownloadManager.ERROR_INSUFFICIENT_SPACE:  return "insufficient storage";
+                case DownloadManager.ERROR_TOO_MANY_REDIRECTS:  return "too many redirects";
+                case DownloadManager.ERROR_UNHANDLED_HTTP_CODE: return "unexpected HTTP response";
+                case DownloadManager.ERROR_UNKNOWN:             return "unknown error";
+                default:                                        return "reason " + reason;
+            }
+        }
+        return null;
+    }
+}

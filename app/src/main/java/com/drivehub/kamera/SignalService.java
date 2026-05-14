@@ -94,8 +94,8 @@ public class SignalService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Notification n = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
-                .setContentTitle("Drivehub Kamera")
-                .setContentText("Sinyal dinleyicisi aktif")
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.notification_signal_text))
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();

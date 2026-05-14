@@ -2,14 +2,14 @@ package com.drivehub.kamera;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
-import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
-import android.os.Bundle;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -32,20 +32,20 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private static final String AVM_PREFS_NAME = "AVM_Settings";
     private static final String KEY_SAFETY_WARNING = "ShowSafetyWarning";
+    private static final int SWIPE_THRESHOLD_PX = 140;
 
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
-    // Initial camera when the app opens: front camera (v15)
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
-
-    // Swipe detection threshold in pixels
-    private static final int SWIPE_THRESHOLD_PX = 140;
     private float downX = 0f;
     private float downY = 0f;
+
     private static volatile boolean sMainVisible = false;
     private static volatile boolean sSettingsDialogOpen = false;
     private final SettingsAppearanceController appearanceController = new SettingsAppearanceController(this);
+
+    private final OtaController otaController = new OtaController(this);
 
     private final BroadcastReceiver cameraRouteReceiver = new BroadcastReceiver() {
         @Override
@@ -87,64 +87,43 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         surfaceHolder.addCallback(this);
 
         tvStatus = findViewById(R.id.tvStatus);
-        ImageButton btnSettings = findViewById(R.id.btnSettings);
+        if (tvStatus != null) {
+            tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
+        }
 
+        ImageButton btnSettings = findViewById(R.id.btnSettings);
         btnSettings.setOnClickListener(v -> showSettingsDialog());
 
         ImageButton btnClose = findViewById(R.id.btnClose);
         btnClose.setOnClickListener(v -> finishAndRemoveTask());
 
-        // Show the initial status label.
-        if (tvStatus != null) {
-            tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
-        }
         appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
 
-        // Keep signal/gear listening always active; overlay visibility is controlled only by settings.
         try {
             SignalService.start(this);
         } catch (Throwable ignored) {
         }
 
-        // Change cameras with swipe gestures.
         surfaceView.setOnTouchListener((v, event) -> {
             if (event == null) return false;
-
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     downX = event.getX();
                     downY = event.getY();
                     return true;
                 case MotionEvent.ACTION_UP:
-                    float upX = event.getX();
-                    float upY = event.getY();
-                    float dx = upX - downX;
-                    float dy = upY - downY;
-
-                    // Decide based on the dominant axis:
-                    // - Horizontal: left -> v16, right -> v14
-                    // - Vertical: up -> v15, down -> v17
+                    float dx = event.getX() - downX;
+                    float dy = event.getY() - downY;
                     if (Math.abs(dx) > Math.abs(dy)) {
-                        // horizontal
-                        if (dx > SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 14; // right camera
-                        } else if (dx < -SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 16; // left camera
-                        } else {
-                            return true;
-                        }
+                        if (dx > SWIPE_THRESHOLD_PX) currentVideoIndex = 14;
+                        else if (dx < -SWIPE_THRESHOLD_PX) currentVideoIndex = 16;
+                        else return true;
                     } else {
-                        // vertical
-                        if (dy < -SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 15; // front camera
-                        } else if (dy > SWIPE_THRESHOLD_PX) {
-                            currentVideoIndex = 17; // rear camera
-                        } else {
-                            return true;
-                        }
+                        if (dy < -SWIPE_THRESHOLD_PX) currentVideoIndex = 15;
+                        else if (dy > SWIPE_THRESHOLD_PX) currentVideoIndex = 17;
+                        else return true;
                     }
-
                     if (tvStatus != null) {
                         tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
                     }
@@ -160,16 +139,14 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         super.onStart();
         sMainVisible = true;
         try {
-            IntentFilter f = new IntentFilter(SignalService.ACTION_ROUTE_CAMERA);
             ContextCompat.registerReceiver(
                     this,
                     cameraRouteReceiver,
-                    f,
+                    new IntentFilter(SignalService.ACTION_ROUTE_CAMERA),
                     ContextCompat.RECEIVER_NOT_EXPORTED
             );
         } catch (Throwable ignored) {
         }
-        // Do not show the overlay while Main is open.
         OverlayService.hideOverlay(this);
         applyWarningVisibility();
     }
@@ -179,20 +156,33 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         super.onStop();
         sMainVisible = false;
         sSettingsDialogOpen = false;
+        otaController.stop();
         try {
             unregisterReceiver(cameraRouteReceiver);
         } catch (Throwable ignored) {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        sMainVisible = false;
+        otaController.stop();
+        stopPreview();
+    }
+
+    // -------------------------------------------------------------------------
+    // Settings dialog
+    // -------------------------------------------------------------------------
+
     @SuppressWarnings("deprecation")
     private void showSettingsDialog() {
         sSettingsDialogOpen = true;
         SignalService.requestRecheck();
+
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_settings);
-
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -200,8 +190,23 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         SharedPreferences prefs = UiPrefs.getPrefs(this);
         SharedPreferences avmPrefs = getSharedPreferences(AVM_PREFS_NAME, MODE_PRIVATE);
+
         Switch swOverlay = dialog.findViewById(R.id.switchOverlayOnSignal);
+        swOverlay.setChecked(prefs.getBoolean("overlayOnSignal", false));
+        swOverlay.setOnCheckedChangeListener((btn, checked) -> {
+            prefs.edit().putBoolean("overlayOnSignal", checked).apply();
+            if (!checked) OverlayService.hideOverlay(this);
+        });
+
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
+        swSafetyWarning.setChecked(avmPrefs.getBoolean(KEY_SAFETY_WARNING, true));
+        swSafetyWarning.setOnCheckedChangeListener((btn, checked) -> {
+            avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, checked).apply();
+            applyWarningVisibility();
+        });
+
+        SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
+        EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
         TextView tabSettings = dialog.findViewById(R.id.tabSettings);
         TextView tabOptik = dialog.findViewById(R.id.tabOptik);
         TextView tabCredits = dialog.findViewById(R.id.tabCredits);
@@ -209,23 +214,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         View sectionSettings = dialog.findViewById(R.id.sectionSettings);
         View sectionOptik = dialog.findViewById(R.id.sectionOptik);
         View sectionCredits = dialog.findViewById(R.id.sectionCredits);
-
-        swOverlay.setChecked(prefs.getBoolean("overlayOnSignal", false));
-        swOverlay.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefs.edit().putBoolean("overlayOnSignal", isChecked).apply();
-            if (!isChecked) {
-                OverlayService.hideOverlay(MainActivity.this);
-            }
-        });
-
-        swSafetyWarning.setChecked(avmPrefs.getBoolean(KEY_SAFETY_WARNING, true));
-        swSafetyWarning.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, isChecked).apply();
-            applyWarningVisibility();
-        });
-
-        SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
-        EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
+        View accentRow = dialog.findViewById(R.id.rowAccentColor);
         View accentPreview = dialog.findViewById(R.id.viewAccentPreview);
         EditText etAccentColor = dialog.findViewById(R.id.etAccentColor);
         appearanceController.bindSettingsAppearance(
@@ -235,6 +224,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 dialogClose,
                 seekCorner,
                 etCorner,
+                accentRow,
                 accentPreview,
                 etAccentColor,
                 tabSettings,
@@ -256,17 +246,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             appearanceController.reapplyForActiveTab(2);
         });
 
-        TextView tvDialogVersion = dialog.findViewById(R.id.tvDialogVersion);
-        TextView tvDialogVersionBeta = dialog.findViewById(R.id.tvDialogVersionBeta);
+        TextView tvVersion = dialog.findViewById(R.id.tvDialogVersion);
+        TextView tvBeta = dialog.findViewById(R.id.tvDialogVersionBeta);
         try {
-            String version = getPackageManager()
-                    .getPackageInfo(getPackageName(), 0)
-                    .versionName;
-            tvDialogVersion.setText(getString(R.string.settings_version_format, version));
-        } catch (Exception e) {
-            tvDialogVersion.setText(R.string.settings_version_unknown);
+            String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            tvVersion.setText(getString(R.string.settings_version_format, version));
+        } catch (Exception ignored) {
+            tvVersion.setText(R.string.settings_version_unknown);
         }
-        tvDialogVersionBeta.setVisibility(BuildConfig.IS_BETA ? View.VISIBLE : View.GONE);
+        tvBeta.setVisibility(BuildConfig.IS_BETA ? View.VISIBLE : View.GONE);
+
+        otaController.setup(dialog, dialog.findViewById(R.id.tvDialogUpdateTag));
 
         dialogClose.setOnClickListener(v -> dialog.dismiss());
         dialog.setOnDismissListener(d -> {
@@ -300,6 +290,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         appearanceController.styleSettingsTab(tab, active);
     }
 
+    // -------------------------------------------------------------------------
+    // Warning banner
+    // -------------------------------------------------------------------------
+
     private void applyWarningVisibility() {
         boolean show = getSharedPreferences(AVM_PREFS_NAME, MODE_PRIVATE)
                 .getBoolean(KEY_SAFETY_WARNING, true);
@@ -309,6 +303,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if (bg != null) bg.setVisibility(visibility);
         if (banner != null) banner.setVisibility(visibility);
     }
+
+    // -------------------------------------------------------------------------
+    // Camera preview
+    // -------------------------------------------------------------------------
 
     private void startPreviewIfReady() {
         if (surfaceHolder == null || surfaceHolder.getSurface() == null ||
@@ -334,41 +332,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        sMainVisible = false;
-        stopPreview();
-    }
-
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        // Start the initial camera as soon as the surface is ready.
-        startPreviewIfReady();
-    }
-
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        // Restart here if needed.
-    }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        stopPreview();
-    }
+    @Override public void surfaceCreated(SurfaceHolder holder) { startPreviewIfReady(); }
+    @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
+    @Override public void surfaceDestroyed(SurfaceHolder holder) { stopPreview(); }
 
     private String cameraLabel(int videoIndex) {
         switch (videoIndex) {
-            case 14:
-                return getString(R.string.main_camera_label_right);
-            case 15:
-                return getString(R.string.main_camera_label_front);
-            case 16:
-                return getString(R.string.main_camera_label_left);
-            case 17:
-                return getString(R.string.main_camera_label_rear);
-            default:
-                return getString(R.string.main_camera_label_unknown, videoIndex);
+            case 14: return getString(R.string.main_camera_label_right);
+            case 15: return getString(R.string.main_camera_label_front);
+            case 16: return getString(R.string.main_camera_label_left);
+            case 17: return getString(R.string.main_camera_label_rear);
+            default: return getString(R.string.main_camera_label_unknown, videoIndex);
         }
     }
 }

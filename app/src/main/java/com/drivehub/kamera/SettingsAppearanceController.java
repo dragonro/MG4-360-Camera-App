@@ -30,6 +30,7 @@ final class SettingsAppearanceController {
     private ImageButton dialogClose;
     private SeekBar seekCorner;
     private EditText etCorner;
+    private View accentRow;
     private View accentPreview;
     private EditText etAccentColor;
     private TextView tabSettings;
@@ -55,6 +56,7 @@ final class SettingsAppearanceController {
             ImageButton dialogClose,
             SeekBar seekCorner,
             EditText etCorner,
+            View accentRow,
             View accentPreview,
             EditText etAccentColor,
             TextView tabSettings,
@@ -67,6 +69,7 @@ final class SettingsAppearanceController {
         this.dialogClose = dialogClose;
         this.seekCorner = seekCorner;
         this.etCorner = etCorner;
+        this.accentRow = accentRow;
         this.accentPreview = accentPreview;
         this.etAccentColor = etAccentColor;
         this.tabSettings = tabSettings;
@@ -81,6 +84,7 @@ final class SettingsAppearanceController {
         seekCorner.setProgress(savedRadius);
         etCorner.setText(String.valueOf(savedRadius));
         etAccentColor.setText(UiPrefs.getAccentColorSetting(prefs));
+        syncAccentRowToSliderInset();
         // The preview square doubles as the entry point for the visual picker dialog.
         accentPreview.setOnClickListener(v -> showAccentColorPicker());
 
@@ -286,6 +290,16 @@ final class SettingsAppearanceController {
                         0xFF383838
                 }
         );
+    }
+
+    private void syncAccentRowToSliderInset() {
+        if (accentRow == null || seekCorner == null) return;
+        accentRow.post(() -> accentRow.setPaddingRelative(
+                seekCorner.getPaddingLeft(),
+                accentRow.getPaddingTop(),
+                accentRow.getPaddingEnd(),
+                accentRow.getPaddingBottom()
+        ));
     }
 
     private float dp(float value) {
