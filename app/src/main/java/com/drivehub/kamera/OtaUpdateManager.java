@@ -148,9 +148,11 @@ final class OtaUpdateManager {
         return dm.enqueue(request);
     }
 
-    static void verifyDownloadedApk(File apkFile, UpdateInfo info, VerifyCallback callback) {
+    static void verifyDownloadedApk(Context context, long downloadId, Uri apkUri, UpdateInfo info, VerifyCallback callback) {
+        final Context appContext = context.getApplicationContext();
         EXECUTOR.execute(() -> {
-            OtaApkVerifier.VerificationResult result = OtaApkVerifier.verifyDownloadedApk(apkFile, info);
+            OtaApkVerifier.VerificationResult result =
+                    OtaApkVerifier.verifyDownloadedApk(appContext, downloadId, apkUri, info);
             MAIN_HANDLER.post(() -> callback.onResult(result.success, result.computedSha256, result.message));
         });
     }
