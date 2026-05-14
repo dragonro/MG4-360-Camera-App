@@ -130,6 +130,8 @@ final class OtaController {
 
     private void startDownload(OtaUpdateManager.UpdateInfo info) {
         try {
+            // Clear any stale watcher state before we bind the new release metadata to the dialog.
+            stopProgressWatcher();
             long downloadId = OtaUpdateManager.enqueueDownload(activity, info);
             activeDownloadInfo = info;
             showProgressDialog(info, downloadId);
@@ -142,7 +144,6 @@ final class OtaController {
     }
 
     private void showProgressDialog(OtaUpdateManager.UpdateInfo info, long downloadId) {
-        stopProgressWatcher();
         OtaDialogs.ProgressDialogHandle handle = OtaDialogs.showProgressDialog(
                 activity,
                 activity.getString(R.string.ota_dialog_download_started_message, info.latestVersion),
@@ -274,7 +275,7 @@ final class OtaController {
             return;
         }
 
-        OtaUpdateManager.verifyDownloadedApk(activity, apkUri, activeDownloadInfo, (success, computedSha256, message) -> {
+        OtaUpdateManager.verifyDownloadedApk(activity, downloadId, apkUri, activeDownloadInfo, (success, computedSha256, message) -> {
             if (downloadId != verificationDownloadId) return;
             verificationInFlight = false;
             verificationPassed = success;
