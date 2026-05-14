@@ -81,7 +81,7 @@ final class SettingsAppearanceController {
         this.tabSettings = tabSettings;
         this.tabOptik = tabOptik;
         this.tabCredits = tabCredits;
-        this.activeTab = 0;
+        this.activeTab = 1;
 
         int savedRadius = UiPrefs.getTileCornerRadiusSetting(prefs);
         int accentColor = UiPrefs.getAccentColorInt(prefs);

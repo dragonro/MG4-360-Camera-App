@@ -238,7 +238,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         );
 
         bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
-                sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 0);
+                sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 1);
+        appearanceController.reapplyForActiveTab(1);
         tabUpdate.setOnClickListener(v -> {
             bindSettingsTab(tabUpdate, tabSettings, tabOptik, tabCredits,
                     sectionUpdate, sectionSettings, sectionOptik, sectionCredits, 0);
