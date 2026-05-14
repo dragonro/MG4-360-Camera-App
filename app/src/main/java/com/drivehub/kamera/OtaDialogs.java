@@ -2,6 +2,7 @@ package com.drivehub.kamera;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
@@ -95,11 +96,20 @@ final class OtaDialogs {
         if (title != null) {
             title.setText(titleText);
         }
+        if (progress != null) {
+            int accentColor = UiPrefs.getAccentColorInt(UiPrefs.getPrefs(context));
+            progress.setProgressTintList(ColorStateList.valueOf(accentColor));
+            progress.setIndeterminateTintList(ColorStateList.valueOf(accentColor));
+        }
         if (openDownloadsButton != null) {
-            stylePrimaryButton(context, openDownloadsButton);
-            openDownloadsButton.setOnClickListener(v -> {
-                if (onOpenDownloads != null) onOpenDownloads.run();
-            });
+            if (onOpenDownloads != null) {
+                stylePrimaryButton(context, openDownloadsButton);
+                openDownloadsButton.setOnClickListener(v -> {
+                    if (onOpenDownloads != null) onOpenDownloads.run();
+                });
+            } else {
+                openDownloadsButton.setVisibility(View.GONE);
+            }
         }
         if (retryDownloadButton != null) {
             stylePrimaryButton(context, retryDownloadButton);

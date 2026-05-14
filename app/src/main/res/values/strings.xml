@@ -60,10 +60,10 @@
     <string name="ota_status_check_failed">Tap to retry update check</string>
     <string name="ota_dialog_title">OTA Update</string>
     <string name="ota_dialog_up_to_date_message">No newer version was found. You can refresh the release check manually.</string>
-    <string name="ota_dialog_update_available_message">A newer version %1$s is available. Tap the update tag again to download it to Downloads.</string>
+    <string name="ota_dialog_update_available_message">A newer version %1$s is available. Tap the update tag again to download and verify it.</string>
     <string name="ota_dialog_check_failed_message">The update check failed. Tap refresh to try again.</string>
     <string name="ota_dialog_mobile_warning_message">You are currently connected via mobile data. Downloading version %1$s will use the car\'s internal SIM data volume. Are you sure you want to continue?</string>
-    <string name="ota_dialog_download_started_message">The update for version %1$s is now being downloaded to Downloads.</string>
+    <string name="ota_dialog_download_started_message">The update for version %1$s is now being downloaded securely.</string>
     <string name="ota_dialog_download_failed_message">The update download could not be started (%1$s).</string>
     <string name="ota_dialog_install_failed_message">The installer could not be opened (%1$s).</string>
     <string name="ota_error_no_hash">Latest release has no SHA-256 asset for the APK</string>
@@ -75,7 +75,7 @@
     <string name="ota_progress_running_unknown">Downloading… %1$s received</string>
     <string name="ota_progress_paused">Download paused at %1$d%%. Waiting to continue…</string>
     <string name="ota_progress_paused_reason">Download paused at %1$d%% (%2$s)</string>
-    <string name="ota_progress_complete">Download complete. The APK is now in Downloads.</string>
+    <string name="ota_progress_complete">Download complete. Verifying package integrity…</string>
     <string name="ota_progress_verifying">Verifying download integrity…</string>
     <string name="ota_progress_verified">Integrity check passed. Ready to install.</string>
     <string name="ota_progress_integrity_failed">Integrity check failed (%1$s).</string>
