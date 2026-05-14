@@ -239,7 +239,7 @@ final class SettingsAppearanceController {
         }
         applyButtonBackground.setColor(color);
         // Very bright accents need dark text and a border so the Apply button stays visible.
-        if (isLightColor(color)) {
+        if (UiPrefs.isLightColor(color)) {
             applyButtonBackground.setStroke((int) dp(1f), 0x33000000);
             btnApply.setTextColor(0xFF111111);
         } else {
@@ -316,12 +316,4 @@ final class SettingsAppearanceController {
         return value * activity.getResources().getDisplayMetrics().density;
     }
 
-    private boolean isLightColor(int color) {
-        double luminance = (
-                (0.299 * Color.red(color)) +
-                (0.587 * Color.green(color)) +
-                (0.114 * Color.blue(color))
-        ) / 255d;
-        return luminance >= 0.72d;
-    }
 }

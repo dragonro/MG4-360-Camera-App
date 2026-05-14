@@ -150,7 +150,6 @@ final class OtaController {
         OtaDialogs.ProgressDialogHandle handle = OtaDialogs.showProgressDialog(
                 activity,
                 activity.getString(R.string.ota_dialog_download_started_message, info.latestVersion),
-                null,
                 () -> retryDownload(downloadId),
                 () -> installUpdate(downloadId)
         );

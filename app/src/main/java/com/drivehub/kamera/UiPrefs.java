@@ -83,6 +83,15 @@ final class UiPrefs {
         }
     }
 
+    static boolean isLightColor(int color) {
+        double luminance = (
+                (0.299 * android.graphics.Color.red(color)) +
+                (0.587 * android.graphics.Color.green(color)) +
+                (0.114 * android.graphics.Color.blue(color))
+        ) / 255d;
+        return luminance >= 0.72d;
+    }
+
     private static int clampRadiusSetting(int value) {
         return Math.max(0, Math.min(MAX_TILE_CORNER_RADIUS, value));
     }

@@ -86,11 +86,9 @@
     <string name="ota_action_refresh">Refresh</string>
     <string name="ota_action_close">Close</string>
     <string name="ota_action_download_anyway">Download anyway</string>
-    <string name="ota_action_open_downloads">Open Downloads</string>
     <string name="ota_action_retry_download">Retry download</string>
     <string name="ota_action_install_update">Install update</string>
     <string name="ota_toast_checking">Checking for updates…</string>
-    <string name="ota_toast_open_downloads_failed">Could not open Downloads</string>
     <string name="ota_error_no_apk">Latest release has no APK asset</string>
     <string name="ota_update_hint">Use the update badge at the bottom to refresh or start the download.</string>
     <string name="ota_update_section_loading">Loading release information…</string>

@@ -103,12 +103,6 @@ final class OtaApkVerifier {
         }
     }
 
-    private static String computeSha256(File file) throws Exception {
-        try (FileInputStream in = new FileInputStream(file)) {
-            return computeSha256(in);
-        }
-    }
-
     private static String computeSha256(InputStream in) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] buffer = new byte[8192];

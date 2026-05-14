@@ -80,7 +80,6 @@ final class OtaDialogs {
     static ProgressDialogHandle showProgressDialog(
             Context context,
             String titleText,
-            Runnable onOpenDownloads,
             Runnable onRetryDownload,
             Runnable onInstallUpdate
     ) {
@@ -88,7 +87,6 @@ final class OtaDialogs {
         TextView title = dialog.findViewById(R.id.tvOtaProgressTitle);
         TextView status = dialog.findViewById(R.id.tvOtaProgressStatus);
         ProgressBar progress = dialog.findViewById(R.id.pbOtaDownload);
-        TextView openDownloadsButton = dialog.findViewById(R.id.btnOtaOpenDownloads);
         TextView retryDownloadButton = dialog.findViewById(R.id.btnOtaRetryDownload);
         TextView installUpdateButton = dialog.findViewById(R.id.btnOtaInstallUpdate);
         View closeButton = dialog.findViewById(R.id.btnOtaClose);
@@ -100,16 +98,6 @@ final class OtaDialogs {
             int accentColor = UiPrefs.getAccentColorInt(UiPrefs.getPrefs(context));
             progress.setProgressTintList(ColorStateList.valueOf(accentColor));
             progress.setIndeterminateTintList(ColorStateList.valueOf(accentColor));
-        }
-        if (openDownloadsButton != null) {
-            if (onOpenDownloads != null) {
-                stylePrimaryButton(context, openDownloadsButton);
-                openDownloadsButton.setOnClickListener(v -> {
-                    if (onOpenDownloads != null) onOpenDownloads.run();
-                });
-            } else {
-                openDownloadsButton.setVisibility(View.GONE);
-            }
         }
         if (retryDownloadButton != null) {
             stylePrimaryButton(context, retryDownloadButton);
@@ -187,7 +175,7 @@ final class OtaDialogs {
         GradientDrawable background = new GradientDrawable();
         background.setCornerRadius(dp(context, 14f));
         background.setColor(accentColor);
-        if (isLightColor(accentColor)) {
+        if (UiPrefs.isLightColor(accentColor)) {
             background.setStroke((int) dp(context, 1f), 0x33000000);
             button.setTextColor(0xFF111111);
         } else {
@@ -195,15 +183,6 @@ final class OtaDialogs {
             button.setTextColor(Color.WHITE);
         }
         button.setBackground(background);
-    }
-
-    private static boolean isLightColor(int color) {
-        double luminance = (
-                (0.299 * Color.red(color)) +
-                (0.587 * Color.green(color)) +
-                (0.114 * Color.blue(color))
-        ) / 255d;
-        return luminance >= 0.72d;
     }
 
     private static float dp(Context context, float value) {

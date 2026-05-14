@@ -86,11 +86,9 @@
     <string name="ota_action_refresh">Aktualisieren</string>
     <string name="ota_action_close">Schließen</string>
     <string name="ota_action_download_anyway">Fortfahren</string>
-    <string name="ota_action_open_downloads">Downloads öffnen</string>
     <string name="ota_action_retry_download">Download erneut</string>
     <string name="ota_action_install_update">Update installieren</string>
     <string name="ota_toast_checking">Suche nach Updates…</string>
-    <string name="ota_toast_open_downloads_failed">Downloads konnten nicht geöffnet werden</string>
     <string name="ota_error_no_apk">Im neuesten Release wurde kein APK-Asset gefunden</string>
     <string name="ota_update_hint">Über das Update-Badge unten kannst du Updates direkt installieren.</string>
     <string name="ota_update_section_loading">Release-Informationen werden geladen…</string>
