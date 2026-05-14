@@ -32,7 +32,6 @@ final class OtaController {
     private boolean verificationInFlight = false;
     private boolean verificationCompleted = false;
     private boolean verificationPassed = false;
-    private String verificationFailureMessage;
     private OtaUpdateManager.UpdateInfo activeDownloadInfo;
     private TextView releaseTitleView;
     private TextView releaseChannelView;
@@ -159,7 +158,6 @@ final class OtaController {
         verificationInFlight = false;
         verificationCompleted = false;
         verificationPassed = false;
-        verificationFailureMessage = null;
 
         final TextView statusView = handle.statusView;
         final ProgressBar progressBar = handle.progressBar;
@@ -202,7 +200,7 @@ final class OtaController {
             int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
 
             updateProgressBar(progressBar, total, pct);
-            if (statusView != null) {
+            if (statusView != null && status != DownloadManager.STATUS_SUCCESSFUL) {
                 statusView.setText(progressStatusText(status, pct, downloaded, total, reason));
             }
 
@@ -214,16 +212,6 @@ final class OtaController {
                     progressBar.setProgress(100);
                 }
                 if (verificationCompleted) {
-                    if (statusView != null) {
-                        if (verificationPassed) {
-                            statusView.setText(R.string.ota_progress_verified);
-                        } else {
-                            String failure = verificationFailureMessage == null
-                                    ? activity.getString(R.string.ota_progress_integrity_failed, "unknown")
-                                    : activity.getString(R.string.ota_progress_integrity_failed, verificationFailureMessage);
-                            statusView.setText(failure);
-                        }
-                    }
                     if (installButton != null) {
                         installButton.setVisibility(verificationPassed ? View.VISIBLE : View.GONE);
                     }
@@ -277,7 +265,6 @@ final class OtaController {
         verificationInFlight = true;
         verificationCompleted = false;
         verificationPassed = false;
-        verificationFailureMessage = null;
         if (installButton != null) installButton.setVisibility(View.GONE);
         if (statusView != null) statusView.setText(R.string.ota_progress_verifying);
 
@@ -298,7 +285,6 @@ final class OtaController {
             verificationInFlight = false;
             verificationCompleted = true;
             verificationPassed = success;
-            verificationFailureMessage = success ? null : message;
             if (statusView != null) {
                 if (success) {
                     statusView.setText(R.string.ota_progress_verified);
@@ -350,11 +336,6 @@ final class OtaController {
     }
 
     private java.io.File resolveDownloadedApkFile(long downloadId) throws Exception {
-        Uri apkUri = resolveDownloadedApkUri(downloadId);
-        if (apkUri == null) return null;
-        if ("file".equalsIgnoreCase(apkUri.getScheme())) {
-            return new java.io.File(apkUri.getPath());
-        }
         DownloadManager dm = activity.getSystemService(DownloadManager.class);
         if (dm == null) return null;
         try (Cursor cursor = dm.query(new DownloadManager.Query().setFilterById(downloadId))) {
@@ -417,7 +398,6 @@ final class OtaController {
         verificationInFlight = false;
         verificationCompleted = false;
         verificationPassed = false;
-        verificationFailureMessage = null;
         activeDownloadInfo = null;
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
