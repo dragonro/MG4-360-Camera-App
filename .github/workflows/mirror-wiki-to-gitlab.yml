@@ -1,0 +1,24 @@
+name: Mirror Wiki to GitLab
+
+on:
+  gollum: 
+
+jobs:
+  mirror-wiki:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Checkout Wiki
+        uses: actions/checkout@v4.2.2
+        with:
+          repository: jamakr4/MG4-360-Camera-App.wiki
+          fetch-depth: 0
+
+      - name: Mirror Wiki to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/jamakr4/mg4-360-camera-app.wiki.git"
+          git push gitlab --all --force
+          git push gitlab --tags --force
