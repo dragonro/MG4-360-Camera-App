@@ -26,7 +26,7 @@ final class UiPrefs {
     }
 
     static boolean isBetaUpdatesEnabled(SharedPreferences prefs) {
-        return prefs.getBoolean(KEY_ALLOW_BETA_UPDATES, BuildConfig.IS_BETA);
+        return prefs.getBoolean(KEY_ALLOW_BETA_UPDATES, false);
     }
 
     static float getCornerRadiusFraction(SharedPreferences prefs) {
