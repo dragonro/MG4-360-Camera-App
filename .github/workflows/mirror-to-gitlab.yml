@@ -6,21 +6,20 @@ on:
     tags: ['**']
   release:
     types: [published]
-
 jobs:
   mirror:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v4.2.2
         with:
-          fetch-depth: 0  # complete history including tags
-
+          fetch-depth: 0
       - name: Mirror to GitLab
         env:
-          GITLAB_URL: ${{ secrets.GITLAB_URL }}        
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}    
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+          GITLAB_URL: ${{ secrets.GITLAB_URL }}
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@${GITLAB_URL#https://}"
           git push gitlab --all --force
