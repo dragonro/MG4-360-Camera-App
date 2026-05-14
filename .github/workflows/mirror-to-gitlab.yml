@@ -1,11 +1,10 @@
-name: Mirror to GitLab
-
 on:
   push:
     branches: ['**']
     tags: ['**']
   release:
     types: [published]
+
 jobs:
   mirror:
     runs-on: ubuntu-latest
@@ -16,6 +15,7 @@ jobs:
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
+
       - name: Mirror to GitLab
         env:
           GITLAB_URL: ${{ secrets.GITLAB_URL }}
@@ -24,3 +24,55 @@ jobs:
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@${GITLAB_URL#https://}"
           git push gitlab --all --force
           git push gitlab --tags --force
+
+  mirror-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Mirror Release to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          NAME="${{ github.event.release.name }}"
+          DESCRIPTION="${{ github.event.release.body }}"
+          IS_PRERELEASE="${{ github.event.release.prerelease }}"
+
+          # Release in GitLab erstellen
+          curl --fail -X POST \
+            "https://gitlab.com/api/v4/projects/${GITLAB_PROJECT_ID}/releases" \
+            --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{
+              \"name\": \"${NAME}\",
+              \"tag_name\": \"${TAG}\",
+              \"description\": \"${DESCRIPTION}\",
+              \"released_at\": \"${{ github.event.release.published_at }}\"
+            }"
+
+          # Assets (APKs etc.) runterladen und zu GitLab hochladen
+          gh release download "${TAG}" --dir ./assets
+
+          for file in ./assets/*; do
+            filename=$(basename "$file")
+            
+            # Asset zu GitLab Package Registry hochladen
+            curl --fail -X PUT \
+              "https://gitlab.com/api/v4/projects/${GITLAB_PROJECT_ID}/packages/generic/${TAG}/1.0.0/${filename}" \
+              --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              --upload-file "$file"
+
+            # Asset mit Release verknüpfen
+            curl --fail -X POST \
+              "https://gitlab.com/api/v4/projects/${GITLAB_PROJECT_ID}/releases/${TAG}/assets/links" \
+              --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              --header "Content-Type: application/json" \
+              --data "{
+                \"name\": \"${filename}\",
+                \"url\": \"https://gitlab.com/jamakr4/mg4-360-camera-app/-/package_files/generic/${TAG}/1.0.0/${filename}\"
+              }"
+          done
