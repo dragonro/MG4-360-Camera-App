@@ -60,10 +60,10 @@
     <string name="ota_status_check_failed">Tippen zum erneuten Prüfen</string>
     <string name="ota_dialog_title">OTA-Update</string>
     <string name="ota_dialog_up_to_date_message">Es wurde keine neuere Version gefunden. Du kannst die Suche manuell aktualisieren.</string>
-    <string name="ota_dialog_update_available_message">Eine neuere Version %1$s ist verfügbar. Tippe den Update-Tag erneut an, um sie in Downloads herunterzuladen.</string>
+    <string name="ota_dialog_update_available_message">Eine neuere Version %1$s ist verfügbar. Tippe den Update-Tag erneut an, um sie herunterzuladen und zu verifizieren.</string>
     <string name="ota_dialog_check_failed_message">Die Update-Prüfung ist fehlgeschlagen. Tippe auf Aktualisieren, um es erneut zu versuchen.</string>
     <string name="ota_dialog_mobile_warning_message">Du bist aktuell über Mobilfunk verbunden. Der Download von Version %1$s verbraucht das Datenvolumen der internen SIM im Auto. Möchtest du wirklich fortfahren?</string>
-    <string name="ota_dialog_download_started_message">Das Update für Version %1$s wird jetzt in Downloads heruntergeladen.</string>
+    <string name="ota_dialog_download_started_message">Das Update für Version %1$s wird jetzt geschützt heruntergeladen.</string>
     <string name="ota_dialog_download_failed_message">Der Update-Download konnte nicht gestartet werden (%1$s).</string>
     <string name="ota_dialog_install_failed_message">Der Installer konnte nicht geöffnet werden (%1$s).</string>
     <string name="ota_error_no_hash">Im neuesten Release fehlt ein SHA-256-Asset für die APK</string>
@@ -75,7 +75,7 @@
     <string name="ota_progress_running_unknown">Lädt herunter… %1$s empfangen</string>
     <string name="ota_progress_paused">Download pausiert bei %1$d%%. Warte auf Fortsetzung…</string>
     <string name="ota_progress_paused_reason">Download pausiert bei %1$d%% (%2$s)</string>
-    <string name="ota_progress_complete">Download abgeschlossen. Die APK liegt jetzt in Downloads.</string>
+    <string name="ota_progress_complete">Download abgeschlossen. Paketintegrität wird geprüft…</string>
     <string name="ota_progress_verifying">Prüfe Download-Integrität…</string>
     <string name="ota_progress_verified">Integritätsprüfung bestanden. Bereit zur Installation.</string>
     <string name="ota_progress_integrity_failed">Integritätsprüfung fehlgeschlagen (%1$s).</string>

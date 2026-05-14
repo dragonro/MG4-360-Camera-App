@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 
 final class OtaUpdateManager {
 
+    private static final String OTA_STAGING_DIR = "ota_updates";
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
 
@@ -136,12 +137,13 @@ final class OtaUpdateManager {
                         ? String.format(Locale.US, "mg4-360-cam-%s.apk", info.latestVersion)
                         : info.assetFileName
         );
+        File targetFile = prepareStagingFile(context, fileName);
 
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(info.downloadUrl))
                 .setTitle("360 Cam Update")
                 .setDescription("Downloading version " + info.latestVersion)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                .setDestinationUri(Uri.fromFile(targetFile))
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(true);
 
@@ -159,5 +161,35 @@ final class OtaUpdateManager {
 
     private static String sanitizeFileName(String fileName) {
         return fileName.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private static File prepareStagingFile(Context context, String fileName) {
+        File baseDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (baseDir == null) {
+            throw new IllegalStateException("App staging directory unavailable");
+        }
+        File stagingDir = new File(baseDir, OTA_STAGING_DIR);
+        if (!stagingDir.exists() && !stagingDir.mkdirs()) {
+            throw new IllegalStateException("Could not create OTA staging directory");
+        }
+
+        cleanupOldStagedFiles(stagingDir, fileName);
+        File targetFile = new File(stagingDir, fileName);
+        if (targetFile.exists() && !targetFile.delete()) {
+            throw new IllegalStateException("Could not replace existing OTA package");
+        }
+        return targetFile;
+    }
+
+    private static void cleanupOldStagedFiles(File stagingDir, String keepFileName) {
+        File[] files = stagingDir.listFiles();
+        if (files == null) return;
+        for (File file : files) {
+            if (file == null || !file.isFile()) continue;
+            if (keepFileName != null && keepFileName.equals(file.getName())) continue;
+            // Only clean the app's private OTA staging area, never the public Downloads folder.
+            // Old manually downloaded APKs remain untouched outside this directory.
+            file.delete();
+        }
     }
 }
