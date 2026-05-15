@@ -57,7 +57,6 @@ public class SignalService extends Service {
     private int currentMode = -1; // -1:init, 0:none, 1:left, 2:right, 3:reverse
 
     private static final String PREFS_NAME = "rec_prefs";
-    private static final String KEY_OVERLAY_HIDE_DELAY_MS = "overlayHideDelayMs";
     private final Handler mainHandler = new Handler();
     private final Runnable hideRunnable = new Runnable() {
         @Override
@@ -301,7 +300,7 @@ public class SignalService extends Service {
     private boolean isOverlayEnabled() {
         try {
             SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            return sp.getBoolean("overlayOnSignal", false);
+            return sp.getBoolean(UiPrefs.KEY_OVERLAY_ON_SIGNAL, false);
         } catch (Throwable t) {
             return false;
         }
@@ -310,10 +309,7 @@ public class SignalService extends Service {
     private long readOverlayHideDelayMs() {
         try {
             SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            long v = sp.getLong(KEY_OVERLAY_HIDE_DELAY_MS, 1500L);
-            if (v < 0) v = 0;
-            if (v > 30000L) v = 30000L;
-            return v;
+            return UiPrefs.getOverlayHideDelayMs(sp);
         } catch (Throwable ignored) {
             return 1500L;
         }

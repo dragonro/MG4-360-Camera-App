@@ -11,7 +11,7 @@
 
     <TextView
         android:id="@+id/tvOtaProgressSection"
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="14dp"
@@ -19,7 +19,7 @@
 
     <TextView
         android:id="@+id/tvOtaProgressTitle"
-        style="@style/DrivehubSettingsPrimaryText"
+        style="@style/DrivehubSettingsLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
@@ -37,7 +37,7 @@
 
     <TextView
         android:id="@+id/tvOtaProgressStatus"
-        style="@style/DrivehubSettingsCreditsBody"
+        style="@style/DrivehubSettingsBody"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"

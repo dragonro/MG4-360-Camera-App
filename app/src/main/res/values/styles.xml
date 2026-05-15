@@ -1,28 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Active tab label in the settings dialog header. -->
-    <style name="DrivehubSettingsTabActive" parent="">
+    <!-- H1: primary navigation labels at the top of the settings dialog. -->
+    <style name="DrivehubSettingsHeading1Tab" parent="">
         <item name="android:textSize">20sp</item>
-        <item name="android:textColor">@color/settings_accent</item>
         <item name="android:textStyle">bold</item>
     </style>
 
-    <!-- Inactive tab label in the settings dialog header. -->
-    <style name="DrivehubSettingsTabInactive" parent="">
-        <item name="android:textSize">20sp</item>
+    <style name="DrivehubSettingsTabActive" parent="@style/DrivehubSettingsHeading1Tab">
+        <item name="android:textColor">@color/settings_accent</item>
+    </style>
+
+    <style name="DrivehubSettingsTabInactive" parent="@style/DrivehubSettingsHeading1Tab">
         <item name="android:textColor">@color/settings_tab_inactive</item>
     </style>
 
-    <!-- Small uppercase subsection title like DRIVING, DISPLAY or CREDITS headers. -->
-    <style name="DrivehubSettingsSectionHeader" parent="">
+    <!-- H2: subsection headings inside a settings page. -->
+    <style name="DrivehubSettingsHeading2" parent="">
         <item name="android:textColor">@color/settings_text_highlight</item>
         <item name="android:textSize">16sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.08</item>
+        <item name="android:textAllCaps">true</item>
     </style>
 
-    <!-- Main row label text for settings options. -->
-    <style name="DrivehubSettingsPrimaryText" parent="">
+    <!-- Primary control labels such as toggles and key settings entries. -->
+    <style name="DrivehubSettingsLabel" parent="">
         <item name="android:textColor">@color/settings_text_primary</item>
         <item name="android:textSize">22sp</item>
     </style>
@@ -58,12 +60,11 @@
 
     <!-- Shared compact numeric value next to sliders in settings. -->
     <style name="DrivehubSettingsSliderValue" parent="">
-        <item name="android:layout_width">44dp</item>
+        <item name="android:layout_width">72dp</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginStart">10dp</item>
         <item name="android:gravity">end|center_vertical</item>
         <item name="android:inputType">number</item>
-        <item name="android:maxLength">2</item>
         <item name="android:textColor">@color/settings_text_secondary</item>
         <item name="android:textSize">18sp</item>
         <item name="android:background">@android:color/transparent</item>
@@ -80,23 +81,28 @@
         <item name="android:focusable">true</item>
     </style>
 
-    <!-- Body text used for credit lists and acknowledgements. -->
-    <style name="DrivehubSettingsCreditsBody" parent="">
+    <!-- Body copy used for long-form settings content and helper text. -->
+    <style name="DrivehubSettingsBody" parent="">
         <item name="android:textColor">@color/settings_text_primary</item>
         <item name="android:textSize">18sp</item>
         <item name="android:lineSpacingExtra">1dp</item>
     </style>
 
-    <style name="DrivehubSettingsChangelogBody" parent="">
-        <item name="android:textColor">@color/settings_text_primary</item>
-        <item name="android:textSize">18sp</item>
+    <style name="DrivehubSettingsChangelogBody" parent="@style/DrivehubSettingsBody">
         <item name="android:lineSpacingExtra">5dp</item>
     </style>
 
-    <style name="DrivehubSettingsDetailText" parent="">
+    <!-- Secondary explanatory text under controls or in status rows. -->
+    <style name="DrivehubSettingsBodyMuted" parent="">
         <item name="android:textColor">@color/settings_text_secondary</item>
         <item name="android:textSize">16sp</item>
         <item name="android:lineSpacingExtra">1dp</item>
+    </style>
+
+    <!-- Small captions such as slider endpoints. -->
+    <style name="DrivehubSettingsCaption" parent="">
+        <item name="android:textColor">@color/settings_text_muted</item>
+        <item name="android:textSize">14sp</item>
     </style>
 
     <!-- Version label shown at the bottom of the dialog. -->

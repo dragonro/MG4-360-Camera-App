@@ -29,6 +29,7 @@ final class SettingsAppearanceController {
     private Switch swSafetyWarning;
     private Switch swAllowBetaUpdates;
     private ImageButton dialogClose;
+    private SeekBar seekOverlayHideDelay;
     private SeekBar seekCorner;
     private EditText etCorner;
     private View accentRow;
@@ -36,6 +37,7 @@ final class SettingsAppearanceController {
     private EditText etAccentColor;
     private TextView tabUpdate;
     private TextView tabSettings;
+    private TextView tabSignalCamera;
     private TextView tabOptik;
     private TextView tabCredits;
     private int activeTab;
@@ -57,6 +59,7 @@ final class SettingsAppearanceController {
             Switch swSafetyWarning,
             Switch swAllowBetaUpdates,
             ImageButton dialogClose,
+            SeekBar seekOverlayHideDelay,
             SeekBar seekCorner,
             EditText etCorner,
             View accentRow,
@@ -64,6 +67,7 @@ final class SettingsAppearanceController {
             EditText etAccentColor,
             TextView tabUpdate,
             TextView tabSettings,
+            TextView tabSignalCamera,
             TextView tabOptik,
             TextView tabCredits
     ) {
@@ -72,6 +76,7 @@ final class SettingsAppearanceController {
         this.swSafetyWarning = swSafetyWarning;
         this.swAllowBetaUpdates = swAllowBetaUpdates;
         this.dialogClose = dialogClose;
+        this.seekOverlayHideDelay = seekOverlayHideDelay;
         this.seekCorner = seekCorner;
         this.etCorner = etCorner;
         this.accentRow = accentRow;
@@ -79,6 +84,7 @@ final class SettingsAppearanceController {
         this.etAccentColor = etAccentColor;
         this.tabUpdate = tabUpdate;
         this.tabSettings = tabSettings;
+        this.tabSignalCamera = tabSignalCamera;
         this.tabOptik = tabOptik;
         this.tabCredits = tabCredits;
         this.activeTab = 1;
@@ -268,6 +274,10 @@ final class SettingsAppearanceController {
             seekCorner.setProgressTintList(ColorStateList.valueOf(accentColor));
             seekCorner.setThumbTintList(ColorStateList.valueOf(accentColor));
         }
+        if (seekOverlayHideDelay != null) {
+            seekOverlayHideDelay.setProgressTintList(ColorStateList.valueOf(accentColor));
+            seekOverlayHideDelay.setThumbTintList(ColorStateList.valueOf(accentColor));
+        }
         if (swOverlay != null) {
             swOverlay.setTrackTintList(buildToggleTrackTint(accentColor));
         }
@@ -285,8 +295,9 @@ final class SettingsAppearanceController {
         }
         if (tabUpdate != null) tabUpdate.setTextColor(activeTab == 0 ? accentColor : 0xFF777777);
         if (tabSettings != null) tabSettings.setTextColor(activeTab == 1 ? accentColor : 0xFF777777);
-        if (tabOptik != null) tabOptik.setTextColor(activeTab == 2 ? accentColor : 0xFF777777);
-        if (tabCredits != null) tabCredits.setTextColor(activeTab == 3 ? accentColor : 0xFF777777);
+        if (tabSignalCamera != null) tabSignalCamera.setTextColor(activeTab == 2 ? accentColor : 0xFF777777);
+        if (tabOptik != null) tabOptik.setTextColor(activeTab == 3 ? accentColor : 0xFF777777);
+        if (tabCredits != null) tabCredits.setTextColor(activeTab == 4 ? accentColor : 0xFF777777);
     }
 
     private ColorStateList buildToggleTrackTint(int accentColor) {

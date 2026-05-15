@@ -10,8 +10,13 @@ final class UiPrefs {
     static final String KEY_TILE_CORNER_RADIUS = "tileCornerRadius";
     static final String KEY_ACCENT_COLOR = "accentColor";
     static final String KEY_ALLOW_BETA_UPDATES = "allowBetaUpdates";
+    static final String KEY_OVERLAY_ON_SIGNAL = "overlayOnSignal";
+    static final String KEY_OVERLAY_HIDE_DELAY_MS = "overlayHideDelayMs";
     static final int MAX_TILE_CORNER_RADIUS = 35;
+    static final int MAX_OVERLAY_HIDE_DELAY_MS = 3000;
+    static final int OVERLAY_HIDE_DELAY_STEP_MS = 100;
     private static final int DEFAULT_TILE_CORNER_RADIUS = 16;
+    private static final int DEFAULT_OVERLAY_HIDE_DELAY_MS = 1500;
     private static final String DEFAULT_ACCENT_COLOR = "#E7E7E7";
 
     private UiPrefs() {
@@ -27,6 +32,11 @@ final class UiPrefs {
 
     static boolean isBetaUpdatesEnabled(SharedPreferences prefs) {
         return prefs.getBoolean(KEY_ALLOW_BETA_UPDATES, false);
+    }
+
+    static int getOverlayHideDelayMs(SharedPreferences prefs) {
+        long value = prefs.getLong(KEY_OVERLAY_HIDE_DELAY_MS, DEFAULT_OVERLAY_HIDE_DELAY_MS);
+        return clampOverlayHideDelayMs((int) value);
     }
 
     static float getCornerRadiusFraction(SharedPreferences prefs) {
@@ -94,5 +104,9 @@ final class UiPrefs {
 
     private static int clampRadiusSetting(int value) {
         return Math.max(0, Math.min(MAX_TILE_CORNER_RADIUS, value));
+    }
+
+    static int clampOverlayHideDelayMs(int value) {
+        return Math.max(0, Math.min(MAX_OVERLAY_HIDE_DELAY_MS, value));
     }
 }

@@ -2,9 +2,11 @@
     <string name="app_name">360 Cam</string>
     <string name="settings_tab_update">Update</string>
     <string name="settings_tab_settings">Settings</string>
+    <string name="settings_tab_signal_camera">Signal Cam</string>
     <string name="settings_tab_credits">Credits</string>
     <string name="settings_section_driving">DRIVING</string>
     <string name="settings_section_display">DISPLAY</string>
+    <string name="settings_section_signal_camera">SIGNAL CAMERA</string>
     <string name="settings_overlay_on_signal">Show Signal Camera on turn signal</string>
     <string name="safety_warning_text">Please pay attention to the surrounding environment!</string>
     <string name="show_safety_warning">Show safety warning</string>
@@ -22,7 +24,12 @@
     <string name="settings_back">Back</string>
     <string name="settings_record_enabled">Recording enabled (start automatically on boot)</string>
     <string name="settings_kill_oem_on_reverse">Disable OEM 360 camera application</string>
-    <string name="settings_overlay_hide_delay">Overlay hide delay (sec)</string>
+    <string name="settings_overlay_hide_delay">Overlay hide delay</string>
+    <string name="settings_overlay_hide_delay_value">%1$d ms</string>
+    <string name="settings_overlay_hide_delay_default_input">1500</string>
+    <string name="settings_overlay_hide_delay_min">0 ms</string>
+    <string name="settings_overlay_hide_delay_max">3000 ms</string>
+    <string name="settings_overlay_hide_delay_hint">Controls how long the signal camera stays visible after the turn signal is switched off.</string>
     <string name="settings_record_loop">Recording loop (min)</string>
     <string name="settings_total_retention">Total retention (min)</string>
     <string name="settings_records_path">Recording path</string>

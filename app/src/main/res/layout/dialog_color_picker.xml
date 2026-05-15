@@ -10,14 +10,14 @@
     android:paddingBottom="22dp">
 
     <TextView
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/settings_color_picker_title" />
 
     <TextView
         android:id="@+id/tvColorPickerHex"
-        style="@style/DrivehubSettingsPrimaryText"
+        style="@style/DrivehubSettingsLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"

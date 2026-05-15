@@ -2,9 +2,11 @@
     <string name="app_name">360 Cam</string>
     <string name="settings_tab_update">Update</string>
     <string name="settings_tab_settings">Einstellungen</string>
+    <string name="settings_tab_signal_camera">Blinker-Kamera</string>
     <string name="settings_tab_credits">Credits</string>
     <string name="settings_section_driving">FAHREN</string>
     <string name="settings_section_display">ANZEIGE</string>
+    <string name="settings_section_signal_camera">BLINKER-KAMERA</string>
     <string name="settings_overlay_on_signal">Kamera beim Blinken anzeigen</string>
     <string name="safety_warning_text">Bitte achte auf die Umgebung!</string>
     <string name="show_safety_warning">Sicherheitswarnung anzeigen</string>
@@ -22,7 +24,12 @@
     <string name="settings_back">Zurück</string>
     <string name="settings_record_enabled">Aufnahme aktiv (beim Start automatisch beginnen)</string>
     <string name="settings_kill_oem_on_reverse">OEM-360-Kamera-App deaktivieren</string>
-    <string name="settings_overlay_hide_delay">Verzögerung bis Overlay schließt (Sek.)</string>
+    <string name="settings_overlay_hide_delay">Nachlauf Kamera</string>
+    <string name="settings_overlay_hide_delay_value">%1$d ms</string>
+    <string name="settings_overlay_hide_delay_default_input">1500</string>
+    <string name="settings_overlay_hide_delay_min">0 ms</string>
+    <string name="settings_overlay_hide_delay_max">3000 ms</string>
+    <string name="settings_overlay_hide_delay_hint">Bestimmt, wie lange die Blinker-Kamera nach dem Ausschalten des Blinkers noch sichtbar bleibt.</string>
     <string name="settings_record_loop">Aufnahmeschleife (Min.)</string>
     <string name="settings_total_retention">Gesamtspeicherzeit (Min.)</string>
     <string name="settings_records_path">Aufnahmepfad</string>

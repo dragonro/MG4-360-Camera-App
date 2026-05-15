@@ -6,7 +6,7 @@
     android:orientation="vertical">
 
     <TextView
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="0dp"
@@ -19,7 +19,7 @@
         android:orientation="horizontal">
 
         <TextView
-            style="@style/DrivehubSettingsPrimaryText"
+            style="@style/DrivehubSettingsLabel"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -33,14 +33,14 @@
 
     <TextView
         android:id="@+id/tvUpdateChannelStatus"
-        style="@style/DrivehubSettingsDetailText"
+        style="@style/DrivehubSettingsBodyMuted"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
         android:text="@string/ota_update_channel_loading" />
 
     <TextView
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="18dp"
@@ -49,14 +49,14 @@
 
     <TextView
         android:id="@+id/tvUpdateSourceGithub"
-        style="@style/DrivehubSettingsDetailText"
+        style="@style/DrivehubSettingsBodyMuted"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/ota_source_status_loading" />
 
     <TextView
         android:id="@+id/tvUpdateSourceGitlab"
-        style="@style/DrivehubSettingsDetailText"
+        style="@style/DrivehubSettingsBodyMuted"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
@@ -70,7 +70,7 @@
         android:background="@color/settings_divider" />
 
     <TextView
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"
@@ -78,13 +78,13 @@
 
     <TextView
         android:id="@+id/tvUpdateReleaseTitle"
-        style="@style/DrivehubSettingsPrimaryText"
+        style="@style/DrivehubSettingsLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/ota_update_section_loading" />
 
     <TextView
-        style="@style/DrivehubSettingsDetailText"
+        style="@style/DrivehubSettingsBodyMuted"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
@@ -98,7 +98,7 @@
         android:background="@color/settings_divider" />
 
     <TextView
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
