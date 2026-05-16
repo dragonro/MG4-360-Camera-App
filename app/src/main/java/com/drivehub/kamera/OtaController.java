@@ -113,21 +113,12 @@ final class OtaController {
             );
             return;
         }
-        NetworkStateHelper.Transport transport = NetworkStateHelper.getActiveTransport(activity);
-        boolean warnForMeteredDownload = transport == NetworkStateHelper.Transport.CELLULAR
-                || (NetworkStateHelper.isActiveNetworkMetered(activity)
-                && transport != NetworkStateHelper.Transport.WIFI
-                && transport != NetworkStateHelper.Transport.ETHERNET);
-        if (warnForMeteredDownload) {
-            OtaDialogs.showConfirmDialog(
-                    activity,
-                    activity.getString(R.string.ota_dialog_mobile_warning_message, info.latestVersion),
-                    activity.getString(R.string.ota_action_download_anyway),
-                    () -> startDownload(info)
-            );
-            return;
-        }
-        startDownload(info);
+        OtaDialogs.showConfirmDialog(
+                activity,
+                activity.getString(R.string.ota_dialog_mobile_warning_message, info.latestVersion),
+                activity.getString(R.string.ota_action_download_anyway),
+                () -> startDownload(info)
+        );
     }
 
     private void startDownload(OtaUpdateManager.UpdateInfo info) {
@@ -304,15 +295,7 @@ final class OtaController {
 
     private void installUpdate(long downloadId) {
         try {
-            java.io.File apkFile = resolveDownloadedApkFile(downloadId);
-            if (apkFile == null || !apkFile.exists()) {
-                throw new IllegalStateException("Downloaded APK not found");
-            }
-            Uri apkUri = FileProvider.getUriForFile(
-                    activity,
-                    BuildConfig.APPLICATION_ID + ".fileprovider",
-                    apkFile
-            );
+            Uri apkUri = resolveInstallApkUri(downloadId);
             Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
             installIntent.setData(apkUri);
             installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -333,6 +316,23 @@ final class OtaController {
                     activity.getString(R.string.ota_dialog_install_failed_message, e.getClass().getSimpleName())
             );
         }
+    }
+
+    private Uri resolveInstallApkUri(long downloadId) throws Exception {
+        Uri downloadedUri = resolveDownloadedApkUri(downloadId);
+        if (downloadedUri != null && !"file".equalsIgnoreCase(downloadedUri.getScheme())) {
+            return downloadedUri;
+        }
+
+        java.io.File apkFile = resolveDownloadedApkFile(downloadId);
+        if (apkFile == null || !apkFile.exists()) {
+            throw new IllegalStateException("Downloaded APK not found");
+        }
+        return FileProvider.getUriForFile(
+                activity,
+                BuildConfig.APPLICATION_ID + ".fileprovider",
+                apkFile
+        );
     }
 
     private java.io.File resolveDownloadedApkFile(long downloadId) throws Exception {

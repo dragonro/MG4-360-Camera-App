@@ -69,7 +69,7 @@
     <string name="ota_dialog_up_to_date_message">Es wurde keine neuere Version gefunden. Du kannst die Suche manuell aktualisieren.</string>
     <string name="ota_dialog_update_available_message">Eine neuere Version %1$s ist verfügbar. Tippe den Update-Tag erneut an, um sie herunterzuladen und zu verifizieren.</string>
     <string name="ota_dialog_check_failed_message">Die Update-Prüfung ist fehlgeschlagen. Tippe auf Aktualisieren, um es erneut zu versuchen.</string>
-    <string name="ota_dialog_mobile_warning_message">Du bist aktuell über Mobilfunk verbunden. Der Download von Version %1$s verbraucht einen Teil des Datenvolumen der internen SIM. Möchtest du wirklich fortfahren?</string>
+    <string name="ota_dialog_mobile_warning_message">Der Download von Version %1$s kann mobiles Datenvolumen des Fahrzeugs verbrauchen, wenn das Auto nicht mit WLAN verbunden ist. Möchtest du fortfahren?</string>
     <string name="ota_dialog_download_started_message">Das Update für Version %1$s wird jetzt geschützt heruntergeladen.</string>
     <string name="ota_dialog_download_failed_message">Der Update-Download konnte nicht gestartet werden (%1$s).</string>
     <string name="ota_dialog_install_failed_message">Der Installer konnte nicht geöffnet werden (%1$s).</string>

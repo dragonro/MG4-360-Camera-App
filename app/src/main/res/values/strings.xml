@@ -69,7 +69,7 @@
     <string name="ota_dialog_up_to_date_message">No newer version was found. You can refresh the release check manually.</string>
     <string name="ota_dialog_update_available_message">A newer version %1$s is available. Tap the update tag again to download and verify it.</string>
     <string name="ota_dialog_check_failed_message">The update check failed. Tap refresh to try again.</string>
-    <string name="ota_dialog_mobile_warning_message">You are currently connected via mobile data. Downloading version %1$s will use the car\'s internal SIM data volume. Are you sure you want to continue?</string>
+    <string name="ota_dialog_mobile_warning_message">Downloading version %1$s may use the car\'s mobile data if the vehicle is not connected to Wi-Fi. Do you want to continue?</string>
     <string name="ota_dialog_download_started_message">The update for version %1$s is now being downloaded securely.</string>
     <string name="ota_dialog_download_failed_message">The update download could not be started (%1$s).</string>
     <string name="ota_dialog_install_failed_message">The installer could not be opened (%1$s).</string>
