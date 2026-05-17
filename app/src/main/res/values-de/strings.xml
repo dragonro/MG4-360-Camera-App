@@ -72,7 +72,7 @@
     <string name="ota_dialog_mobile_warning_message">Der Download von Version %1$s kann mobiles Datenvolumen des Fahrzeugs verbrauchen, wenn das Auto nicht mit WLAN verbunden ist. Möchtest du fortfahren?</string>
     <string name="ota_dialog_download_started_message">Das Update für Version %1$s wird jetzt geschützt heruntergeladen.</string>
     <string name="ota_dialog_download_failed_message">Der Update-Download konnte nicht gestartet werden (%1$s).</string>
-    <string name="ota_dialog_install_failed_message">Der Installer konnte nicht geöffnet werden (%1$s).</string>
+    <string name="ota_dialog_open_downloads_failed_message">Der Download-Ordner konnte nicht geöffnet werden (%1$s).</string>
     <string name="ota_error_no_hash">Im neuesten Release fehlt ein SHA-256-Asset für die APK</string>
     <string name="ota_error_invalid_hash">Das SHA-256-Asset des neuesten Releases ist ungültig</string>
     <string name="ota_error_no_release">Es konnte kein Release gefunden werden</string>
@@ -84,7 +84,7 @@
     <string name="ota_progress_paused_reason">Download pausiert bei %1$d%% (%2$s)</string>
     <string name="ota_progress_complete">Download abgeschlossen. Paketintegrität wird geprüft…</string>
     <string name="ota_progress_verifying">Prüfe Download-Integrität…</string>
-    <string name="ota_progress_verified">Integritätsprüfung bestanden. Bereit zur Installation.</string>
+    <string name="ota_progress_verified">Integritätsprüfung bestanden. Das Update liegt jetzt im Download-Ordner bereit.</string>
     <string name="ota_progress_integrity_failed">Integritätsprüfung fehlgeschlagen (%1$s).</string>
     <string name="ota_progress_failed">Download fehlgeschlagen. Du kannst den OTA-Download erneut starten.</string>
     <string name="ota_progress_failed_reason">Download fehlgeschlagen (%1$s). Du kannst den OTA-Download erneut starten.</string>
@@ -94,7 +94,7 @@
     <string name="ota_action_close">Schließen</string>
     <string name="ota_action_download_anyway">Fortfahren</string>
     <string name="ota_action_retry_download">Download erneut</string>
-    <string name="ota_action_install_update">Update installieren</string>
+    <string name="ota_action_install_update">Downloads öffnen</string>
     <string name="ota_toast_checking">Suche nach Updates…</string>
     <string name="ota_error_no_apk">Im neuesten Release wurde kein APK-Asset gefunden</string>
     <string name="ota_update_hint">Über das Update-Badge unten kannst du Updates direkt installieren.</string>

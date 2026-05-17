@@ -17,7 +17,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import androidx.core.content.FileProvider;
 import java.util.Locale;
 
 final class OtaController {
@@ -141,7 +140,7 @@ final class OtaController {
                 activity,
                 activity.getString(R.string.ota_dialog_download_started_message, info.latestVersion),
                 () -> retryDownload(downloadId),
-                () -> installUpdate(downloadId)
+                this::openDownloadsFolder
         );
         progressDialog = handle.dialog;
         progressDialog.setOnDismissListener(d -> stopProgressWatcher());
@@ -293,46 +292,23 @@ final class OtaController {
     // Install
     // -------------------------------------------------------------------------
 
-    private void installUpdate(long downloadId) {
+    private void openDownloadsFolder() {
         try {
-            Uri apkUri = resolveInstallApkUri(downloadId);
-            Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
-            installIntent.setData(apkUri);
-            installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            installIntent.putExtra(Intent.EXTRA_RETURN_RESULT, false);
+            Intent downloadsIntent = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
+            downloadsIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
             android.content.pm.PackageManager pm = activity.getPackageManager();
-            if (pm != null && installIntent.resolveActivity(pm) != null) {
-                activity.startActivity(installIntent);
+            if (pm != null && downloadsIntent.resolveActivity(pm) != null) {
+                activity.startActivity(downloadsIntent);
                 return;
             }
-            Intent fallback = new Intent(Intent.ACTION_VIEW);
-            fallback.setDataAndType(apkUri, "application/vnd.android.package-archive");
-            fallback.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            activity.startActivity(fallback);
+            throw new IllegalStateException("Downloads app not available");
         } catch (Exception e) {
             OtaDialogs.showMessageDialog(
                     activity,
-                    activity.getString(R.string.ota_dialog_install_failed_message, e.getClass().getSimpleName())
+                    activity.getString(R.string.ota_dialog_open_downloads_failed_message, e.getClass().getSimpleName())
             );
         }
-    }
-
-    private Uri resolveInstallApkUri(long downloadId) throws Exception {
-        Uri downloadedUri = resolveDownloadedApkUri(downloadId);
-        if (downloadedUri != null && !"file".equalsIgnoreCase(downloadedUri.getScheme())) {
-            return downloadedUri;
-        }
-
-        java.io.File apkFile = resolveDownloadedApkFile(downloadId);
-        if (apkFile == null || !apkFile.exists()) {
-            throw new IllegalStateException("Downloaded APK not found");
-        }
-        return FileProvider.getUriForFile(
-                activity,
-                BuildConfig.APPLICATION_ID + ".fileprovider",
-                apkFile
-        );
     }
 
     private java.io.File resolveDownloadedApkFile(long downloadId) throws Exception {
