@@ -203,6 +203,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Switch swAllowBetaUpdates = dialog.findViewById(R.id.switchAllowBetaUpdates);
         SeekBar seekOverlayHideDelay = dialog.findViewById(R.id.seekOverlayHideDelay);
         EditText etOverlayHideDelayValue = dialog.findViewById(R.id.etOverlayHideDelayValue);
+        SeekBar seekOverlayMinShow = dialog.findViewById(R.id.seekOverlayMinShow);
+        EditText etOverlayMinShowValue = dialog.findViewById(R.id.etOverlayMinShowValue);
 
         SeekBar seekCorner = dialog.findViewById(R.id.seekCornerRadius);
         EditText etCorner = dialog.findViewById(R.id.etCornerRadius);
@@ -224,7 +226,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 prefs,
                 swOverlay,
                 seekOverlayHideDelay,
-                etOverlayHideDelayValue
+                etOverlayHideDelayValue,
+                seekOverlayMinShow,
+                etOverlayMinShowValue
         );
 
         appearanceController.bindSettingsAppearance(
@@ -234,6 +238,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 swAllowBetaUpdates,
                 dialogClose,
                 seekOverlayHideDelay,
+                seekOverlayMinShow,
                 seekCorner,
                 etCorner,
                 accentRow,

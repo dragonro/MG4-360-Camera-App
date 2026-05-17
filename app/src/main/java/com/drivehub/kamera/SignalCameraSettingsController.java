@@ -5,6 +5,9 @@ import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.Switch;
 
+import java.util.function.IntUnaryOperator;
+import java.util.function.ToIntFunction;
+
 final class SignalCameraSettingsController {
 
     private final MainActivity activity;
@@ -17,7 +20,9 @@ final class SignalCameraSettingsController {
             SharedPreferences prefs,
             Switch swOverlay,
             SeekBar seekOverlayHideDelay,
-            EditText etOverlayHideDelayValue
+            EditText etOverlayHideDelayValue,
+            SeekBar seekOverlayMinShow,
+            EditText etOverlayMinShowValue
     ) {
         if (swOverlay != null) {
             swOverlay.setChecked(prefs.getBoolean(UiPrefs.KEY_OVERLAY_ON_SIGNAL, false));
@@ -29,74 +34,100 @@ final class SignalCameraSettingsController {
             });
         }
 
-        if (seekOverlayHideDelay == null) return;
+        bindMsSlider(
+                prefs,
+                seekOverlayHideDelay,
+                etOverlayHideDelayValue,
+                UiPrefs.KEY_OVERLAY_HIDE_DELAY_MS,
+                UiPrefs.MAX_OVERLAY_HIDE_DELAY_MS,
+                UiPrefs.OVERLAY_HIDE_DELAY_STEP_MS,
+                UiPrefs::getOverlayHideDelayMs,
+                UiPrefs::clampOverlayHideDelayMs
+        );
+        bindMsSlider(
+                prefs,
+                seekOverlayMinShow,
+                etOverlayMinShowValue,
+                UiPrefs.KEY_OVERLAY_MIN_SHOW_MS,
+                UiPrefs.MAX_OVERLAY_MIN_SHOW_MS,
+                UiPrefs.OVERLAY_MIN_SHOW_STEP_MS,
+                UiPrefs::getOverlayMinShowMs,
+                UiPrefs::clampOverlayMinShowMs
+        );
+    }
 
-        // Slider and text input update each other, so guard programmatic changes to avoid loops.
-        final boolean[] syncingOverlayHideDelay = {false};
-        int savedOverlayHideDelayMs = UiPrefs.getOverlayHideDelayMs(prefs);
-        seekOverlayHideDelay.setMax(UiPrefs.MAX_OVERLAY_HIDE_DELAY_MS / UiPrefs.OVERLAY_HIDE_DELAY_STEP_MS);
-        seekOverlayHideDelay.setProgress(savedOverlayHideDelayMs / UiPrefs.OVERLAY_HIDE_DELAY_STEP_MS);
+    private void bindMsSlider(
+            SharedPreferences prefs,
+            SeekBar seek,
+            EditText edit,
+            String key,
+            int maxMs,
+            int stepMs,
+            ToIntFunction<SharedPreferences> getter,
+            IntUnaryOperator clamp
+    ) {
+        if (seek == null) return;
 
-        if (etOverlayHideDelayValue != null) {
-            etOverlayHideDelayValue.setText(String.valueOf(savedOverlayHideDelayMs));
-            etOverlayHideDelayValue.setSelection(etOverlayHideDelayValue.getText().length());
-            etOverlayHideDelayValue.addTextChangedListener(new SimpleTextWatcher() {
+        final boolean[] syncing = {false};
+        int savedValueMs = getter.applyAsInt(prefs);
+        seek.setMax(maxMs / stepMs);
+        seek.setProgress(savedValueMs / stepMs);
+
+        if (edit != null) {
+            edit.setText(String.valueOf(savedValueMs));
+            edit.setSelection(edit.getText().length());
+            edit.addTextChangedListener(new SimpleTextWatcher() {
                 @Override
                 public void afterTextChanged(android.text.Editable s) {
-                    if (syncingOverlayHideDelay[0] || s == null) return;
+                    if (syncing[0] || s == null) return;
                     String text = s.toString().trim();
                     if (text.isEmpty()) return;
                     try {
-                        int delayMs = UiPrefs.clampOverlayHideDelayMs(Integer.parseInt(text));
-                        prefs.edit().putLong(UiPrefs.KEY_OVERLAY_HIDE_DELAY_MS, delayMs).apply();
-                        int progress = delayMs / UiPrefs.OVERLAY_HIDE_DELAY_STEP_MS;
-                        if (seekOverlayHideDelay.getProgress() != progress) {
-                            seekOverlayHideDelay.setProgress(progress);
+                        int valueMs = clamp.applyAsInt(Integer.parseInt(text));
+                        prefs.edit().putLong(key, valueMs).apply();
+                        int progress = valueMs / stepMs;
+                        if (seek.getProgress() != progress) {
+                            seek.setProgress(progress);
                         }
                     } catch (NumberFormatException ignored) {
                     }
                 }
             });
-            etOverlayHideDelayValue.setOnFocusChangeListener((v, hasFocus) -> {
+            edit.setOnFocusChangeListener((v, hasFocus) -> {
                 if (hasFocus) return;
-                // Normalize free-form keyboard input on blur so the stored value always stays valid.
-                String text = etOverlayHideDelayValue.getText() == null
-                        ? ""
-                        : etOverlayHideDelayValue.getText().toString().trim();
-                int delayMs;
+                String text = edit.getText() == null ? "" : edit.getText().toString().trim();
+                int valueMs;
                 try {
-                    delayMs = text.isEmpty() ? UiPrefs.getOverlayHideDelayMs(prefs) : Integer.parseInt(text);
+                    valueMs = text.isEmpty() ? getter.applyAsInt(prefs) : Integer.parseInt(text);
                 } catch (NumberFormatException ignored) {
-                    delayMs = UiPrefs.getOverlayHideDelayMs(prefs);
+                    valueMs = getter.applyAsInt(prefs);
                 }
-                delayMs = UiPrefs.clampOverlayHideDelayMs(delayMs);
-                prefs.edit().putLong(UiPrefs.KEY_OVERLAY_HIDE_DELAY_MS, delayMs).apply();
-                syncingOverlayHideDelay[0] = true;
-                etOverlayHideDelayValue.setText(String.valueOf(delayMs));
-                etOverlayHideDelayValue.setSelection(etOverlayHideDelayValue.getText().length());
-                syncingOverlayHideDelay[0] = false;
-                int progress = delayMs / UiPrefs.OVERLAY_HIDE_DELAY_STEP_MS;
-                if (seekOverlayHideDelay.getProgress() != progress) {
-                    seekOverlayHideDelay.setProgress(progress);
+                valueMs = clamp.applyAsInt(valueMs);
+                prefs.edit().putLong(key, valueMs).apply();
+                syncing[0] = true;
+                edit.setText(String.valueOf(valueMs));
+                edit.setSelection(edit.getText().length());
+                syncing[0] = false;
+                int progress = valueMs / stepMs;
+                if (seek.getProgress() != progress) {
+                    seek.setProgress(progress);
                 }
             });
         }
 
-        seekOverlayHideDelay.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                int delayMs = UiPrefs.clampOverlayHideDelayMs(progress * UiPrefs.OVERLAY_HIDE_DELAY_STEP_MS);
-                prefs.edit().putLong(UiPrefs.KEY_OVERLAY_HIDE_DELAY_MS, delayMs).apply();
-                if (etOverlayHideDelayValue == null) return;
-                String currentValue = etOverlayHideDelayValue.getText() == null
-                        ? ""
-                        : etOverlayHideDelayValue.getText().toString();
-                String nextValue = String.valueOf(delayMs);
+                int valueMs = clamp.applyAsInt(progress * stepMs);
+                prefs.edit().putLong(key, valueMs).apply();
+                if (edit == null) return;
+                String currentValue = edit.getText() == null ? "" : edit.getText().toString();
+                String nextValue = String.valueOf(valueMs);
                 if (!nextValue.equals(currentValue)) {
-                    syncingOverlayHideDelay[0] = true;
-                    etOverlayHideDelayValue.setText(nextValue);
-                    etOverlayHideDelayValue.setSelection(etOverlayHideDelayValue.getText().length());
-                    syncingOverlayHideDelay[0] = false;
+                    syncing[0] = true;
+                    edit.setText(nextValue);
+                    edit.setSelection(edit.getText().length());
+                    syncing[0] = false;
                 }
             }
 

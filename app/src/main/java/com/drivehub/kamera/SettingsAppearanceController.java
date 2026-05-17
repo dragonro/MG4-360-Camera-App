@@ -30,6 +30,7 @@ final class SettingsAppearanceController {
     private Switch swAllowBetaUpdates;
     private ImageButton dialogClose;
     private SeekBar seekOverlayHideDelay;
+    private SeekBar seekOverlayMinShow;
     private SeekBar seekCorner;
     private EditText etCorner;
     private View accentRow;
@@ -60,6 +61,7 @@ final class SettingsAppearanceController {
             Switch swAllowBetaUpdates,
             ImageButton dialogClose,
             SeekBar seekOverlayHideDelay,
+            SeekBar seekOverlayMinShow,
             SeekBar seekCorner,
             EditText etCorner,
             View accentRow,
@@ -77,6 +79,7 @@ final class SettingsAppearanceController {
         this.swAllowBetaUpdates = swAllowBetaUpdates;
         this.dialogClose = dialogClose;
         this.seekOverlayHideDelay = seekOverlayHideDelay;
+        this.seekOverlayMinShow = seekOverlayMinShow;
         this.seekCorner = seekCorner;
         this.etCorner = etCorner;
         this.accentRow = accentRow;
@@ -277,6 +280,10 @@ final class SettingsAppearanceController {
         if (seekOverlayHideDelay != null) {
             seekOverlayHideDelay.setProgressTintList(ColorStateList.valueOf(accentColor));
             seekOverlayHideDelay.setThumbTintList(ColorStateList.valueOf(accentColor));
+        }
+        if (seekOverlayMinShow != null) {
+            seekOverlayMinShow.setProgressTintList(ColorStateList.valueOf(accentColor));
+            seekOverlayMinShow.setThumbTintList(ColorStateList.valueOf(accentColor));
         }
         if (swOverlay != null) {
             swOverlay.setTrackTintList(buildToggleTrackTint(accentColor));
