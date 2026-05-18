@@ -177,7 +177,7 @@ public class SignalService extends Service {
                 currentLamp = readTurnLampFromSystemProperty();
                 currentGear = readGearFromSystemProperty();
                 updateOverlayDecision();
-                pollHandler.postDelayed(this, 200);
+                pollHandler.postDelayed(this, 100);
             }
         });
     }
