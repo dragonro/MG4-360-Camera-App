@@ -26,12 +26,12 @@
     <string name="settings_kill_oem_on_reverse">OEM-360-Kamera-App deaktivieren</string>
     <string name="settings_overlay_hide_delay">Nachlauf Kamera</string>
     <string name="settings_overlay_hide_delay_value">%1$d ms</string>
-    <string name="settings_overlay_hide_delay_default_input">1500</string>
+    <string name="settings_overlay_hide_delay_default_input">0</string>
     <string name="settings_overlay_hide_delay_min">0 ms</string>
     <string name="settings_overlay_hide_delay_max">3000 ms</string>
     <string name="settings_overlay_hide_delay_hint">Bestimmt, wie lange die Blinker-Kamera nach dem Ausschalten des Blinkers noch sichtbar bleibt.</string>
     <string name="settings_overlay_min_show">Mindestlaufzeit Kamera</string>
-    <string name="settings_overlay_min_show_default_input">1500</string>
+    <string name="settings_overlay_min_show_default_input">3000</string>
     <string name="settings_overlay_min_show_min">0 ms</string>
     <string name="settings_overlay_min_show_max">6000 ms</string>
     <string name="settings_overlay_min_show_hint">Wie lange die Blinker-Kamera bei kurzem Antippen sichtbar ist.</string>

@@ -19,8 +19,8 @@ final class UiPrefs {
     static final int OVERLAY_HIDE_DELAY_STEP_MS = 100;
     static final int OVERLAY_MIN_SHOW_STEP_MS = 100;
     private static final int DEFAULT_TILE_CORNER_RADIUS = 16;
-    private static final int DEFAULT_OVERLAY_HIDE_DELAY_MS = 1500;
-    private static final int DEFAULT_OVERLAY_MIN_SHOW_MS = 1500;
+    private static final int DEFAULT_OVERLAY_HIDE_DELAY_MS = 0;
+    private static final int DEFAULT_OVERLAY_MIN_SHOW_MS = 3000;
     private static final String DEFAULT_ACCENT_COLOR = "#E7E7E7";
 
     private UiPrefs() {

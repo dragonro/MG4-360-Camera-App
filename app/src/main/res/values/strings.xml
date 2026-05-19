@@ -26,12 +26,12 @@
     <string name="settings_kill_oem_on_reverse">Disable OEM 360 camera application</string>
     <string name="settings_overlay_hide_delay">Overlay hide delay</string>
     <string name="settings_overlay_hide_delay_value">%1$d ms</string>
-    <string name="settings_overlay_hide_delay_default_input">1500</string>
+    <string name="settings_overlay_hide_delay_default_input">0</string>
     <string name="settings_overlay_hide_delay_min">0 ms</string>
     <string name="settings_overlay_hide_delay_max">3000 ms</string>
     <string name="settings_overlay_hide_delay_hint">Controls how long the signal camera stays visible after the turn signal is switched off.</string>
     <string name="settings_overlay_min_show">Minimum signal camera on-time</string>
-    <string name="settings_overlay_min_show_default_input">1500</string>
+    <string name="settings_overlay_min_show_default_input">3000</string>
     <string name="settings_overlay_min_show_min">0 ms</string>
     <string name="settings_overlay_min_show_max">6000 ms</string>
     <string name="settings_overlay_min_show_hint">How long the camera is visible for short tap-to-signal events.</string>
