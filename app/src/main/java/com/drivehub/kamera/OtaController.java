@@ -311,19 +311,6 @@ final class OtaController {
         }
     }
 
-    private java.io.File resolveDownloadedApkFile(long downloadId) throws Exception {
-        DownloadManager dm = activity.getSystemService(DownloadManager.class);
-        if (dm == null) return null;
-        try (Cursor cursor = dm.query(new DownloadManager.Query().setFilterById(downloadId))) {
-            if (cursor == null || !cursor.moveToFirst()) return null;
-            String localUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
-            if (localUri == null || localUri.isEmpty()) return null;
-            Uri local = Uri.parse(localUri);
-            if (!"file".equalsIgnoreCase(local.getScheme())) return null;
-            return new java.io.File(local.getPath());
-        }
-    }
-
     private Uri resolveDownloadedApkUri(long downloadId) throws Exception {
         DownloadManager dm = activity.getSystemService(DownloadManager.class);
         if (dm == null) return null;
