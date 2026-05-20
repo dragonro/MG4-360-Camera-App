@@ -41,6 +41,7 @@ final class SettingsAppearanceController {
     private TextView tabSignalCamera;
     private TextView tabOptik;
     private TextView tabCredits;
+    private TextView tabDev;
     private int activeTab;
 
     SettingsAppearanceController(AppCompatActivity activity) {
@@ -71,7 +72,8 @@ final class SettingsAppearanceController {
             TextView tabSettings,
             TextView tabSignalCamera,
             TextView tabOptik,
-            TextView tabCredits
+            TextView tabCredits,
+            TextView tabDev
     ) {
         this.prefs = prefs;
         this.swOverlay = swOverlay;
@@ -90,6 +92,7 @@ final class SettingsAppearanceController {
         this.tabSignalCamera = tabSignalCamera;
         this.tabOptik = tabOptik;
         this.tabCredits = tabCredits;
+        this.tabDev = tabDev;
         this.activeTab = 1;
 
         int savedRadius = UiPrefs.getTileCornerRadiusSetting(prefs);
@@ -305,6 +308,7 @@ final class SettingsAppearanceController {
         if (tabSignalCamera != null) tabSignalCamera.setTextColor(activeTab == 2 ? accentColor : 0xFF777777);
         if (tabOptik != null) tabOptik.setTextColor(activeTab == 3 ? accentColor : 0xFF777777);
         if (tabCredits != null) tabCredits.setTextColor(activeTab == 4 ? accentColor : 0xFF777777);
+        if (tabDev != null) tabDev.setTextColor(activeTab == 5 ? accentColor : 0xFF777777);
     }
 
     private ColorStateList buildToggleTrackTint(int accentColor) {

@@ -15,11 +15,13 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -46,6 +48,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private final SettingsAppearanceController appearanceController = new SettingsAppearanceController(this);
     private final SignalCameraSettingsController signalCameraSettingsController =
             new SignalCameraSettingsController(this);
+    private final DevSettingsController devSettingsController = new DevSettingsController();
 
     private final OtaController otaController = new OtaController(this);
 
@@ -214,14 +217,19 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         TextView tabSignalCamera = dialog.findViewById(R.id.tabSignalCamera);
         TextView tabOptik = dialog.findViewById(R.id.tabOptik);
         TextView tabCredits = dialog.findViewById(R.id.tabCredits);
+        TextView tabDev = dialog.findViewById(R.id.tabDev);
         View sectionUpdate = dialog.findViewById(R.id.sectionUpdate);
         View sectionSettings = dialog.findViewById(R.id.sectionSettings);
         View sectionSignalCamera = dialog.findViewById(R.id.sectionSignalCamera);
         View sectionOptik = dialog.findViewById(R.id.sectionOptik);
         View sectionCredits = dialog.findViewById(R.id.sectionCredits);
+        View sectionDev = dialog.findViewById(R.id.sectionDev);
         View accentRow = dialog.findViewById(R.id.rowAccentColor);
         View accentPreview = dialog.findViewById(R.id.viewAccentPreview);
         EditText etAccentColor = dialog.findViewById(R.id.etAccentColor);
+        EditText etDevDefaultPollMs = dialog.findViewById(R.id.etDevDefaultPollMs);
+        EditText etDevSignalOffPollMs = dialog.findViewById(R.id.etDevSignalOffPollMs);
+        Button btnDevResetDefaults = dialog.findViewById(R.id.btnDevResetDefaults);
         signalCameraSettingsController.bind(
                 prefs,
                 swOverlay,
@@ -229,6 +237,12 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 etOverlayHideDelayValue,
                 seekOverlayMinShow,
                 etOverlayMinShowValue
+        );
+        devSettingsController.bind(
+                prefs,
+                etDevDefaultPollMs,
+                etDevSignalOffPollMs,
+                btnDevResetDefaults
         );
 
         appearanceController.bindSettingsAppearance(
@@ -248,36 +262,42 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 tabSettings,
                 tabSignalCamera,
                 tabOptik,
-                tabCredits
+                tabCredits,
+                tabDev
         );
 
-        bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits,
-                sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, 1);
+        bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 1);
         appearanceController.reapplyForActiveTab(1);
         tabUpdate.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, 0);
+            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 0);
             appearanceController.reapplyForActiveTab(0);
         });
         tabSettings.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, 1);
+            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 1);
             appearanceController.reapplyForActiveTab(1);
         });
         tabSignalCamera.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, 2);
+            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 2);
             appearanceController.reapplyForActiveTab(2);
         });
         tabOptik.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, 3);
+            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 3);
             appearanceController.reapplyForActiveTab(3);
         });
         tabCredits.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, 4);
+            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 4);
             appearanceController.reapplyForActiveTab(4);
+        });
+        tabDev.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 5);
+            appearanceController.reapplyForActiveTab(5);
         });
 
         TextView tvVersion = dialog.findViewById(R.id.tvDialogVersion);
@@ -289,6 +309,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             tvVersion.setText(R.string.settings_version_unknown);
         }
         tvBeta.setVisibility(BuildConfig.IS_BETA ? View.VISIBLE : View.GONE);
+        final int[] versionTapCount = {0};
+        tvVersion.setOnClickListener(v -> {
+            versionTapCount[0]++;
+            if (versionTapCount[0] < 5) return;
+            versionTapCount[0] = 0;
+            tabDev.setVisibility(View.VISIBLE);
+            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 5);
+            appearanceController.reapplyForActiveTab(5);
+            Toast.makeText(this, R.string.settings_dev_unlocked, Toast.LENGTH_SHORT).show();
+        });
 
         otaController.setup(
                 dialog,
@@ -317,8 +348,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void bindSettingsTab(
-            TextView tabUpdate, TextView tabSettings, TextView tabSignalCamera, TextView tabOptik, TextView tabCredits,
-            View sectionUpdate, View sectionSettings, View sectionSignalCamera, View sectionOptik, View sectionCredits,
+            TextView tabUpdate, TextView tabSettings, TextView tabSignalCamera, TextView tabOptik, TextView tabCredits, TextView tabDev,
+            View sectionUpdate, View sectionSettings, View sectionSignalCamera, View sectionOptik, View sectionCredits, View sectionDev,
             int active
     ) {
         sectionUpdate.setVisibility(active == 0 ? View.VISIBLE : View.GONE);
@@ -326,11 +357,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         sectionSignalCamera.setVisibility(active == 2 ? View.VISIBLE : View.GONE);
         sectionOptik.setVisibility(active == 3 ? View.VISIBLE : View.GONE);
         sectionCredits.setVisibility(active == 4 ? View.VISIBLE : View.GONE);
+        sectionDev.setVisibility(active == 5 ? View.VISIBLE : View.GONE);
         styleSettingsTab(tabUpdate, active == 0);
         styleSettingsTab(tabSettings, active == 1);
         styleSettingsTab(tabSignalCamera, active == 2);
         styleSettingsTab(tabOptik, active == 3);
         styleSettingsTab(tabCredits, active == 4);
+        styleSettingsTab(tabDev, active == 5);
     }
 
     private void styleSettingsTab(TextView tab, boolean active) {

@@ -177,7 +177,7 @@ public class SignalService extends Service {
                 currentLamp = readTurnLampFromSystemProperty();
                 currentGear = readGearFromSystemProperty();
                 updateOverlayDecision();
-                pollHandler.postDelayed(this, 100);
+                pollHandler.postDelayed(this, readNextPollingDelayMs());
             }
         });
     }
@@ -321,6 +321,14 @@ public class SignalService extends Service {
     private long readOverlayMinShowMs() {
         SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         return UiPrefs.getOverlayMinShowMs(sp);
+    }
+
+    private int readNextPollingDelayMs() {
+        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (currentLamp == 1 || currentLamp == 2) {
+            return UiPrefs.getDevSignalOffPollMs(sp);
+        }
+        return UiPrefs.getDevDefaultPollMs(sp);
     }
 
     private void markOverlayShownNow() {
