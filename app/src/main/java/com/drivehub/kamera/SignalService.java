@@ -58,7 +58,6 @@ public class SignalService extends Service {
     private int currentMode = -1; // -1:init, 0:none, 1:left, 2:right, 3:reverse
     private volatile long overlayShownAtMs = 0L;
 
-    private static final String PREFS_NAME = "rec_prefs";
     private final Handler mainHandler = new Handler();
     private final Runnable hideRunnable = new Runnable() {
         @Override
@@ -306,7 +305,7 @@ public class SignalService extends Service {
 
     private boolean isOverlayEnabled() {
         try {
-            SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            SharedPreferences sp = UiPrefs.getPrefs(this);
             return sp.getBoolean(UiPrefs.KEY_OVERLAY_ON_SIGNAL, false);
         } catch (Throwable t) {
             return false;
@@ -314,17 +313,17 @@ public class SignalService extends Service {
     }
 
     private long readOverlayHideDelayMs() {
-        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences sp = UiPrefs.getPrefs(this);
         return UiPrefs.getOverlayHideDelayMs(sp);
     }
 
     private long readOverlayMinShowMs() {
-        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences sp = UiPrefs.getPrefs(this);
         return UiPrefs.getOverlayMinShowMs(sp);
     }
 
     private int readNextPollingDelayMs() {
-        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences sp = UiPrefs.getPrefs(this);
         if (currentLamp == 1 || currentLamp == 2) {
             return UiPrefs.getDevSignalOffPollMs(sp);
         }

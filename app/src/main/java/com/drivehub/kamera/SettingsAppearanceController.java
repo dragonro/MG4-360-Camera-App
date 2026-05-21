@@ -19,6 +19,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 final class SettingsAppearanceController {
 
@@ -110,11 +111,10 @@ final class SettingsAppearanceController {
 
         seekCorner.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (!fromUser) return;
                 prefs.edit().putInt(UiPrefs.KEY_TILE_CORNER_RADIUS, progress).apply();
-                if (fromUser) {
-                    etCorner.setText(String.valueOf(progress));
-                    etCorner.setSelection(etCorner.getText().length());
-                }
+                etCorner.setText(String.valueOf(progress));
+                etCorner.setSelection(etCorner.getText().length());
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
@@ -175,8 +175,8 @@ final class SettingsAppearanceController {
     }
 
     void styleSettingsTab(TextView tab, boolean active) {
-        int activeColor = UiPrefs.getAccentColorInt(UiPrefs.getPrefs(activity));
-        tab.setTextColor(active ? activeColor : 0xFF777777);
+        int activeColor = UiPrefs.getAccentColorInt(prefs);
+        tab.setTextColor(active ? activeColor : ContextCompat.getColor(activity, R.color.settings_tab_inactive));
         tab.setTextSize(20f);
         tab.setTypeface(tab.getTypeface(), Typeface.BOLD);
     }
@@ -303,12 +303,13 @@ final class SettingsAppearanceController {
                 ((GradientDrawable) background.mutate()).setColor(accentColor);
             }
         }
-        if (tabUpdate != null) tabUpdate.setTextColor(activeTab == 0 ? accentColor : 0xFF777777);
-        if (tabSettings != null) tabSettings.setTextColor(activeTab == 1 ? accentColor : 0xFF777777);
-        if (tabSignalCamera != null) tabSignalCamera.setTextColor(activeTab == 2 ? accentColor : 0xFF777777);
-        if (tabOptik != null) tabOptik.setTextColor(activeTab == 3 ? accentColor : 0xFF777777);
-        if (tabCredits != null) tabCredits.setTextColor(activeTab == 4 ? accentColor : 0xFF777777);
-        if (tabDev != null) tabDev.setTextColor(activeTab == 5 ? accentColor : 0xFF777777);
+        int inactiveColor = ContextCompat.getColor(activity, R.color.settings_tab_inactive);
+        if (tabUpdate != null) tabUpdate.setTextColor(activeTab == 0 ? accentColor : inactiveColor);
+        if (tabSettings != null) tabSettings.setTextColor(activeTab == 1 ? accentColor : inactiveColor);
+        if (tabSignalCamera != null) tabSignalCamera.setTextColor(activeTab == 2 ? accentColor : inactiveColor);
+        if (tabOptik != null) tabOptik.setTextColor(activeTab == 3 ? accentColor : inactiveColor);
+        if (tabCredits != null) tabCredits.setTextColor(activeTab == 4 ? accentColor : inactiveColor);
+        if (tabDev != null) tabDev.setTextColor(activeTab == 5 ? accentColor : inactiveColor);
     }
 
     private ColorStateList buildToggleTrackTint(int accentColor) {
@@ -319,7 +320,7 @@ final class SettingsAppearanceController {
                 },
                 new int[]{
                         accentColor,
-                        0xFF383838
+                        ContextCompat.getColor(activity, R.color.settings_slider_track_bg)
                 }
         );
     }
