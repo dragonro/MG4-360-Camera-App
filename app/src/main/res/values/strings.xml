@@ -117,8 +117,8 @@
     <string name="ota_update_section_unavailable">Release information unavailable</string>
     <string name="ota_update_channel_loading">Checking selected channel…</string>
     <string name="ota_update_channel_error">The selected update channel could not be checked.</string>
-    <string name="ota_update_channel_stable_only">Stable-only channel active. Latest matching release: %1$s.</string>
-    <string name="ota_update_channel_beta_enabled">Beta channel active. Latest matching release: %1$s.</string>
+    <string name="ota_update_channel_stable_only">Stable-only</string>
+    <string name="ota_update_channel_beta_enabled">Stable + Beta</string>
     <string name="ota_source_status_loading">Checking source availability…</string>
     <string name="ota_source_status_available">✓ %1$s available</string>
     <string name="ota_source_status_unavailable">✗ %1$s unavailable</string>

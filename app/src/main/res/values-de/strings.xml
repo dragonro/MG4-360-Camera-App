@@ -77,11 +77,11 @@
     <string name="settings_color_picker_cancel">Abbrechen</string>
     <string name="settings_color_picker_apply">Übernehmen</string>
     <string name="ota_status_checking">Suche nach Updates…</string>
-    <string name="ota_status_up_to_date">Du bist aktuell</string>
+    <string name="ota_status_up_to_date">Aktuell</string>
     <string name="ota_status_update_available">Update verfügbar: %1$s</string>
     <string name="ota_status_check_failed">Tippen zum erneuten Prüfen</string>
     <string name="ota_dialog_title">OTA-Update</string>
-    <string name="ota_dialog_up_to_date_message">Es wurde keine neuere Version gefunden. Du kannst die Suche manuell aktualisieren.</string>
+    <string name="ota_dialog_up_to_date_message">Es wurde keine neuere Version gefunden. Du kannst manuell aktualisieren.</string>
     <string name="ota_dialog_update_available_message">Eine neuere Version %1$s ist verfügbar. Tippe den Update-Tag erneut an, um sie herunterzuladen und zu verifizieren.</string>
     <string name="ota_dialog_check_failed_message">Die Update-Prüfung ist fehlgeschlagen. Tippe auf Aktualisieren, um es erneut zu versuchen.</string>
     <string name="ota_dialog_mobile_warning_message">Der Download von Version %1$s kann mobiles Datenvolumen des Fahrzeugs verbrauchen, wenn das Auto nicht mit WLAN verbunden ist. Möchtest du fortfahren?</string>
