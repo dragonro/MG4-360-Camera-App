@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -55,13 +56,13 @@ public class SignalService extends Service {
     private int currentLamp = 0;
     private int currentGear = 0;
     private int currentMode = -1; // -1:init, 0:none, 1:left, 2:right, 3:reverse
+    private volatile long overlayShownAtMs = 0L;
 
-    private static final String PREFS_NAME = "rec_prefs";
-    private static final String KEY_OVERLAY_HIDE_DELAY_MS = "overlayHideDelayMs";
     private final Handler mainHandler = new Handler();
     private final Runnable hideRunnable = new Runnable() {
         @Override
         public void run() {
+            clearOverlayShownTimestamp();
             OverlayService.hideOverlay(SignalService.this);
             Log.i(TAG, "Signal off (delayed) => overlay hide");
         }
@@ -94,8 +95,8 @@ public class SignalService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Notification n = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
-                .setContentTitle("Drivehub Kamera")
-                .setContentText("Sinyal dinleyicisi aktif")
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.notification_signal_text))
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
@@ -175,7 +176,7 @@ public class SignalService extends Service {
                 currentLamp = readTurnLampFromSystemProperty();
                 currentGear = readGearFromSystemProperty();
                 updateOverlayDecision();
-                pollHandler.postDelayed(this, 200);
+                pollHandler.postDelayed(this, readNextPollingDelayMs());
             }
         });
     }
@@ -238,6 +239,7 @@ public class SignalService extends Service {
         // If MainActivity is visible, do not use the overlay; route the main preview camera instead.
         if (MainActivity.shouldBlockOverlay()) {
             mainHandler.removeCallbacks(hideRunnable);
+            clearOverlayShownTimestamp();
             OverlayService.hideOverlay(this);
             int targetCamera = (nextMode == 3) ? 17 : (nextMode == 1) ? 16 : (nextMode == 2) ? 14 : 15;
             Intent i = new Intent(ACTION_ROUTE_CAMERA);
@@ -252,6 +254,7 @@ public class SignalService extends Service {
         if (!isOverlayEnabled()) {
             // Also hide any leftover overlay if the setting is disabled.
             mainHandler.removeCallbacks(hideRunnable);
+            clearOverlayShownTimestamp();
             OverlayService.hideOverlay(this);
             Log.i(TAG, "Overlay disabled in settings => no overlay, only listening.");
             return;
@@ -260,6 +263,7 @@ public class SignalService extends Service {
         if (nextMode == 3) { // reverse
             // No overlay is wanted for reverse: hide it if present and leave only OEM/main screen behavior.
             mainHandler.removeCallbacks(hideRunnable);
+            clearOverlayShownTimestamp();
             OverlayService.hideOverlay(this);
             Log.i(TAG, "Reverse => no overlay (disabled for reverse)");
             return;
@@ -268,22 +272,23 @@ public class SignalService extends Service {
         // For non-reverse signal states, skip the overlay if the OEM AVM is already in the foreground.
         if (isOemAvmInForeground()) {
             mainHandler.removeCallbacks(hideRunnable);
+            clearOverlayShownTimestamp();
             OverlayService.hideOverlay(this);
             Log.i(TAG, "OEM AVM visible (turn signal) => skip overlay.");
             return;
         }
 
+        mainHandler.removeCallbacks(hideRunnable);
         if (nextMode == 1) {
-            mainHandler.removeCallbacks(hideRunnable);
+            markOverlayShownNow();
             OverlayService.showOverlay(this, 16);
             Log.i(TAG, "Left signal => overlay v16");
         } else if (nextMode == 2) {
-            mainHandler.removeCallbacks(hideRunnable);
+            markOverlayShownNow();
             OverlayService.showOverlay(this, 14);
             Log.i(TAG, "Right signal => overlay v14");
         } else {
-            mainHandler.removeCallbacks(hideRunnable);
-            long delayMs = readOverlayHideDelayMs();
+            long delayMs = computeOverlayHideDelayMs();
             mainHandler.postDelayed(hideRunnable, delayMs);
             Log.i(TAG, "Signal/gear off => will hide overlay after " + delayMs + "ms");
         }
@@ -300,23 +305,49 @@ public class SignalService extends Service {
 
     private boolean isOverlayEnabled() {
         try {
-            SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            return sp.getBoolean("overlayOnSignal", false);
+            SharedPreferences sp = UiPrefs.getPrefs(this);
+            return sp.getBoolean(UiPrefs.KEY_OVERLAY_ON_SIGNAL, false);
         } catch (Throwable t) {
             return false;
         }
     }
 
     private long readOverlayHideDelayMs() {
-        try {
-            SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            long v = sp.getLong(KEY_OVERLAY_HIDE_DELAY_MS, 1500L);
-            if (v < 0) v = 0;
-            if (v > 30000L) v = 30000L;
-            return v;
-        } catch (Throwable ignored) {
-            return 1500L;
+        SharedPreferences sp = UiPrefs.getPrefs(this);
+        return UiPrefs.getOverlayHideDelayMs(sp);
+    }
+
+    private long readOverlayMinShowMs() {
+        SharedPreferences sp = UiPrefs.getPrefs(this);
+        return UiPrefs.getOverlayMinShowMs(sp);
+    }
+
+    private int readNextPollingDelayMs() {
+        SharedPreferences sp = UiPrefs.getPrefs(this);
+        if (currentLamp == 1 || currentLamp == 2) {
+            return UiPrefs.getDevSignalOffPollMs(sp);
         }
+        return UiPrefs.getDevDefaultPollMs(sp);
+    }
+
+    private void markOverlayShownNow() {
+        overlayShownAtMs = SystemClock.elapsedRealtime();
+    }
+
+    private void clearOverlayShownTimestamp() {
+        overlayShownAtMs = 0L;
+    }
+
+    private long computeOverlayHideDelayMs() {
+        long hideDelayMs = readOverlayHideDelayMs();
+        long minShowMs = readOverlayMinShowMs();
+        long shownAtMs = overlayShownAtMs;
+        if (shownAtMs <= 0L || minShowMs <= 0L) {
+            return hideDelayMs;
+        }
+        long elapsedVisibleMs = Math.max(0L, SystemClock.elapsedRealtime() - shownAtMs);
+        long remainingMinShowMs = Math.max(0L, minShowMs - elapsedVisibleMs);
+        return Math.max(hideDelayMs, remainingMinShowMs);
     }
 
     private boolean isOemAvmInForeground() {

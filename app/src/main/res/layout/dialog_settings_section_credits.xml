@@ -7,14 +7,14 @@
     android:visibility="gone">
 
     <TextView
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
         android:text="@string/settings_section_open_source_credits" />
 
     <TextView
-        style="@style/DrivehubSettingsCreditsBody"
+        style="@style/DrivehubSettingsBody"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="OpenCV 4.9.0 (opencv.org) - Apache License 2.0&#10;AndroidX AppCompat 1.7.1 - Apache License 2.0&#10;AndroidX Activity 1.12.4 - Apache License 2.0&#10;AndroidX ConstraintLayout 2.2.1 - Apache License 2.0&#10;Material Components for Android 1.13.0 - Apache License 2.0&#10;Icons based on Google Material Symbols - Apache License 2.0" />
@@ -27,14 +27,14 @@
         android:background="@color/settings_divider" />
 
     <TextView
-        style="@style/DrivehubSettingsSectionHeader"
+        style="@style/DrivehubSettingsHeading2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
         android:text="@string/settings_section_additional_credits" />
 
     <TextView
-        style="@style/DrivehubSettingsCreditsBody"
+        style="@style/DrivehubSettingsBody"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Thanks to the community from XDA Forums - MG4 Electric AAOS 9&#10;Thanks to merth4n for providing the base application" />

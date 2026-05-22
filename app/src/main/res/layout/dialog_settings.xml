@@ -18,7 +18,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:src="@drawable/ic_close"
-            android:tint="@color/settings_text_primary"
+            android:tint="@color/settings_accent"
             android:background="@android:color/transparent"
             android:padding="10dp"
             android:scaleType="centerInside"
@@ -36,22 +36,63 @@
 
         <TextView
             android:id="@+id/tabSettings"
-            style="@style/DrivehubSettingsTabActive"
+            style="@style/DrivehubSettingsTabInactive"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="28dp"
+            android:layout_marginEnd="18dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
             android:text="@string/settings_tab_settings" />
+
+        <TextView
+            android:id="@+id/tabSignalCamera"
+            style="@style/DrivehubSettingsTabInactive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="18dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="@string/settings_tab_signal_camera" />
+
+        <TextView
+            android:id="@+id/tabOptik"
+            style="@style/DrivehubSettingsTabInactive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="18dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="@string/settings_tab_optik" />
+
+        <TextView
+            android:id="@+id/tabUpdate"
+            style="@style/DrivehubSettingsTabActive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="18dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="@string/settings_tab_update" />
 
         <TextView
             android:id="@+id/tabCredits"
             style="@style/DrivehubSettingsTabInactive"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="18dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
             android:text="@string/settings_tab_credits" />
+
+        <TextView
+            android:id="@+id/tabDev"
+            style="@style/DrivehubSettingsTabInactive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="@string/settings_tab_dev"
+            android:visibility="gone" />
 
     </LinearLayout>
 
@@ -81,17 +122,27 @@
 
             <!-- Android resource folders do not support free nested subfolders here,
                  so the dialog is split into separate include files with a clear prefix instead. -->
+            <include layout="@layout/dialog_settings_section_update" />
+
             <include layout="@layout/dialog_settings_section_settings" />
 
+            <include layout="@layout/dialog_settings_section_signal_camera" />
+
+            <include layout="@layout/dialog_settings_section_optik" />
+
             <include layout="@layout/dialog_settings_section_credits" />
+
+            <include layout="@layout/dialog_settings_section_dev" />
 
         </FrameLayout>
     </ScrollView>
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="40dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="40dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -111,6 +162,18 @@
             android:text="@string/settings_version_beta"
             android:visibility="gone" />
 
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tvDialogUpdateTag"
+            style="@style/DrivehubSettingsFooterTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/ota_status_checking" />
+
     </LinearLayout>
 
     <TextView
@@ -119,7 +182,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="40dp"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="6dp"
         android:layout_marginBottom="20dp"
         android:text="by jamakr4 &amp; merth4n" />
 

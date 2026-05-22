@@ -89,7 +89,7 @@ public class RecordingService extends Service {
         }
 
         stopRequested = false;
-        startForeground(NOTIF_ID, buildNotification("Kayıt başlatılıyor..."));
+        startForeground(NOTIF_ID, buildNotification(getString(R.string.notification_recording_starting)));
         worker = new Thread(this::recordLoop, "RecordingServiceWorker");
         worker.start();
         return START_STICKY;
@@ -224,7 +224,7 @@ public class RecordingService extends Service {
     private Notification buildNotification(String text) {
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
-                .setContentTitle("Drivehub Kamera")
+                .setContentTitle(getString(R.string.app_name))
                 .setContentText(text)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW);
@@ -234,7 +234,7 @@ public class RecordingService extends Service {
     private void createNotificationChannel() {
         NotificationChannel ch = new NotificationChannel(
                 CHANNEL_ID,
-                CHANNEL_ID,
+                getString(R.string.notification_channel_recording),
                 NotificationManager.IMPORTANCE_LOW
         );
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);

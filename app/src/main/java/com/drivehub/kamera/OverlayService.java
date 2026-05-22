@@ -6,8 +6,10 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.PixelFormat;
+import android.os.Build;
 import android.os.IBinder;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -65,6 +67,13 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private float initialY;
     private float initialTouchX;
     private float initialTouchY;
+    private android.content.SharedPreferences uiPrefs;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener =
+            (sharedPreferences, key) -> {
+                if (UiPrefs.KEY_TILE_CORNER_RADIUS.equals(key)) {
+                    applyOverlayCornerRadius();
+                }
+            };
 
     public static void showOverlay(Context context, int cameraIndex) {
         Intent i = new Intent(context, OverlayService.class);
@@ -81,6 +90,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     public void onCreate() {
         super.onCreate();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        uiPrefs = UiPrefs.getPrefs(this);
+        uiPrefs.registerOnSharedPreferenceChangeListener(prefListener);
         createNotificationChannel();
     }
 
@@ -92,8 +103,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         // Run as a foreground service so the overlay survives while the app is in the background.
         Notification notif = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
-                .setContentTitle("Drivehub Kamera")
-                .setContentText("Sinyal kamerası overlay açık")
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.notification_overlay_text))
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
@@ -102,6 +113,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (overlayView == null) {
             showFloatingWindow();
         } else {
+            applyOverlayCornerRadius();
             // If the overlay is already open and only the camera index changed, switch the feed.
             if (textureSurface != null && textureSurface.isValid()) {
                 startPreview();
@@ -261,8 +273,26 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         btnDismissOverlay.setContentDescription("Close overlay");
         btnDismissOverlay.setOnClickListener(v -> hideOverlay(OverlayService.this));
         card.addView(btnDismissOverlay);
+        applyOverlayCornerRadius(card);
 
         return card;
+    }
+
+    private void applyOverlayCornerRadius() {
+        applyOverlayCornerRadius(overlayView);
+    }
+
+    private void applyOverlayCornerRadius(View target) {
+        if (target == null || uiPrefs == null) return;
+        target.post(() -> {
+            if (!(target.getBackground() instanceof android.graphics.drawable.GradientDrawable)) {
+                return;
+            }
+            android.graphics.drawable.GradientDrawable background =
+                    (android.graphics.drawable.GradientDrawable) target.getBackground().mutate();
+            background.setCornerRadius(UiPrefs.getCornerRadiusPx(target, uiPrefs));
+            target.invalidateOutline();
+        });
     }
 
     private int dpToPx(int dp) {
@@ -274,11 +304,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         float aspect = (float) DEFAULT_OVERLAY_WIDTH_PX / (float) DEFAULT_OVERLAY_HEIGHT_PX;
         int maxW = OVERLAY_MAX_WIDTH_PX;
         int maxH = OVERLAY_MAX_WIDTH_PX;
-        if (windowManager != null) {
-            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
-            windowManager.getDefaultDisplay().getMetrics(dm);
-            maxW = Math.min(maxW, dm.widthPixels);
-            maxH = Math.min(maxH, dm.heightPixels);
+        int[] screenSize = getAvailableScreenSizePx();
+        if (screenSize != null) {
+            maxW = Math.min(maxW, screenSize[0]);
+            maxH = Math.min(maxH, screenSize[1]);
         }
         if (w < OVERLAY_MIN_WIDTH_PX) {
             w = OVERLAY_MIN_WIDTH_PX;
@@ -303,14 +332,29 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
     private void clampOverlayPositionToScreen() {
         if (windowManager == null || overlayParams == null) return;
-        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
-        windowManager.getDefaultDisplay().getMetrics(dm);
-        int maxX = Math.max(0, dm.widthPixels - overlayParams.width);
-        int maxY = Math.max(0, dm.heightPixels - overlayParams.height);
+        int[] screenSize = getAvailableScreenSizePx();
+        if (screenSize == null) return;
+        int maxX = Math.max(0, screenSize[0] - overlayParams.width);
+        int maxY = Math.max(0, screenSize[1] - overlayParams.height);
         if (overlayParams.x < 0) overlayParams.x = 0;
         if (overlayParams.y < 0) overlayParams.y = 0;
         if (overlayParams.x > maxX) overlayParams.x = maxX;
         if (overlayParams.y > maxY) overlayParams.y = maxY;
+    }
+
+    // Android Auto can expose a smaller "current" app viewport than the actual interactive
+    // overlay space. Maximum window metrics are a better fit for drag/resize bounds here.
+    private int[] getAvailableScreenSizePx() {
+        if (windowManager == null) return null;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Rect bounds = windowManager.getMaximumWindowMetrics().getBounds();
+            return new int[]{bounds.width(), bounds.height()};
+        }
+
+        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+        windowManager.getDefaultDisplay().getRealMetrics(dm);
+        return new int[]{dm.widthPixels, dm.heightPixels};
     }
 
     private void saveOverlayLayoutPrefs() {
@@ -331,6 +375,9 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (uiPrefs != null) {
+            uiPrefs.unregisterOnSharedPreferenceChangeListener(prefListener);
+        }
         stopPreview();
         if (textureSurface != null) {
             textureSurface.release();

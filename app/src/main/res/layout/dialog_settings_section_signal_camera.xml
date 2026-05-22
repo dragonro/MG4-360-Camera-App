@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sectionSignalCamera"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <TextView
+        style="@style/DrivehubSettingsHeading2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="2dp"
+        android:text="@string/settings_section_signal_camera" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/DrivehubSettingsLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/settings_overlay_on_signal" />
+
+        <Switch
+            android:id="@+id/switchOverlayOnSignal"
+            style="@style/DrivehubSettingsSwitch" />
+
+    </LinearLayout>
+
+    <TextView
+        style="@style/DrivehubSettingsHeading2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp"
+        android:layout_marginBottom="12dp"
+        android:text="@string/settings_overlay_hide_delay" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <SeekBar
+            android:id="@+id/seekOverlayHideDelay"
+            style="@style/DrivehubSettingsSlider"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:max="30"
+            android:progress="15" />
+
+        <EditText
+            android:id="@+id/etOverlayHideDelayValue"
+            style="@style/DrivehubSettingsSliderValue"
+            android:maxLength="4"
+            android:text="@string/settings_overlay_hide_delay_default_input" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            style="@style/DrivehubSettingsCaption"
+            android:text="@string/settings_overlay_hide_delay_min"
+             />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
+            style="@style/DrivehubSettingsCaption"
+            android:text="@string/settings_overlay_hide_delay_max"
+             />
+
+    </LinearLayout>
+
+    <TextView
+        style="@style/DrivehubSettingsBodyMuted"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/settings_overlay_hide_delay_hint" />
+
+    <TextView
+        style="@style/DrivehubSettingsHeading2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp"
+        android:layout_marginBottom="12dp"
+        android:text="@string/settings_overlay_min_show" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <SeekBar
+            android:id="@+id/seekOverlayMinShow"
+            style="@style/DrivehubSettingsSlider"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:max="60"
+            android:progress="15" />
+
+        <EditText
+            android:id="@+id/etOverlayMinShowValue"
+            style="@style/DrivehubSettingsSliderValue"
+            android:maxLength="4"
+            android:text="@string/settings_overlay_min_show_default_input" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/DrivehubSettingsCaption"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/settings_overlay_min_show_min" />
+
+        <TextView
+            style="@style/DrivehubSettingsCaption"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
+            android:text="@string/settings_overlay_min_show_max" />
+
+    </LinearLayout>
+
+    <TextView
+        style="@style/DrivehubSettingsBodyMuted"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/settings_overlay_min_show_hint" />
+
+    <TextView
+        style="@style/DrivehubSettingsHeading2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp"
+        android:layout_marginBottom="12dp"
+        android:text="@string/settings_tile_corner_radius" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <SeekBar
+            android:id="@+id/seekCornerRadius"
+            style="@style/DrivehubSettingsSlider"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:max="35"
+            android:progress="16" />
+
+        <EditText
+            android:id="@+id/etCornerRadius"
+            style="@style/DrivehubSettingsSliderValue"
+            android:maxLength="2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            style="@style/DrivehubSettingsCaption"
+            android:text="@string/settings_tile_corner_square" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
+            style="@style/DrivehubSettingsCaption"
+            android:text="@string/settings_tile_corner_round" />
+
+    </LinearLayout>
+</LinearLayout>
