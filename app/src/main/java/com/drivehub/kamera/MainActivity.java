@@ -197,6 +197,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         SharedPreferences avmPrefs = getSharedPreferences(AVM_PREFS_NAME, MODE_PRIVATE);
 
         Switch swOverlay = dialog.findViewById(R.id.switchOverlayOnSignal);
+        Switch swRotateToDrivingDirection =
+                dialog.findViewById(R.id.switchOverlayRotateToDrivingDirection);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
         swSafetyWarning.setChecked(avmPrefs.getBoolean(KEY_SAFETY_WARNING, true));
         swSafetyWarning.setOnCheckedChangeListener((btn, checked) -> {
@@ -233,6 +235,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         signalCameraSettingsController.bind(
                 prefs,
                 swOverlay,
+                swRotateToDrivingDirection,
                 seekOverlayHideDelay,
                 etOverlayHideDelayValue,
                 seekOverlayMinShow,
@@ -248,6 +251,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         appearanceController.bindSettingsAppearance(
                 prefs,
                 swOverlay,
+                swRotateToDrivingDirection,
                 swSafetyWarning,
                 swAllowBetaUpdates,
                 dialogClose,

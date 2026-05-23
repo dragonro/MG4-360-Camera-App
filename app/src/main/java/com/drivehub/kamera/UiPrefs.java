@@ -11,6 +11,7 @@ final class UiPrefs {
     static final String KEY_ACCENT_COLOR = "accentColor";
     static final String KEY_ALLOW_BETA_UPDATES = "allowBetaUpdates";
     static final String KEY_OVERLAY_ON_SIGNAL = "overlayOnSignal";
+    static final String KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION = "overlayRotateToDrivingDirection";
     static final String KEY_OVERLAY_HIDE_DELAY_MS = "overlayHideDelayMs";
     static final String KEY_OVERLAY_MIN_SHOW_MS = "overlayMinShowMs";
     static final String KEY_DEV_DEFAULT_POLL_MS = "devDefaultPollMs";
@@ -52,6 +53,10 @@ final class UiPrefs {
     static int getOverlayMinShowMs(SharedPreferences prefs) {
         long value = prefs.getLong(KEY_OVERLAY_MIN_SHOW_MS, DEFAULT_OVERLAY_MIN_SHOW_MS);
         return clampOverlayMinShowMs((int) value);
+    }
+
+    static boolean isOverlayRotationToDrivingDirectionEnabled(SharedPreferences prefs) {
+        return prefs.getBoolean(KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION, false);
     }
 
     static int getDevDefaultPollMs(SharedPreferences prefs) {

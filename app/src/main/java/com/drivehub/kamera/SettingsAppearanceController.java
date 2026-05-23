@@ -27,6 +27,7 @@ final class SettingsAppearanceController {
     private boolean isNormalizingAccentColor;
     private SharedPreferences prefs;
     private Switch swOverlay;
+    private Switch swRotateToDrivingDirection;
     private Switch swSafetyWarning;
     private Switch swAllowBetaUpdates;
     private ImageButton dialogClose;
@@ -59,6 +60,7 @@ final class SettingsAppearanceController {
     void bindSettingsAppearance(
             SharedPreferences prefs,
             Switch swOverlay,
+            Switch swRotateToDrivingDirection,
             Switch swSafetyWarning,
             Switch swAllowBetaUpdates,
             ImageButton dialogClose,
@@ -78,6 +80,7 @@ final class SettingsAppearanceController {
     ) {
         this.prefs = prefs;
         this.swOverlay = swOverlay;
+        this.swRotateToDrivingDirection = swRotateToDrivingDirection;
         this.swSafetyWarning = swSafetyWarning;
         this.swAllowBetaUpdates = swAllowBetaUpdates;
         this.dialogClose = dialogClose;
@@ -290,6 +293,9 @@ final class SettingsAppearanceController {
         }
         if (swOverlay != null) {
             swOverlay.setTrackTintList(buildToggleTrackTint(accentColor));
+        }
+        if (swRotateToDrivingDirection != null) {
+            swRotateToDrivingDirection.setTrackTintList(buildToggleTrackTint(accentColor));
         }
         if (swSafetyWarning != null) {
             swSafetyWarning.setTrackTintList(buildToggleTrackTint(accentColor));

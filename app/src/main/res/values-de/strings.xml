@@ -9,6 +9,7 @@
     <string name="settings_section_display">ANZEIGE</string>
     <string name="settings_section_signal_camera">BLINKER-KAMERA</string>
     <string name="settings_overlay_on_signal">Kamera beim Blinken anzeigen</string>
+    <string name="settings_overlay_rotate_to_driving_direction">Spiegelkameras in Fahrtrichtung drehen</string>
     <string name="safety_warning_text">Bitte achte auf die Umgebung!</string>
     <string name="show_safety_warning">Sicherheitswarnung anzeigen</string>
     <string name="settings_section_open_source_credits">OPEN-SOURCE CREDITS</string>
