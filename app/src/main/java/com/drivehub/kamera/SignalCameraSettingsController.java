@@ -19,6 +19,7 @@ final class SignalCameraSettingsController {
     void bind(
             SharedPreferences prefs,
             Switch swOverlay,
+            Switch swRotateToDrivingDirection,
             SeekBar seekOverlayHideDelay,
             EditText etOverlayHideDelayValue,
             SeekBar seekOverlayMinShow,
@@ -32,6 +33,17 @@ final class SignalCameraSettingsController {
                     OverlayService.hideOverlay(activity);
                 }
             });
+        }
+
+        if (swRotateToDrivingDirection != null) {
+            swRotateToDrivingDirection.setChecked(
+                    UiPrefs.isOverlayRotationToDrivingDirectionEnabled(prefs)
+            );
+            swRotateToDrivingDirection.setOnCheckedChangeListener((btn, checked) ->
+                    prefs.edit()
+                            .putBoolean(UiPrefs.KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION, checked)
+                            .apply()
+            );
         }
 
         bindMsSlider(
