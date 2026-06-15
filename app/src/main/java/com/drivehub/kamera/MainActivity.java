@@ -539,7 +539,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             testPreviewRunning = ok;
         }
         if (!ok) {
-            ok = CameraProbe.startPreview(currentVideoIndex, surfaceHolder.getSurface());
+            try {
+                ok = CameraProbe.startPreview(currentVideoIndex, surfaceHolder.getSurface());
+            } catch (Throwable t) {
+                ok = false;
+            }
             previewRunning = ok;
         }
         if (tvStatus != null) {
@@ -555,7 +559,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             testPreviewRunning = false;
         }
         if (previewRunning) {
-            CameraProbe.stopPreview();
+            try {
+                CameraProbe.stopPreview();
+            } catch (Throwable ignored) {
+            }
             previewRunning = false;
         }
         if (tvStatus != null) tvStatus.setText(R.string.main_preview_stopped);

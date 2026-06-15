@@ -141,8 +141,12 @@ public class RecordingService extends Service {
         for (int i = 0; i < SLOT_IDS.length; i++) {
             String outputPath = new File(baseDir, segmentStamp + "_" + CAMERA_INDICES[i] + ".mpg")
                     .getAbsolutePath();
-            started[i] = CameraProbe.startMp4Record(SLOT_IDS[i], CAMERA_INDICES[i], outputPath,
-                    720, 240, 15, 2_500_000);
+            try {
+                started[i] = CameraProbe.startMp4Record(SLOT_IDS[i], CAMERA_INDICES[i], outputPath,
+                        720, 240, 15, 2_500_000);
+            } catch (Throwable t) {
+                started[i] = false;
+            }
             if (!started[i]) {
                 break;
             }

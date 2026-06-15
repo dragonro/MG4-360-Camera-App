@@ -16,9 +16,9 @@ final class OtaReleaseFetcher {
     private static final String SOURCE_GITHUB = "GitHub";
     private static final String SOURCE_GITLAB = "GitLab";
     private static final String GITHUB_RELEASES_URL =
-            "https://api.github.com/repos/jamakr4/MG4-360-Camera-App/releases?per_page=20";
+            "https://api.github.com/repos/dragonro/MG4-360-Camera-App/releases?per_page=20";
     private static final String GITLAB_RELEASES_URL =
-            "https://gitlab.com/api/v4/projects/jamakr4%2Fmg4-360-camera-app/releases?per_page=20";
+            "https://gitlab.com/api/v4/projects/dragonro%2Fmg4-360-camera-app/releases?per_page=20";
 
     private OtaReleaseFetcher() {
     }
