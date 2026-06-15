@@ -36,7 +36,6 @@ final class OtaController {
     private TextView releaseChannelView;
     private TextView changelogView;
     private TextView githubStatusView;
-    private TextView gitlabStatusView;
     private Switch betaSwitch;
     private boolean suppressBetaToggleCallback = false;
 
@@ -51,15 +50,13 @@ final class OtaController {
             TextView releaseTitle,
             TextView releaseChannel,
             TextView changelog,
-            TextView githubStatus,
-            TextView gitlabStatus
+            TextView githubStatus
     ) {
         lastCheckInfo = null;
         releaseTitleView = releaseTitle;
         releaseChannelView = releaseChannel;
         changelogView = changelog;
         githubStatusView = githubStatus;
-        gitlabStatusView = gitlabStatus;
         betaSwitch = allowBetaSwitch;
 
         SharedPreferences prefs = UiPrefs.getPrefs(activity);
@@ -470,11 +467,7 @@ final class OtaController {
         OtaUpdateManager.SourceStatus githubStatus = checking
                 ? null
                 : (info != null ? info.githubStatus : null);
-        OtaUpdateManager.SourceStatus gitlabStatus = checking
-                ? null
-                : (info != null ? info.gitlabStatus : null);
         renderSourceStatus(githubStatusView, githubStatus, checking);
-        renderSourceStatus(gitlabStatusView, gitlabStatus, checking);
     }
 
     private void renderSourceStatus(TextView view, OtaUpdateManager.SourceStatus status, boolean checking) {

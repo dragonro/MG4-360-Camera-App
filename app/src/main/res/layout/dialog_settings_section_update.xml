@@ -54,14 +54,6 @@
         android:layout_height="wrap_content"
         android:text="@string/ota_source_status_loading" />
 
-    <TextView
-        android:id="@+id/tvUpdateSourceGitlab"
-        style="@style/DrivehubSettingsBodyMuted"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="@string/ota_source_status_loading" />
-
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"

@@ -415,8 +415,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 dialog.findViewById(R.id.tvUpdateReleaseTitle),
                 dialog.findViewById(R.id.tvUpdateChannelStatus),
                 dialog.findViewById(R.id.tvUpdateChangelog),
-                dialog.findViewById(R.id.tvUpdateSourceGithub),
-                dialog.findViewById(R.id.tvUpdateSourceGitlab)
+                dialog.findViewById(R.id.tvUpdateSourceGithub)
         );
 
         dialogClose.setOnClickListener(v -> dialog.dismiss());

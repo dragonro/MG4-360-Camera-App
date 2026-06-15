@@ -14,30 +14,16 @@ import java.nio.charset.StandardCharsets;
 final class OtaReleaseFetcher {
 
     private static final String SOURCE_GITHUB = "GitHub";
-    private static final String SOURCE_GITLAB = "GitLab";
     private static final String GITHUB_RELEASES_URL =
             "https://api.github.com/repos/dragonro/MG4-360-Camera-App/releases?per_page=20";
-    private static final String GITLAB_RELEASES_URL =
-            "https://gitlab.com/api/v4/projects/dragonro%2Fmg4-360-camera-app/releases?per_page=20";
 
     private OtaReleaseFetcher() {
     }
 
-    // Pull both sources every time so the UI can show source health even when the primary source works.
+    // GitHub is the single release source for the updater.
     static OtaUpdateManager.UpdateInfo fetchLatestRelease(Context context, boolean allowBetaUpdates) {
         SourceResult github = fetchFromGitHub(context, allowBetaUpdates);
-        SourceResult gitlab = fetchFromGitLab(context, allowBetaUpdates);
-
-        SourceResult selected;
-        if (github.hasUsableRelease()) {
-            selected = github;
-        } else if (gitlab.hasUsableRelease()) {
-            selected = gitlab;
-        } else if (github.info != null) {
-            selected = github;
-        } else {
-            selected = gitlab;
-        }
+        SourceResult selected = github;
 
         if (selected == null || selected.info == null) {
             return new OtaUpdateManager.UpdateInfo(
@@ -54,12 +40,12 @@ final class OtaReleaseFetcher {
                     false,
                     allowBetaUpdates,
                     github.status,
-                    gitlab.status,
+                    null,
                     null
             );
         }
 
-        return selected.info.withStatuses(github.status, gitlab.status, selected.sourceName);
+        return selected.info.withStatuses(github.status, null, selected.sourceName);
     }
 
     private static SourceResult fetchFromGitHub(Context context, boolean allowBetaUpdates) {
@@ -79,26 +65,6 @@ final class OtaReleaseFetcher {
             );
         } catch (Exception e) {
             return SourceResult.failure(SOURCE_GITHUB, e.getClass().getSimpleName(), allowBetaUpdates);
-        }
-    }
-
-    private static SourceResult fetchFromGitLab(Context context, boolean allowBetaUpdates) {
-        try {
-            JSONArray releases = readJsonArray(GITLAB_RELEASES_URL, "application/json");
-            JSONObject release = selectGitLabRelease(releases, allowBetaUpdates);
-            if (release == null) {
-                return SourceResult.failure(
-                        SOURCE_GITLAB,
-                        context.getString(R.string.ota_error_no_release),
-                        allowBetaUpdates
-                );
-            }
-            return SourceResult.success(
-                    SOURCE_GITLAB,
-                    buildUpdateInfoFromGitLabRelease(context, release, allowBetaUpdates)
-            );
-        } catch (Exception e) {
-            return SourceResult.failure(SOURCE_GITLAB, e.getClass().getSimpleName(), allowBetaUpdates);
         }
     }
 
@@ -136,85 +102,6 @@ final class OtaReleaseFetcher {
         if (updateAvailable) {
             OtaReleaseAssets.HashAsset hashAsset =
                     OtaReleaseAssets.selectGitHubHashAsset(release.optJSONArray("assets"), apkAsset.name);
-            if (hashAsset == null) {
-                return missingHashInfo(
-                        context,
-                        latestVersion,
-                        releaseName,
-                        releaseNotes,
-                        apkAsset,
-                        prerelease,
-                        allowBetaUpdates,
-                        R.string.ota_error_no_hash
-                );
-            }
-            String hashFileContent = readUrl(hashAsset.downloadUrl, "text/plain, application/octet-stream");
-            expectedSha256 = OtaReleaseAssets.parseExpectedSha256(hashFileContent, apkAsset.name);
-            if (expectedSha256 == null || expectedSha256.isEmpty()) {
-                return missingHashInfo(
-                        context,
-                        latestVersion,
-                        releaseName,
-                        releaseNotes,
-                        apkAsset,
-                        prerelease,
-                        allowBetaUpdates,
-                        R.string.ota_error_invalid_hash
-                );
-            }
-        }
-
-        return buildSuccessInfo(
-                context,
-                latestVersion,
-                releaseName,
-                releaseNotes,
-                apkAsset,
-                expectedSha256,
-                prerelease,
-                allowBetaUpdates
-        );
-    }
-
-    private static OtaUpdateManager.UpdateInfo buildUpdateInfoFromGitLabRelease(
-            Context context,
-            JSONObject release,
-            boolean allowBetaUpdates
-    ) throws Exception {
-        String latestVersion = normalizeVersion(
-                OtaReleaseAssets.firstNonEmpty(
-                        release.optString("tag_name", null),
-                        release.optString("name", null),
-                        BuildConfig.VERSION_NAME
-                )
-        );
-        String releaseName = OtaReleaseAssets.firstNonEmpty(release.optString("name", null), latestVersion);
-        String releaseNotes = OtaReleaseAssets.firstNonEmpty(release.optString("description", null), "");
-        boolean prerelease = OtaReleaseAssets.isLikelyPrerelease(
-                release.optString("tag_name", null),
-                release.optString("name", null)
-        );
-
-        JSONArray links = release.optJSONObject("assets") != null
-                ? release.optJSONObject("assets").optJSONArray("links")
-                : null;
-        OtaReleaseAssets.ApkAsset apkAsset = OtaReleaseAssets.selectGitLabApkAsset(links);
-        if (apkAsset == null) {
-            return unavailableReleaseInfo(
-                    context,
-                    latestVersion,
-                    releaseName,
-                    releaseNotes,
-                    prerelease,
-                    allowBetaUpdates,
-                    R.string.ota_error_no_apk
-            );
-        }
-
-        boolean updateAvailable = compareVersions(latestVersion, BuildConfig.VERSION_NAME) > 0;
-        String expectedSha256 = null;
-        if (updateAvailable) {
-            OtaReleaseAssets.HashAsset hashAsset = OtaReleaseAssets.selectGitLabHashAsset(links, apkAsset.name);
             if (hashAsset == null) {
                 return missingHashInfo(
                         context,
@@ -399,46 +286,6 @@ final class OtaReleaseFetcher {
             if (compare > 0 || (compare == 0 && !prerelease && best.optBoolean("prerelease", false))) {
                 best = candidate;
                 bestVersion = candidateVersion;
-            }
-        }
-        return best;
-    }
-
-    private static JSONObject selectGitLabRelease(JSONArray releases, boolean allowBetaUpdates) {
-        if (releases == null || releases.length() == 0) return null;
-
-        JSONObject best = null;
-        String bestVersion = null;
-        boolean bestPrerelease = false;
-        for (int i = 0; i < releases.length(); i += 1) {
-            JSONObject candidate = releases.optJSONObject(i);
-            if (candidate == null) continue;
-
-            boolean prerelease = OtaReleaseAssets.isLikelyPrerelease(
-                    candidate.optString("tag_name", null),
-                    candidate.optString("name", null)
-            );
-            if (prerelease && !allowBetaUpdates) continue;
-
-            String candidateVersion = normalizeVersion(OtaReleaseAssets.firstNonEmpty(
-                    candidate.optString("tag_name", null),
-                    candidate.optString("name", null),
-                    ""
-            ));
-            if (candidateVersion.isEmpty()) continue;
-
-            if (best == null) {
-                best = candidate;
-                bestVersion = candidateVersion;
-                bestPrerelease = prerelease;
-                continue;
-            }
-
-            int compare = compareVersions(candidateVersion, bestVersion);
-            if (compare > 0 || (compare == 0 && !prerelease && bestPrerelease)) {
-                best = candidate;
-                bestVersion = candidateVersion;
-                bestPrerelease = prerelease;
             }
         }
         return best;
