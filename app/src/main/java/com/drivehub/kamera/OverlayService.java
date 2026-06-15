@@ -56,6 +56,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private Surface textureSurface;
     private WindowManager.LayoutParams overlayParams;
     private int cameraIndex = 15; // Default: front
+    private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
 
     /** Current window size, updated via pinch gestures. */
     private int overlayWidthPx = DEFAULT_OVERLAY_WIDTH_PX;
@@ -521,11 +522,17 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             return;
         }
         applyPreviewTransform();
+        testVideoPlayer.stop();
         CameraProbe.stopPreview();
+        if (TestVideoSources.shouldUse(this)
+                && testVideoPlayer.start(this, cameraIndex, textureSurface)) {
+            return;
+        }
         CameraProbe.startPreview(cameraIndex, textureSurface);
     }
 
     private void stopPreview() {
+        testVideoPlayer.stop();
         CameraProbe.stopPreview();
     }
 }

@@ -40,8 +40,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private TextView tvStatus;
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
+    private boolean testPreviewRunning = false;
     private float downX = 0f;
     private float downY = 0f;
+    private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
 
     private static volatile boolean sMainVisible = false;
     private static volatile boolean sSettingsDialogOpen = false;
@@ -231,6 +233,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         EditText etAccentColor = dialog.findViewById(R.id.etAccentColor);
         EditText etDevDefaultPollMs = dialog.findViewById(R.id.etDevDefaultPollMs);
         EditText etDevSignalOffPollMs = dialog.findViewById(R.id.etDevSignalOffPollMs);
+        Switch swDevTestVideoSources = dialog.findViewById(R.id.switchDevTestVideoSources);
+        TextView tvDevTestVideoPath = dialog.findViewById(R.id.tvDevTestVideoPath);
+        Button btnDevOpenTileTest = dialog.findViewById(R.id.btnDevOpenTileTest);
         Button btnDevResetDefaults = dialog.findViewById(R.id.btnDevResetDefaults);
         signalCameraSettingsController.bind(
                 prefs,
@@ -245,6 +250,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 prefs,
                 etDevDefaultPollMs,
                 etDevSignalOffPollMs,
+                swDevTestVideoSources,
+                tvDevTestVideoPath,
+                btnDevOpenTileTest,
                 btnDevResetDefaults
         );
 
@@ -399,8 +407,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             return;
         }
         stopPreview();
-        boolean ok = CameraProbe.startPreview(currentVideoIndex, surfaceHolder.getSurface());
-        previewRunning = ok;
+        boolean ok = false;
+        if (TestVideoSources.shouldUse(this)) {
+            ok = testVideoPlayer.start(this, currentVideoIndex, surfaceHolder.getSurface());
+            testPreviewRunning = ok;
+        }
+        if (!ok) {
+            ok = CameraProbe.startPreview(currentVideoIndex, surfaceHolder.getSurface());
+            previewRunning = ok;
+        }
         if (tvStatus != null) {
             tvStatus.setText(ok
                     ? getString(R.string.main_preview_status, cameraLabel(currentVideoIndex))
@@ -409,11 +424,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void stopPreview() {
+        if (testPreviewRunning) {
+            testVideoPlayer.stop();
+            testPreviewRunning = false;
+        }
         if (previewRunning) {
             CameraProbe.stopPreview();
             previewRunning = false;
-            if (tvStatus != null) tvStatus.setText(R.string.main_preview_stopped);
         }
+        if (tvStatus != null) tvStatus.setText(R.string.main_preview_stopped);
     }
 
     @Override public void surfaceCreated(SurfaceHolder holder) { startPreviewIfReady(); }
