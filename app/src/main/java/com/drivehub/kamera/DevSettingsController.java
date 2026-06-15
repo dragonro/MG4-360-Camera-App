@@ -1,9 +1,13 @@
 package com.drivehub.kamera;
 
+import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.Editable;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 final class DevSettingsController {
@@ -12,8 +16,12 @@ final class DevSettingsController {
             SharedPreferences prefs,
             EditText etDefaultPollMs,
             EditText etSignalOffPollMs,
+            Switch swTestVideoSources,
+            TextView tvTestVideoPath,
+            Button btnOpenTileTest,
             Button btnResetDefaults
     ) {
+        bindTestVideoControls(prefs, swTestVideoSources, tvTestVideoPath, btnOpenTileTest);
         bindPollingField(
                 prefs,
                 etDefaultPollMs,
@@ -27,6 +35,30 @@ final class DevSettingsController {
                 UiPrefs.getDevSignalOffPollMs(prefs)
         );
         bindResetDefaultsButton(prefs, etDefaultPollMs, etSignalOffPollMs, btnResetDefaults);
+    }
+
+    private void bindTestVideoControls(
+            SharedPreferences prefs,
+            Switch swTestVideoSources,
+            TextView tvTestVideoPath,
+            Button btnOpenTileTest
+    ) {
+        if (swTestVideoSources != null) {
+            swTestVideoSources.setChecked(UiPrefs.isDevTestVideoSourcesEnabled(prefs));
+            swTestVideoSources.setOnCheckedChangeListener((buttonView, checked) ->
+                    prefs.edit().putBoolean(UiPrefs.KEY_DEV_TEST_VIDEO_SOURCES, checked).apply());
+        }
+        if (tvTestVideoPath != null) {
+            Context context = tvTestVideoPath.getContext();
+            tvTestVideoPath.setText(context.getString(
+                    R.string.settings_dev_test_video_path,
+                    TestVideoSources.expectedPath(context)
+            ));
+        }
+        if (btnOpenTileTest != null) {
+            btnOpenTileTest.setOnClickListener(v ->
+                    v.getContext().startActivity(new Intent(v.getContext(), TileViewActivity.class)));
+        }
     }
 
     private void bindResetDefaultsButton(

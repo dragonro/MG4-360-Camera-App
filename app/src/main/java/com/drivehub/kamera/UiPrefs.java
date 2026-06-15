@@ -16,6 +16,7 @@ final class UiPrefs {
     static final String KEY_OVERLAY_MIN_SHOW_MS = "overlayMinShowMs";
     static final String KEY_DEV_DEFAULT_POLL_MS = "devDefaultPollMs";
     static final String KEY_DEV_SIGNAL_OFF_POLL_MS = "devSignalOffPollMs";
+    static final String KEY_DEV_TEST_VIDEO_SOURCES = "devTestVideoSources";
     static final int MAX_TILE_CORNER_RADIUS = 35;
     static final int MAX_OVERLAY_HIDE_DELAY_MS = 3000;
     static final int MAX_OVERLAY_MIN_SHOW_MS = 6000;
@@ -65,6 +66,10 @@ final class UiPrefs {
 
     static int getDevSignalOffPollMs(SharedPreferences prefs) {
         return clampDevPollingMs(prefs.getInt(KEY_DEV_SIGNAL_OFF_POLL_MS, DEFAULT_DEV_SIGNAL_OFF_POLLING_MS));
+    }
+
+    static boolean isDevTestVideoSourcesEnabled(SharedPreferences prefs) {
+        return prefs.getBoolean(KEY_DEV_TEST_VIDEO_SOURCES, false);
     }
 
     static float getCornerRadiusFraction(SharedPreferences prefs) {

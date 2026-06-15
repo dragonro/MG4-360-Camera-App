@@ -17,6 +17,10 @@
     <string name="settings_section_dev">DEVELOPER SETTINGS</string>
     <string name="settings_dev_hint">Diagnostics and experimental controls will appear here.</string>
     <string name="settings_dev_unlocked">Developer settings unlocked</string>
+    <string name="settings_dev_test_video_sources">TEST VIDEO SOURCES</string>
+    <string name="settings_dev_use_test_videos">Use MP4 files instead of /dev/video</string>
+    <string name="settings_dev_test_video_path">Expected files: %1$s/front.mp4, right.mp4, left.mp4, rear.mp4. Use adb run-as to copy files into this debug-only app directory.</string>
+    <string name="settings_dev_open_tile_test">Open four-camera test</string>
     <string name="settings_dev_polling_rates">POLLING RATES</string>
     <string name="settings_dev_default_poll">Default polling (ms)</string>
     <string name="settings_dev_signal_off_poll">Signal-off detection (ms)</string>

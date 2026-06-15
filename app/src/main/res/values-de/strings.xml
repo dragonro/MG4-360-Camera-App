@@ -17,6 +17,10 @@
     <string name="settings_section_dev">ENTWICKLER-EINSTELLUNGEN</string>
     <string name="settings_dev_hint">Diagnose und experimentelle Optionen erscheinen hier.</string>
     <string name="settings_dev_unlocked">Entwickler-Einstellungen freigeschaltet</string>
+    <string name="settings_dev_test_video_sources">TEST-VIDEOQUELLEN</string>
+    <string name="settings_dev_use_test_videos">MP4-Dateien statt /dev/video nutzen</string>
+    <string name="settings_dev_test_video_path">Erwartete Dateien: %1$s/front.mp4, right.mp4, left.mp4, rear.mp4. Dateien per adb run-as in dieses Debug-App-Verzeichnis kopieren.</string>
+    <string name="settings_dev_open_tile_test">Vier-Kamera-Test öffnen</string>
     <string name="settings_dev_polling_rates">POLLING-RATEN</string>
     <string name="settings_dev_default_poll">Default-Polling (ms)</string>
     <string name="settings_dev_signal_off_poll">Blinker-Aus-Erkennung (ms)</string>

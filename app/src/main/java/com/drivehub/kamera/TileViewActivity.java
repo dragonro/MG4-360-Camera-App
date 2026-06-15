@@ -18,6 +18,7 @@ public class TileViewActivity extends AppCompatActivity {
 
     private final SurfaceHolder[]          holders   = new SurfaceHolder[4];
     private final SurfaceHolder.Callback[] callbacks = new SurfaceHolder.Callback[4];
+    private final TestVideoPlayer[] testVideoPlayers = new TestVideoPlayer[4];
     private android.content.SharedPreferences prefs;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener =
             (sharedPreferences, key) -> {
@@ -36,13 +37,19 @@ public class TileViewActivity extends AppCompatActivity {
 
         for (int i = 0; i < SURFACE_IDS.length; i++) {
             final int cameraIndex = CAMERA_INDICES[i];
+            final int slot = i;
             SurfaceView sv = findViewById(SURFACE_IDS[i]);
             SurfaceHolder holder = sv.getHolder();
             holders[i] = holder;
+            testVideoPlayers[i] = new TestVideoPlayer();
 
             callbacks[i] = new SurfaceHolder.Callback() {
                 @Override
                 public void surfaceCreated(SurfaceHolder h) {
+                    if (TestVideoSources.shouldUse(TileViewActivity.this)
+                            && testVideoPlayers[slot].start(TileViewActivity.this, cameraIndex, h.getSurface())) {
+                        return;
+                    }
                     CameraProbe.startPreview(cameraIndex, h.getSurface());
                 }
 
@@ -50,7 +57,9 @@ public class TileViewActivity extends AppCompatActivity {
                 public void surfaceChanged(SurfaceHolder h, int format, int w, int h2) {}
 
                 @Override
-                public void surfaceDestroyed(SurfaceHolder h) {}
+                public void surfaceDestroyed(SurfaceHolder h) {
+                    testVideoPlayers[slot].stop();
+                }
             };
             holder.addCallback(callbacks[i]);
         }
@@ -91,6 +100,11 @@ public class TileViewActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        for (TestVideoPlayer player : testVideoPlayers) {
+            if (player != null) {
+                player.stop();
+            }
+        }
         CameraProbe.stopPreview();
         for (int i = 0; i < holders.length; i++) {
             if (holders[i] != null && callbacks[i] != null) {
