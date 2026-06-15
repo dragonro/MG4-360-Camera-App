@@ -61,6 +61,29 @@
     </LinearLayout>
 
     <TextView
+        style="@style/DrivehubSettingsHeading2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="2dp"
+        android:text="@string/settings_records_path" />
+
+    <TextView
+        android:id="@+id/tvRecordsPathValue"
+        style="@style/DrivehubSettingsBodyMuted"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/settings_records_path_default" />
+
+    <Button
+        android:id="@+id/btnExportUsb"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/settings_export_usb" />
+
+    <TextView
         style="@style/DrivehubSettingsLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

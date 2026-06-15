@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -39,6 +40,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private static final String AVM_PREFS_NAME = "AVM_Settings";
     private static final String KEY_SAFETY_WARNING = "ShowSafetyWarning";
+    private static final int REQ_RECORDING_FOLDER = 5001;
     private static final int SWIPE_THRESHOLD_PX = 140;
 
     private SurfaceHolder surfaceHolder;
@@ -58,6 +60,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private final SignalCameraSettingsController signalCameraSettingsController =
             new SignalCameraSettingsController(this);
     private final DevSettingsController devSettingsController = new DevSettingsController();
+    private TextView recordingPathValueView;
 
     private final OtaController otaController = new OtaController(this);
     private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
@@ -248,6 +251,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 dialog.findViewById(R.id.switchOverlayRotateToDrivingDirection);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
         Switch swEnableRecording = dialog.findViewById(R.id.switchEnableRecording);
+        TextView tvRecordsPathValue = dialog.findViewById(R.id.tvRecordsPathValue);
+        Button btnExportUsb = dialog.findViewById(R.id.btnExportUsb);
         RadioGroup rgRecordingDuration = dialog.findViewById(R.id.rgRecordingDuration);
         RadioButton rbRecordingDuration1 = dialog.findViewById(R.id.rbRecordingDuration1);
         RadioButton rbRecordingDuration2 = dialog.findViewById(R.id.rbRecordingDuration2);
@@ -266,6 +271,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 RecordingService.stopRecording(this);
             }
         });
+        recordingPathValueView = tvRecordsPathValue;
+        refreshRecordingPathLabel(tvRecordsPathValue);
+        btnExportUsb.setOnClickListener(v -> openRecordingFolderPicker());
         int durationMin = UiPrefs.getRecordingDurationMin(prefs);
         if (durationMin == 2) {
             rgRecordingDuration.check(rbRecordingDuration2.getId());
@@ -431,6 +439,42 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             float density = getResources().getDisplayMetrics().density;
             shownWindow.setLayout((int) (700 * density), (int) (560 * density));
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_RECORDING_FOLDER || resultCode != RESULT_OK || data == null) return;
+        Uri treeUri = data.getData();
+        if (treeUri == null) return;
+        int takeFlags = data.getFlags()
+                & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        try {
+            getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+            RecordingStorageManager.setTreeUri(this, treeUri);
+            refreshRecordingPathLabel(recordingPathValueView);
+            Toast.makeText(this, R.string.settings_records_path_selected, Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            Toast.makeText(this, R.string.settings_records_path_selection_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openRecordingFolderPicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, REQ_RECORDING_FOLDER);
+        } catch (Throwable t) {
+            Toast.makeText(this, R.string.settings_records_path_selection_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void refreshRecordingPathLabel(TextView tv) {
+        if (tv == null) return;
+        tv.setText(RecordingStorageManager.getDisplayPath(this));
     }
 
     private void bindSettingsTab(

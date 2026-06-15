@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.SystemClock;
@@ -19,9 +20,11 @@ import java.io.FileInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import androidx.documentfile.provider.DocumentFile;
 
 public class RecordingService extends Service {
 
@@ -112,7 +115,7 @@ public class RecordingService extends Service {
     }
 
     private void recordOnce() {
-        File baseDir = getRecordsBaseDir();
+        File baseDir = RecordingStorageManager.getWritableBaseDir(this);
         if (!baseDir.exists() && !baseDir.mkdirs()) {
             finishRecording();
             return;
@@ -137,9 +140,14 @@ public class RecordingService extends Service {
     }
 
     private boolean startSegment(File baseDir, String segmentStamp, long segmentDurationMs) {
+        boolean useTree = RecordingStorageManager.getTreeUri(this) != null;
+        File segmentBaseDir = useTree ? new File(getCacheDir(), "recording_tmp") : baseDir;
+        if (!segmentBaseDir.exists() && !segmentBaseDir.mkdirs()) {
+            return false;
+        }
         boolean[] started = new boolean[SLOT_IDS.length];
         for (int i = 0; i < SLOT_IDS.length; i++) {
-            String outputPath = new File(baseDir, segmentStamp + "_" + CAMERA_INDICES[i] + ".mpg")
+            String outputPath = new File(segmentBaseDir, segmentStamp + "_" + CAMERA_INDICES[i] + ".mpg")
                     .getAbsolutePath();
             try {
                 started[i] = CameraProbe.startMp4Record(SLOT_IDS[i], CAMERA_INDICES[i], outputPath,
@@ -164,7 +172,46 @@ public class RecordingService extends Service {
 
         sleepUntilSegmentEnd(segmentDurationMs);
         stopRecordingNative();
+        if (useTree) {
+            copySegmentToTree(segmentBaseDir, segmentStamp);
+            deleteSegmentFiles(segmentBaseDir, segmentStamp);
+        }
         return true;
+    }
+
+    private void copySegmentToTree(File segmentBaseDir, String segmentStamp) {
+        DocumentFile tree = RecordingStorageManager.resolveTreeDocument(this);
+        if (tree == null) return;
+        for (int cameraIndex : CAMERA_INDICES) {
+            File source = new File(segmentBaseDir, segmentStamp + "_" + cameraIndex + ".mpg");
+            if (!source.isFile()) continue;
+            String name = source.getName();
+            try {
+                DocumentFile existing = tree.findFile(name);
+                if (existing != null) existing.delete();
+                DocumentFile outDoc = tree.createFile("application/octet-stream", name);
+                if (outDoc == null) continue;
+                try (FileInputStream in = new FileInputStream(source);
+                     OutputStream out = getContentResolver().openOutputStream(outDoc.getUri())) {
+                    if (out == null) continue;
+                    byte[] buffer = new byte[64 * 1024];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                    out.flush();
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private void deleteSegmentFiles(File segmentBaseDir, String segmentStamp) {
+        for (int cameraIndex : CAMERA_INDICES) {
+            File source = new File(segmentBaseDir, segmentStamp + "_" + cameraIndex + ".mpg");
+            //noinspection ResultOfMethodCallIgnored
+            source.delete();
+        }
     }
 
     private void sleepUntilSegmentEnd(long segmentDurationMs) {
@@ -290,14 +337,6 @@ public class RecordingService extends Service {
         if (nm != null) {
             nm.createNotificationChannel(ch);
         }
-    }
-
-    private File getRecordsBaseDir() {
-        File downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File dir = new File(downloads, "mg4_cam_records");
-        //noinspection ResultOfMethodCallIgnored
-        dir.mkdirs();
-        return dir;
     }
 
     @Nullable
