@@ -31,4 +31,80 @@
             />
 
     </LinearLayout>
+
+    <TextView
+        style="@style/DrivehubSettingsHeading2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="2dp"
+        android:text="@string/settings_section_recording" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/DrivehubSettingsLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/settings_enable_recording" />
+
+        <Switch
+            style="@style/DrivehubSettingsSwitch"
+            android:id="@+id/switchEnableRecording"
+            />
+
+    </LinearLayout>
+
+    <TextView
+        style="@style/DrivehubSettingsLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="8dp"
+        android:text="@string/settings_recording_duration" />
+
+    <RadioGroup
+        android:id="@+id/rgRecordingDuration"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/rbRecordingDuration1"
+            style="@style/DrivehubSettingsRadioButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="1 min" />
+
+        <RadioButton
+            android:id="@+id/rbRecordingDuration2"
+            style="@style/DrivehubSettingsRadioButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="2 min" />
+
+        <RadioButton
+            android:id="@+id/rbRecordingDuration5"
+            style="@style/DrivehubSettingsRadioButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="5 min" />
+
+        <RadioButton
+            android:id="@+id/rbRecordingDuration10"
+            style="@style/DrivehubSettingsRadioButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="10 min" />
+
+    </RadioGroup>
 </LinearLayout>

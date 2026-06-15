@@ -52,7 +52,7 @@
         <service
             android:name=".RecordingService"
             android:exported="false"
-            android:foregroundServiceType="camera" />
+            android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".OverlayService"

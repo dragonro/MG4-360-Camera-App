@@ -85,6 +85,21 @@
         app:layout_constraintStart_toStartOf="parent" />
 
     <ImageButton
+        android:id="@+id/btnRecording"
+        android:layout_width="108dp"
+        android:layout_height="108dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/main_button_recording"
+        android:padding="24dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_record_circle"
+        android:tint="#FFFFFF"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <ImageButton
         android:id="@+id/btnClose"
         android:layout_width="148dp"
         android:layout_height="148dp"

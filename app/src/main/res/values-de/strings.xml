@@ -7,6 +7,7 @@
     <string name="settings_tab_dev">Dev</string>
     <string name="settings_section_driving">FAHREN</string>
     <string name="settings_section_display">ANZEIGE</string>
+    <string name="settings_section_recording">AUFNAHME</string>
     <string name="settings_section_signal_camera">BLINKER-KAMERA</string>
     <string name="settings_overlay_on_signal">Kamera beim Blinken anzeigen</string>
     <string name="settings_overlay_rotate_to_driving_direction">Spiegelkameras in Fahrtrichtung drehen</string>
@@ -32,6 +33,14 @@
     <string name="settings_section_latest_release">LETZTES RELEASE</string>
     <string name="settings_section_changelog">CHANGELOG</string>
     <string name="settings_allow_beta_updates">Beta-Releases zulassen</string>
+    <string name="settings_enable_recording">Aufnahme aktivieren</string>
+    <string name="settings_recording_duration">Aufnahmedauer</string>
+    <string-array name="recording_duration_options">
+        <item>1 Min.</item>
+        <item>2 Min.</item>
+        <item>5 Min.</item>
+        <item>10 Min.</item>
+    </string-array>
     <string name="settings_dialog_close">Schließen</string>
     <string name="settings_version_unknown">Version ?</string>
     <string name="settings_version_format">Version %1$s</string>
@@ -69,6 +78,7 @@
     <string name="main_camera_label_rear">Heckkamera (/dev/video17)</string>
     <string name="main_camera_label_unknown">/dev/video%1$d</string>
     <string name="main_button_settings">Einstellungen</string>
+    <string name="main_button_recording">Aufnahme</string>
     <string name="main_button_close_app">App schließen</string>
     <string name="settings_tab_optik">Darstellung</string>
     <string name="settings_section_tileview">Blinker-Kamera</string>

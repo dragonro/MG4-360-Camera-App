@@ -16,6 +16,8 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
@@ -38,6 +40,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
+    private ImageButton btnRecording;
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
     private boolean testPreviewRunning = false;
@@ -66,6 +69,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 tvStatus.setText(getString(R.string.main_preview_status, cameraLabel(currentVideoIndex)));
             }
             startPreviewIfReady();
+        }
+    };
+
+    private final BroadcastReceiver recordingStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            updateRecordingButton();
         }
     };
 
@@ -101,11 +111,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         ImageButton btnSettings = findViewById(R.id.btnSettings);
         btnSettings.setOnClickListener(v -> showSettingsDialog());
 
+        btnRecording = findViewById(R.id.btnRecording);
+        if (btnRecording != null) {
+            btnRecording.setOnClickListener(v -> toggleRecording());
+        }
+
         ImageButton btnClose = findViewById(R.id.btnClose);
         btnClose.setOnClickListener(v -> finishAndRemoveTask());
 
         appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
+        updateRecordingButton();
 
         try {
             SignalService.start(this);
@@ -152,10 +168,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     new IntentFilter(SignalService.ACTION_ROUTE_CAMERA),
                     ContextCompat.RECEIVER_NOT_EXPORTED
             );
+            ContextCompat.registerReceiver(
+                    this,
+                    recordingStateReceiver,
+                    new IntentFilter(RecordingService.ACTION_STATE_CHANGED),
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+            );
         } catch (Throwable ignored) {
         }
         OverlayService.hideOverlay(this);
         applyWarningVisibility();
+        updateRecordingButton();
     }
 
     @Override
@@ -166,6 +189,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         otaController.stop();
         try {
             unregisterReceiver(cameraRouteReceiver);
+        } catch (Throwable ignored) {
+        }
+        try {
+            unregisterReceiver(recordingStateReceiver);
         } catch (Throwable ignored) {
         }
     }
@@ -202,10 +229,40 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Switch swRotateToDrivingDirection =
                 dialog.findViewById(R.id.switchOverlayRotateToDrivingDirection);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
+        Switch swEnableRecording = dialog.findViewById(R.id.switchEnableRecording);
+        RadioGroup rgRecordingDuration = dialog.findViewById(R.id.rgRecordingDuration);
+        RadioButton rbRecordingDuration1 = dialog.findViewById(R.id.rbRecordingDuration1);
+        RadioButton rbRecordingDuration2 = dialog.findViewById(R.id.rbRecordingDuration2);
+        RadioButton rbRecordingDuration5 = dialog.findViewById(R.id.rbRecordingDuration5);
+        RadioButton rbRecordingDuration10 = dialog.findViewById(R.id.rbRecordingDuration10);
         swSafetyWarning.setChecked(avmPrefs.getBoolean(KEY_SAFETY_WARNING, true));
         swSafetyWarning.setOnCheckedChangeListener((btn, checked) -> {
             avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, checked).apply();
             applyWarningVisibility();
+        });
+        swEnableRecording.setChecked(UiPrefs.isRecordingButtonEnabled(prefs));
+        swEnableRecording.setOnCheckedChangeListener((btn, checked) -> {
+            prefs.edit().putBoolean(UiPrefs.KEY_ENABLE_RECORDING_BUTTON, checked).apply();
+            updateRecordingButton();
+            if (!checked && RecordingService.isRecording(this)) {
+                RecordingService.stopRecording(this);
+            }
+        });
+        int durationMin = UiPrefs.getRecordingDurationMin(prefs);
+        if (durationMin == 2) {
+            rgRecordingDuration.check(rbRecordingDuration2.getId());
+        } else if (durationMin == 5) {
+            rgRecordingDuration.check(rbRecordingDuration5.getId());
+        } else if (durationMin == 10) {
+            rgRecordingDuration.check(rbRecordingDuration10.getId());
+        } else {
+            rgRecordingDuration.check(rbRecordingDuration1.getId());
+        }
+        rgRecordingDuration.setOnCheckedChangeListener((group, checkedId) -> {
+            int value = checkedId == rbRecordingDuration2.getId() ? 2
+                    : checkedId == rbRecordingDuration5.getId() ? 5
+                    : checkedId == rbRecordingDuration10.getId() ? 10 : 1;
+            prefs.edit().putInt(UiPrefs.KEY_RECORDING_DURATION_MIN, value).apply();
         });
         Switch swAllowBetaUpdates = dialog.findViewById(R.id.switchAllowBetaUpdates);
         SeekBar seekOverlayHideDelay = dialog.findViewById(R.id.seekOverlayHideDelay);
@@ -380,6 +437,28 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private void styleSettingsTab(TextView tab, boolean active) {
         appearanceController.styleSettingsTab(tab, active);
+    }
+
+    private void toggleRecording() {
+        if (!UiPrefs.isRecordingButtonEnabled(UiPrefs.getPrefs(this))) {
+            return;
+        }
+        if (RecordingService.isRecording(this)) {
+            RecordingService.stopRecording(this);
+        } else {
+            RecordingService.startRecording(this);
+        }
+        updateRecordingButton();
+    }
+
+    private void updateRecordingButton() {
+        if (btnRecording == null) return;
+        boolean enabled = UiPrefs.isRecordingButtonEnabled(UiPrefs.getPrefs(this));
+        boolean recording = RecordingService.isRecording(this);
+        btnRecording.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        btnRecording.setImageTintList(android.content.res.ColorStateList.valueOf(
+                recording ? 0xFFFF3B30 : 0xFFFFFFFF
+        ));
     }
 
     // -------------------------------------------------------------------------
