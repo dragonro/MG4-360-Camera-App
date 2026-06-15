@@ -99,6 +99,7 @@ public class RecordingService extends Service {
         }
 
         stopRequested = false;
+        prefs.edit().putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, SystemClock.elapsedRealtime()).apply();
         setRecordingState(true);
         startForeground(
                 NOTIF_ID,
@@ -250,6 +251,9 @@ public class RecordingService extends Service {
         recording = value;
         SharedPreferences prefs = UiPrefs.getPrefs(this);
         prefs.edit().putBoolean(EXTRA_IS_RECORDING, value).apply();
+        if (!value) {
+            prefs.edit().putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, 0L).apply();
+        }
         Intent state = new Intent(ACTION_STATE_CHANGED);
         state.setPackage(getPackageName());
         state.putExtra(EXTRA_IS_RECORDING, value);

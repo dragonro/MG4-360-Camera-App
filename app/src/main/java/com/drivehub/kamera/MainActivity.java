@@ -10,6 +10,9 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.SystemClock;
+import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -41,6 +44,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
     private ImageButton btnRecording;
+    private TextView tvRecordingTimer;
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
     private boolean testPreviewRunning = false;
@@ -56,6 +60,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private final DevSettingsController devSettingsController = new DevSettingsController();
 
     private final OtaController otaController = new OtaController(this);
+    private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
+    private final Runnable recordingTimerTick = new Runnable() {
+        @Override
+        public void run() {
+            updateRecordingTimer();
+            if (RecordingService.isRecording(MainActivity.this)) {
+                recordingTimerHandler.postDelayed(this, 1000L);
+            }
+        }
+    };
 
     private final BroadcastReceiver cameraRouteReceiver = new BroadcastReceiver() {
         @Override
@@ -112,6 +126,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         btnSettings.setOnClickListener(v -> showSettingsDialog());
 
         btnRecording = findViewById(R.id.btnRecording);
+        tvRecordingTimer = findViewById(R.id.tvRecordingTimer);
         if (btnRecording != null) {
             btnRecording.setOnClickListener(v -> toggleRecording());
         }
@@ -122,6 +137,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
         updateRecordingButton();
+        updateRecordingTimer();
 
         try {
             SignalService.start(this);
@@ -179,6 +195,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         OverlayService.hideOverlay(this);
         applyWarningVisibility();
         updateRecordingButton();
+        updateRecordingTimer();
     }
 
     @Override
@@ -187,6 +204,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         sMainVisible = false;
         sSettingsDialogOpen = false;
         otaController.stop();
+        recordingTimerHandler.removeCallbacks(recordingTimerTick);
         try {
             unregisterReceiver(cameraRouteReceiver);
         } catch (Throwable ignored) {
@@ -459,6 +477,35 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         btnRecording.setImageTintList(android.content.res.ColorStateList.valueOf(
                 recording ? 0xFFFF3B30 : 0xFFFFFFFF
         ));
+        if (recording) {
+            if (tvRecordingTimer != null) tvRecordingTimer.setVisibility(View.VISIBLE);
+            recordingTimerHandler.removeCallbacks(recordingTimerTick);
+            recordingTimerHandler.post(recordingTimerTick);
+        } else {
+            if (tvRecordingTimer != null) tvRecordingTimer.setVisibility(View.GONE);
+            recordingTimerHandler.removeCallbacks(recordingTimerTick);
+        }
+    }
+
+    private void updateRecordingTimer() {
+        if (tvRecordingTimer == null) return;
+        if (!RecordingService.isRecording(this)) {
+            tvRecordingTimer.setVisibility(View.GONE);
+            tvRecordingTimer.setText("");
+            return;
+        }
+        long startedAt = UiPrefs.getRecordingStartedAtMs(UiPrefs.getPrefs(this));
+        if (startedAt <= 0L) {
+            tvRecordingTimer.setVisibility(View.GONE);
+            tvRecordingTimer.setText("");
+            return;
+        }
+        long elapsedMs = Math.max(0L, SystemClock.elapsedRealtime() - startedAt);
+        long totalSeconds = elapsedMs / 1000L;
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+        tvRecordingTimer.setText(String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds));
+        tvRecordingTimer.setVisibility(View.VISIBLE);
     }
 
     // -------------------------------------------------------------------------
