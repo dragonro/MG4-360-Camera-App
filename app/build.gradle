@@ -14,8 +14,8 @@ android {
         applicationId "com.drivehub.dualbytes.kamera"
         minSdk 28
         targetSdk 36
-        versionCode 3
-        versionName "0.7.3"
+        versionCode 4
+        versionName "0.7.4"
         buildConfigField "boolean", "IS_BETA", "false"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
