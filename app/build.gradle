@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 plugins {
     alias(libs.plugins.android.application)
 }

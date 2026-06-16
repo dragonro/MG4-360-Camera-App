@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.app.Dialog;

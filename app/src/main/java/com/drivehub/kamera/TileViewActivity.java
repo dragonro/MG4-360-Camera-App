@@ -1,4 +1,5 @@
 // Author: AdrianBega/DualBytes
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.graphics.drawable.GradientDrawable;
