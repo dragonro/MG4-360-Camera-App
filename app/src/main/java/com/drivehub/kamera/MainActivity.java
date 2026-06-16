@@ -146,6 +146,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         restoreOverlayOnLaunch = UiPrefs.UI_STATE_OVERLAY.equals(lastUiState)
                 || UiPrefs.UI_STATE_POPUP.equals(lastUiState);
         if (restoreOverlayOnLaunch) {
+            resumeRecordingIfNeeded();
             restoreOverlayOnly(lastUiState);
             return;
         }
@@ -190,6 +191,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
         applyCameraPopupVisibility();
+        resumeRecordingIfNeeded();
         syncRecordingUi();
         updateRecordingTimer();
 
@@ -652,6 +654,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             RecordingService.startRecording(this);
         }
         syncRecordingUi();
+    }
+
+    private void resumeRecordingIfNeeded() {
+        SharedPreferences prefs = UiPrefs.getPrefs(this);
+        if (UiPrefs.getRecordingStartedAtMs(prefs) <= 0L) {
+            return;
+        }
+        if (RecordingService.isRecording(this)) {
+            return;
+        }
+        RecordingService.startIfNeeded(this);
     }
 
     private void syncRecordingUi() {
