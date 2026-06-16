@@ -1,13 +1,21 @@
 # MG4-Camera-Mod
+## DualBytes version - Experimental
+
+Experimental fork from the original work by jamakr4.
 
 Community mod for the MG4 EV (AAOS 9, pre-2026 facelift) that improves the 360° turn signal camera behavior — removing the launcher overlay in favor of a Tesla-style tile view and raising the auto-close speed threshold.
 
-# Features for v0.6 (release on May 13th)
-- **Turn signal overlay** — automatic camera popup when indicator is activated
-- **Full Access to camera system**
-- **Language support for Englisch and German with auto select based on vehicles language**
-
-> **Work in progress.** Check the [Wiki](https://github.com/jamakr4/MG4-360-Camera-App/wiki) for technical details and the [Project Board](https://github.com/users/jamakr4/projects/4) for current progress.
+# Features for v0.7
+- **Manual camera popup** — open the live camera view as a floating popup from the main app
+- **Split preview support** — main activity and popup can display the same MG4 camera feed at the same time
+- **Signal camera overlay** — automatic camera popup when the indicator is activated
+- **Recording controls** — start and stop recording from the app and overlay, with synchronized state
+- **Overlay restore** — reopen the app with the last visible state, position, and size preserved
+- **Resizable popup** — move and resize the popup with corner handles and a small corner radius
+- **Debug sample video mode** — emulator testing can use the bundled MP4 sample instead of a real vehicle camera
+- **OTA release channel** — download and install promoted releases directly from GitHub
+- **Full access to the camera system**
+- **Language support for English and German with auto select based on the vehicle language**
 
 ## Build Setup
 
@@ -27,7 +35,7 @@ This project involves modifying system APKs on a production vehicle. The author(
 This is an independent community project and is **not affiliated with SAIC, MG Motor, or any of their subsidiaries**.
 
 ## Credits
-
+- AdrianBega/DualBytes/dragonro - current experimental version of the app
 - Analysis based on community research from [XDA Forums — MG4 Electric AAOS 9](https://xdaforums.com/t/mg4-electric-aaos-9-playing-and-possibly-other-mg-models.4697712/)
 - Tile View based on: [merth4n](https://xdaforums.com/m/merth4n.13350648/)
 - OpenCV 4.9.0 — Apache License 2.0
@@ -38,8 +46,6 @@ This is an independent community project and is **not affiliated with SAIC, MG M
 - Icons based on [Google Material Symbols](https://developers.google.com/fonts/docs/material_symbols) — Apache License 2.0
 
 ## Support the Project
-
-If you'd like to support this project financially — thank you for the thought! Unfortunately, due to German tax regulations, setting up donation platforms like Buy Me a Coffee creates more bureaucratic overhead than it's worth for a hobby project like this.
 
 If you want to show your appreciation, the best ways to help are:
 - **Star the repository** on GitHub
