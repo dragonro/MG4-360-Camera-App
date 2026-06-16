@@ -12,6 +12,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.DisplayMetrics;
 import android.os.SystemClock;
 import android.os.Looper;
 import android.view.MotionEvent;
@@ -437,7 +438,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Window shownWindow = dialog.getWindow();
         if (shownWindow != null) {
             float density = getResources().getDisplayMetrics().density;
-            shownWindow.setLayout((int) (700 * density), (int) (560 * density));
+            DisplayMetrics metrics = getResources().getDisplayMetrics();
+            int maxWidth = (int) (Math.min(metrics.widthPixels, 700 * density));
+            int maxHeight = (int) (metrics.heightPixels * 0.92f);
+            shownWindow.setLayout(maxWidth, Math.min((int) (560 * density), maxHeight));
         }
     }
 

@@ -15,6 +15,8 @@
     <string name="show_safety_warning">Show safety warning</string>
     <string name="settings_section_open_source_credits">OPEN SOURCE CREDITS</string>
     <string name="settings_section_additional_credits">ADDITIONAL CREDITS</string>
+    <string name="settings_section_dualbytes_credits">DUALBYTES VERSION</string>
+    <string name="settings_dualbytes_credit_text">This is a DualBytes version of the app.</string>
     <string name="settings_section_dev">DEVELOPER SETTINGS</string>
     <string name="settings_dev_hint">Diagnostics and experimental controls will appear here.</string>
     <string name="settings_dev_unlocked">Developer settings unlocked</string>
