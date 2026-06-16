@@ -70,9 +70,11 @@
     <string name="settings_total_retention">Total retention (min)</string>
     <string name="settings_records_path">Recording path</string>
     <string name="settings_export_usb">Change recording folder</string>
+    <string name="settings_open_recording_folder">Open recording folder</string>
     <string name="settings_records_path_custom">Custom: %1$s</string>
     <string name="settings_records_path_default">Default: %1$s</string>
     <string name="settings_records_path_selection_failed">Could not open the folder picker</string>
+    <string name="settings_records_path_open_failed">Could not open the recording folder</string>
     <string name="settings_records_path_selected">Recording folder updated</string>
     <string name="settings_storage_permission_required">Storage permission required</string>
     <string name="settings_usb_export_todo">USB export TODO (disabled for now)</string>

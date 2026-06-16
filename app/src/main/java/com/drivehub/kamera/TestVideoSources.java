@@ -3,6 +3,9 @@ package com.drivehub.kamera;
 
 import android.content.Context;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 final class TestVideoSources {
 
@@ -57,6 +60,24 @@ final class TestVideoSources {
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+    static File materializeDebugAsset(Context context, int cameraIndex) throws IOException {
+        File target = getExpectedFile(context, cameraIndex);
+        File root = target.getParentFile();
+        if (root != null && !root.exists() && !root.mkdirs()) {
+            return target;
+        }
+        try (InputStream in = context.getAssets().open(assetNameFor(cameraIndex));
+             FileOutputStream out = new FileOutputStream(target, false)) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.getFD().sync();
+        }
+        return target;
     }
 
     private static File getRootDirectory(Context context) {

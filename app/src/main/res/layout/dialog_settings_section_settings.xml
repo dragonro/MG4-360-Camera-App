@@ -96,12 +96,28 @@
         android:layout_marginTop="4dp"
         android:text="@string/settings_records_path_default" />
 
-    <Button
-        android:id="@+id/btnExportUsb"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="@string/settings_export_usb" />
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnExportUsb"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1"
+            android:text="@string/settings_export_usb" />
+
+        <Button
+            android:id="@+id/btnOpenRecordingFolder"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:text="@string/settings_open_recording_folder" />
+    </LinearLayout>
 
     <TextView
         style="@style/DrivehubSettingsLabel"

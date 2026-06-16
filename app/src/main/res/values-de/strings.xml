@@ -67,7 +67,9 @@
     <string name="settings_record_loop">Aufnahmeschleife (Min.)</string>
     <string name="settings_total_retention">Gesamtspeicherzeit (Min.)</string>
     <string name="settings_records_path">Aufnahmepfad</string>
-    <string name="settings_export_usb">Aufnahmen auf USB exportieren (TODO)</string>
+    <string name="settings_export_usb">Aufnahmeordner ändern</string>
+    <string name="settings_open_recording_folder">Aufnahmeordner öffnen</string>
+    <string name="settings_records_path_open_failed">Aufnahmeordner konnte nicht geöffnet werden</string>
     <string name="settings_storage_permission_required">Speicherberechtigung erforderlich</string>
     <string name="settings_usb_export_todo">USB-Export TODO (derzeit deaktiviert)</string>
     <string name="camera_front">Vorne</string>

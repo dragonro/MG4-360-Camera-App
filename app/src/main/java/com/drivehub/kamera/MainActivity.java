@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.provider.DocumentsContract;
 import android.provider.Settings;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -344,6 +345,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Switch swEnableRecording = dialog.findViewById(R.id.switchEnableRecording);
         TextView tvRecordsPathValue = dialog.findViewById(R.id.tvRecordsPathValue);
         Button btnExportUsb = dialog.findViewById(R.id.btnExportUsb);
+        Button btnOpenRecordingFolder = dialog.findViewById(R.id.btnOpenRecordingFolder);
         RadioGroup rgRecordingDuration = dialog.findViewById(R.id.rgRecordingDuration);
         RadioButton rbRecordingDuration1 = dialog.findViewById(R.id.rbRecordingDuration1);
         RadioButton rbRecordingDuration2 = dialog.findViewById(R.id.rbRecordingDuration2);
@@ -370,6 +372,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         recordingPathValueView = tvRecordsPathValue;
         refreshRecordingPathLabel(tvRecordsPathValue);
         btnExportUsb.setOnClickListener(v -> openRecordingFolderPicker());
+        btnOpenRecordingFolder.setOnClickListener(v -> openRecordingFolder());
         int durationMin = UiPrefs.getRecordingDurationMin(prefs);
         if (durationMin == 2) {
             rgRecordingDuration.check(rbRecordingDuration2.getId());
@@ -575,6 +578,39 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             startActivityForResult(intent, REQ_RECORDING_FOLDER);
         } catch (Throwable t) {
             Toast.makeText(this, R.string.settings_records_path_selection_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openRecordingFolder() {
+        Uri treeUri = RecordingStorageManager.getTreeUri(this);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        if (treeUri != null) {
+            intent.setData(treeUri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        } else {
+            Uri defaultUri = DocumentsContract.buildDocumentUri(
+                    "com.android.externalstorage.documents",
+                    "primary:Download/mg4_cam_records"
+            );
+            intent.setDataAndType(defaultUri, DocumentsContract.Document.MIME_TYPE_DIR);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        }
+
+        try {
+            startActivity(Intent.createChooser(intent, getString(R.string.settings_open_recording_folder)));
+        } catch (Throwable firstFailure) {
+            try {
+                Intent downloads = new Intent(Intent.ACTION_VIEW);
+                downloads.setDataAndType(
+                        DocumentsContract.buildRootUri("com.android.externalstorage.documents", "primary"),
+                        DocumentsContract.Root.MIME_TYPE_ITEM
+                );
+                startActivity(Intent.createChooser(downloads, getString(R.string.settings_open_recording_folder)));
+            } catch (Throwable ignored) {
+                Toast.makeText(this, R.string.settings_records_path_open_failed, Toast.LENGTH_LONG).show();
+            }
         }
     }
 

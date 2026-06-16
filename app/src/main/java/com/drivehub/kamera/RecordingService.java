@@ -9,6 +9,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -20,9 +24,8 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import java.io.FileInputStream;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -42,6 +45,9 @@ public class RecordingService extends Service {
     private static final int NOTIF_ID = 42;
     private static final int[] SLOT_IDS = {0, 1, 2, 3};
     private static final int[] CAMERA_INDICES = {15, 14, 16, 17};
+    private static final String RECORDING_EXTENSION = ".mp4";
+    private static final String RECORDING_MIME_TYPE = "video/mp4";
+    private static final long DEFAULT_FRAME_DURATION_US = 33_333L;
     private static final String TAG = "RecordingService";
 
     private Thread worker;
@@ -152,14 +158,25 @@ public class RecordingService extends Service {
         if (!segmentBaseDir.exists() && !segmentBaseDir.mkdirs()) {
             return false;
         }
+        if (shouldUseDebugDemoRecording()) {
+            Log.i(TAG, "Starting debug demo recording segment=" + segmentStamp);
+            boolean ok = startDebugDemoSegment(segmentBaseDir, segmentStamp, segmentDurationMs);
+            if (useTree && ok) {
+                copySegmentToTree(segmentBaseDir, segmentStamp);
+                deleteSegmentFiles(segmentBaseDir, segmentStamp);
+            }
+            return ok;
+        }
+        Log.i(TAG, "Starting native camera recording segment=" + segmentStamp);
         boolean[] started = new boolean[SLOT_IDS.length];
         for (int i = 0; i < SLOT_IDS.length; i++) {
-            String outputPath = new File(segmentBaseDir, segmentStamp + "_" + CAMERA_INDICES[i] + ".mpg")
+            String outputPath = segmentFile(segmentBaseDir, segmentStamp, CAMERA_INDICES[i])
                     .getAbsolutePath();
             try {
                 started[i] = CameraProbe.startMp4Record(SLOT_IDS[i], CAMERA_INDICES[i], outputPath,
                         720, 240, 15, 2_500_000);
             } catch (Throwable t) {
+                Log.w(TAG, "Native recorder failed for camera " + CAMERA_INDICES[i], t);
                 started[i] = false;
             }
             if (!started[i]) {
@@ -169,11 +186,7 @@ public class RecordingService extends Service {
 
         if (!allStarted(started)) {
             stopRecordingNative();
-            if (BuildConfig.DEBUG) {
-                writeDebugFallbackRecordings(baseDir, segmentStamp);
-                sleepUntilSegmentEnd(segmentDurationMs);
-                return true;
-            }
+            deleteSegmentFiles(segmentBaseDir, segmentStamp);
             return false;
         }
 
@@ -190,13 +203,13 @@ public class RecordingService extends Service {
         DocumentFile tree = RecordingStorageManager.resolveTreeDocument(this);
         if (tree == null) return;
         for (int cameraIndex : CAMERA_INDICES) {
-            File source = new File(segmentBaseDir, segmentStamp + "_" + cameraIndex + ".mpg");
+            File source = segmentFile(segmentBaseDir, segmentStamp, cameraIndex);
             if (!source.isFile()) continue;
             String name = source.getName();
             try {
                 DocumentFile existing = tree.findFile(name);
                 if (existing != null) existing.delete();
-                DocumentFile outDoc = tree.createFile("application/octet-stream", name);
+                DocumentFile outDoc = tree.createFile(RECORDING_MIME_TYPE, name);
                 if (outDoc == null) continue;
                 try (FileInputStream in = new FileInputStream(source);
                      OutputStream out = getContentResolver().openOutputStream(outDoc.getUri())) {
@@ -215,7 +228,7 @@ public class RecordingService extends Service {
 
     private void deleteSegmentFiles(File segmentBaseDir, String segmentStamp) {
         for (int cameraIndex : CAMERA_INDICES) {
-            File source = new File(segmentBaseDir, segmentStamp + "_" + cameraIndex + ".mpg");
+            File source = segmentFile(segmentBaseDir, segmentStamp, cameraIndex);
             //noinspection ResultOfMethodCallIgnored
             source.delete();
         }
@@ -240,42 +253,142 @@ public class RecordingService extends Service {
         return true;
     }
 
-    private void writeDebugFallbackRecordings(File baseDir, String segmentStamp) {
+    private boolean shouldUseDebugDemoRecording() {
+        return BuildConfig.DEBUG && TestVideoSources.shouldUse(this);
+    }
+
+    private boolean startDebugDemoSegment(File segmentBaseDir, String segmentStamp, long segmentDurationMs) {
+        long startedAt = SystemClock.elapsedRealtime();
+        sleepUntilSegmentEnd(segmentDurationMs);
+        long elapsedMs = Math.max(1000L, Math.min(segmentDurationMs, SystemClock.elapsedRealtime() - startedAt));
+        long durationUs = elapsedMs * 1000L;
         for (int cameraIndex : CAMERA_INDICES) {
-            File source = TestVideoSources.getFile(this, cameraIndex);
-            File target = new File(baseDir, segmentStamp + "_" + cameraIndex + ".mpg");
-            try {
-                if (source.isFile()) {
-                    copyFile(source, target);
-                    Log.i(TAG, "Fallback copied " + source.getName() + " -> " + target.getName());
-                } else {
-                    writePlaceholderFile(target, cameraIndex);
-                    Log.i(TAG, "Fallback wrote placeholder " + target.getName());
+            File source = resolveDebugRecordingSource(cameraIndex);
+            if (source == null || !source.isFile()) {
+                Log.w(TAG, "Missing debug recording source for camera " + cameraIndex);
+                return false;
+            }
+            File target = segmentFile(segmentBaseDir, segmentStamp, cameraIndex);
+            if (!writeDebugVideoSegment(source, target, durationUs)) {
+                Log.w(TAG, "Failed debug recording for camera " + cameraIndex + " source=" + source);
+                deleteSegmentFiles(segmentBaseDir, segmentStamp);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Nullable
+    private File resolveDebugRecordingSource(int cameraIndex) {
+        try {
+            if (TestVideoSources.hasDebugAsset(this)) {
+                return TestVideoSources.materializeDebugAsset(this, cameraIndex);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Could not materialize debug recording asset", t);
+        }
+        return TestVideoSources.getFile(this, cameraIndex);
+    }
+
+    private boolean writeDebugVideoSegment(File source, File target, long durationUs) {
+        MediaExtractor extractor = new MediaExtractor();
+        MediaMuxer muxer = null;
+        boolean muxerStarted = false;
+        try {
+            extractor.setDataSource(source.getAbsolutePath());
+            int sourceTrack = selectVideoTrack(extractor);
+            if (sourceTrack < 0) {
+                return false;
+            }
+            extractor.selectTrack(sourceTrack);
+            MediaFormat format = extractor.getTrackFormat(sourceTrack);
+            muxer = new MediaMuxer(target.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            int muxerTrack = muxer.addTrack(format);
+            muxer.start();
+            muxerStarted = true;
+
+            int maxInputSize = format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)
+                    ? format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE)
+                    : 1024 * 1024;
+            ByteBuffer buffer = ByteBuffer.allocateDirect(Math.max(maxInputSize, 256 * 1024));
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            long loopBaseUs = 0L;
+            long firstSampleUs = -1L;
+            long lastWrittenUs = -1L;
+            int samplesWritten = 0;
+
+            while (loopBaseUs < durationUs) {
+                int sampleTrack = extractor.getSampleTrackIndex();
+                if (sampleTrack < 0) {
+                    if (samplesWritten == 0) return false;
+                    loopBaseUs = lastWrittenUs + DEFAULT_FRAME_DURATION_US;
+                    firstSampleUs = -1L;
+                    extractor.seekTo(0L, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+                    continue;
                 }
-            } catch (IOException e) {
-                Log.w(TAG, "Fallback copy failed for " + source.getName(), e);
+                if (sampleTrack != sourceTrack) {
+                    extractor.advance();
+                    continue;
+                }
+                buffer.clear();
+                int size = extractor.readSampleData(buffer, 0);
+                long sampleTimeUs = extractor.getSampleTime();
+                if (size <= 0 || sampleTimeUs < 0) {
+                    extractor.advance();
+                    continue;
+                }
+                if (firstSampleUs < 0L) {
+                    firstSampleUs = sampleTimeUs;
+                }
+                long presentationTimeUs = loopBaseUs + Math.max(0L, sampleTimeUs - firstSampleUs);
+                if (presentationTimeUs >= durationUs) {
+                    break;
+                }
+                info.set(0, size, presentationTimeUs, extractor.getSampleFlags());
+                muxer.writeSampleData(muxerTrack, buffer, info);
+                lastWrittenUs = presentationTimeUs;
+                samplesWritten++;
+                extractor.advance();
+            }
+            boolean ok = samplesWritten > 0 && target.isFile();
+            if (!ok) {
+                //noinspection ResultOfMethodCallIgnored
+                target.delete();
+            }
+            Log.i(TAG, "Wrote debug recording " + target.getName() + " samples=" + samplesWritten);
+            return ok;
+        } catch (Throwable t) {
+            Log.w(TAG, "Debug mux failed source=" + source + " target=" + target, t);
+            //noinspection ResultOfMethodCallIgnored
+            target.delete();
+            return false;
+        } finally {
+            try {
+                if (muxer != null && muxerStarted) muxer.stop();
+            } catch (Throwable ignored) {
+            }
+            try {
+                if (muxer != null) muxer.release();
+            } catch (Throwable ignored) {
+            }
+            try {
+                extractor.release();
+            } catch (Throwable ignored) {
             }
         }
     }
 
-    private void writePlaceholderFile(File target, int cameraIndex) throws IOException {
-        try (FileOutputStream out = new FileOutputStream(target)) {
-            String content = "debug-placeholder camera=" + cameraIndex + " ts=" + buildTimestamp() + "\n";
-            out.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            out.getFD().sync();
+    private int selectVideoTrack(MediaExtractor extractor) {
+        for (int i = 0; i < extractor.getTrackCount(); i++) {
+            MediaFormat format = extractor.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime != null && mime.startsWith("video/")) return i;
         }
+        return -1;
     }
 
-    private void copyFile(File source, File target) throws IOException {
-        try (FileInputStream in = new FileInputStream(source);
-             FileOutputStream out = new FileOutputStream(target)) {
-            byte[] buffer = new byte[64 * 1024];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-            out.getFD().sync();
-        }
+    private File segmentFile(File dir, String segmentStamp, int cameraIndex) {
+        return new File(dir, segmentStamp + "_" + cameraIndex + RECORDING_EXTENSION);
     }
 
     private void requestStop() {
@@ -284,8 +397,9 @@ public class RecordingService extends Service {
         Thread t = worker;
         if (t != null) {
             t.interrupt();
+        } else {
+            stopSelf();
         }
-        stopSelf();
     }
 
     private void stopRecordingNative() {
