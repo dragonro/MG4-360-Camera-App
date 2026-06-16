@@ -1,4 +1,5 @@
 // Author: AdrianBega/DualBytes
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.annotation.SuppressLint;
@@ -41,6 +42,8 @@ import androidx.core.view.WindowInsetsCompat;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
+    public static final String ACTION_SHOW_APP = "com.drivehub.kamera.action.SHOW_APP";
+
     private static final String AVM_PREFS_NAME = "AVM_Settings";
     private static final String KEY_SAFETY_WARNING = "ShowSafetyWarning";
     private static final int REQ_RECORDING_FOLDER = 5001;
@@ -55,6 +58,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
     private boolean testPreviewRunning = false;
+    private boolean restoreOverlayOnLaunch = false;
+    private boolean overlayRestoreStarted = false;
     private float downX = 0f;
     private float downY = 0f;
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
@@ -123,6 +128,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         return sMainVisible && !sSettingsDialogOpen;
     }
 
+    public static void launchFromOverlay(Context context) {
+        if (context == null) return;
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        context.startActivity(intent);
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,6 +150,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         SurfaceView surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
+        String lastUiState = UiPrefs.getLastUiState(UiPrefs.getPrefs(this));
+        restoreOverlayOnLaunch = UiPrefs.UI_STATE_OVERLAY.equals(lastUiState)
+                || UiPrefs.UI_STATE_POPUP.equals(lastUiState);
 
         tvStatus = findViewById(R.id.tvStatus);
         if (tvStatus != null) {
@@ -173,6 +188,27 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         try {
             SignalService.start(this);
         } catch (Throwable ignored) {
+        }
+
+        if (restoreOverlayOnLaunch) {
+            surfaceView.post(() -> {
+                if (overlayRestoreStarted || isFinishing()) return;
+                overlayRestoreStarted = true;
+                boolean restorePopup = UiPrefs.UI_STATE_POPUP.equals(
+                        UiPrefs.getLastUiState(UiPrefs.getPrefs(this))
+                );
+                UiPrefs.setLastUiState(
+                        UiPrefs.getPrefs(this),
+                        restorePopup ? UiPrefs.UI_STATE_POPUP : UiPrefs.UI_STATE_OVERLAY
+                );
+                if (restorePopup) {
+                    OverlayService.showPopup(this, currentVideoIndex);
+                } else {
+                    OverlayService.showOverlay(this, currentVideoIndex);
+                }
+                finishAndRemoveTask();
+            });
+            return;
         }
 
         surfaceView.setOnTouchListener((v, event) -> {
@@ -223,7 +259,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             );
         } catch (Throwable ignored) {
         }
-        OverlayService.hideOverlay(this);
+        if (!OverlayService.isPopupVisible()) {
+            if (UiPrefs.UI_STATE_MAIN.equals(UiPrefs.getLastUiState(UiPrefs.getPrefs(this)))) {
+                OverlayService.hideOverlay(this);
+            }
+        }
         applyWarningVisibility();
         applyCameraPopupVisibility();
         syncRecordingUi();
@@ -235,6 +275,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         super.onStop();
         sMainVisible = false;
         sSettingsDialogOpen = false;
+        if (!OverlayService.isPopupVisible() && !restoreOverlayOnLaunch) {
+            UiPrefs.setLastUiState(UiPrefs.getPrefs(this), UiPrefs.UI_STATE_MAIN);
+        }
         otaController.stop();
         recordingTimerHandler.removeCallbacks(recordingTimerTick);
         try {
@@ -255,6 +298,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onDestroy() {
         super.onDestroy();
         sMainVisible = false;
+        if (!OverlayService.isPopupVisible() && !restoreOverlayOnLaunch) {
+            UiPrefs.setLastUiState(UiPrefs.getPrefs(this), UiPrefs.UI_STATE_MAIN);
+        }
         otaController.stop();
         stopPreview();
     }
@@ -645,6 +691,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         } catch (Throwable ignored) {
         }
         OverlayService.showPopup(this, currentVideoIndex);
+    }
+
+    static void requestAppVisibility(Context context) {
+        if (context == null) return;
+        Intent intent = new Intent(ACTION_SHOW_APP);
+        intent.setPackage(context.getPackageName());
+        context.sendBroadcast(intent);
     }
 
     // -------------------------------------------------------------------------

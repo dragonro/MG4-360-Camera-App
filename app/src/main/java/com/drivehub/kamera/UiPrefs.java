@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.content.Context;
@@ -19,9 +20,13 @@ final class UiPrefs {
     static final String KEY_RECORDING_DURATION_MIN = "recordingDurationMin";
     static final String KEY_RECORDING_STARTED_AT_MS = "recordingStartedAtMs";
     static final String KEY_RECORDING_TREE_URI = "recordingTreeUri";
+    static final String KEY_LAST_UI_STATE = "lastUiState";
     static final String KEY_DEV_DEFAULT_POLL_MS = "devDefaultPollMs";
     static final String KEY_DEV_SIGNAL_OFF_POLL_MS = "devSignalOffPollMs";
     static final String KEY_DEV_TEST_VIDEO_SOURCES = "devTestVideoSources";
+    static final String UI_STATE_MAIN = "main";
+    static final String UI_STATE_OVERLAY = "overlay";
+    static final String UI_STATE_POPUP = "popup";
     static final int MAX_TILE_CORNER_RADIUS = 35;
     static final int MAX_OVERLAY_HIDE_DELAY_MS = 3000;
     static final int MAX_OVERLAY_MIN_SHOW_MS = 6000;
@@ -97,6 +102,18 @@ final class UiPrefs {
 
     static boolean isDevTestVideoSourcesEnabled(SharedPreferences prefs) {
         return prefs.getBoolean(KEY_DEV_TEST_VIDEO_SOURCES, false);
+    }
+
+    static String getLastUiState(SharedPreferences prefs) {
+        return prefs.getString(KEY_LAST_UI_STATE, UI_STATE_MAIN);
+    }
+
+    static void setLastUiState(SharedPreferences prefs, String state) {
+        if (prefs == null) return;
+        String normalized = UI_STATE_POPUP.equals(state)
+                ? UI_STATE_POPUP
+                : UI_STATE_OVERLAY.equals(state) ? UI_STATE_OVERLAY : UI_STATE_MAIN;
+        prefs.edit().putString(KEY_LAST_UI_STATE, normalized).commit();
     }
 
     static float getCornerRadiusFraction(SharedPreferences prefs) {

@@ -1,4 +1,5 @@
 // Author: AdrianBega/DualBytes
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.app.Notification;
@@ -74,6 +75,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     /** Current window size, updated via pinch gestures. */
     private int overlayWidthPx = DEFAULT_OVERLAY_WIDTH_PX;
     private int overlayHeightPx = DEFAULT_OVERLAY_HEIGHT_PX;
+    private int overlayX = 32;
+    private int overlayY = 120;
 
     private ScaleGestureDetector scaleGestureDetector;
 
@@ -102,7 +105,6 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             syncRecordingUi();
         }
     };
-
     public static void showOverlay(Context context, int cameraIndex) {
         Intent i = new Intent(context, OverlayService.class);
         i.putExtra(EXTRA_CAMERA_INDEX, cameraIndex);
@@ -122,6 +124,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     }
 
     public static void hideOverlay(Context context) {
+        UiPrefs.setLastUiState(UiPrefs.getPrefs(context), UiPrefs.UI_STATE_MAIN);
         Intent i = new Intent(context, OverlayService.class);
         context.stopService(i);
     }
@@ -146,6 +149,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         }
         popupMode = intent != null && intent.getBooleanExtra(EXTRA_POPUP_MODE, false);
         sPopupVisible = popupMode;
+        loadSavedOverlayGeometry();
+        markCurrentOverlayState();
         // Run as a foreground service so the overlay survives while the app is in the background.
         Notification notif = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
@@ -159,6 +164,12 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (overlayView == null) {
             showFloatingWindow();
         } else {
+            if (overlayParams != null) {
+                overlayParams.width = overlayWidthPx;
+                overlayParams.height = overlayHeightPx;
+                overlayParams.x = clampLoadedX(overlayX);
+                overlayParams.y = clampLoadedY(overlayY);
+            }
             applyOverlayCornerRadius();
             updateOverlayPresentation(false);
             // If the overlay is already open and only the camera index changed, switch the feed.
@@ -178,27 +189,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
         int layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 
-        // Popup mode starts small so it behaves like a compact floating preview.
-        if (popupMode) {
-            int[] screenSize = getAvailableScreenSizePx();
-            if (screenSize != null) {
-                overlayWidthPx = clampToPopupBounds(Math.round(screenSize[0] * 0.20f), true);
-                overlayHeightPx = clampToPopupBounds(Math.round(screenSize[1] * 0.20f), false);
-            }
-        } else {
-            // Normal overlay keeps using the saved value or the default while preserving aspect.
-            try {
-                android.content.SharedPreferences sp =
-                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-                int w = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
-                int h = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
-                if (w >= 1 && h >= 1) {
-                    overlayWidthPx = w;
-                    overlayHeightPx = h;
-                }
-            } catch (Throwable ignored) {
-            }
-        }
+        loadSavedOverlayGeometry();
         normalizeOverlaySizeForCurrentMode();
 
         overlayParams = new WindowManager.LayoutParams(
@@ -212,18 +203,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         );
         overlayParams.gravity = Gravity.TOP | Gravity.START;
 
-        // Read the last saved position from prefs, or fall back to the default.
-        int defaultX = 32;
-        int defaultY = 120;
-        try {
-            android.content.SharedPreferences sp =
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            defaultX = sp.getInt(KEY_LAST_X, defaultX);
-            defaultY = sp.getInt(KEY_LAST_Y, defaultY);
-        } catch (Throwable ignored) {
-        }
-        overlayParams.x = defaultX;
-        overlayParams.y = defaultY;
+        overlayParams.x = overlayX;
+        overlayParams.y = overlayY;
         clampOverlayPositionToScreen();
 
         overlayView = createOverlayCard();
@@ -248,7 +229,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
                     @Override
                     public void onScaleEnd(ScaleGestureDetector detector) {
-                        saveOverlayLayoutPrefs();
+                        saveOverlayLayoutPrefs(true);
                     }
                 });
 
@@ -274,7 +255,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 if (action == MotionEvent.ACTION_POINTER_UP
                         || action == MotionEvent.ACTION_CANCEL
                         || action == MotionEvent.ACTION_UP) {
-                    saveOverlayLayoutPrefs();
+                    saveOverlayLayoutPrefs(true);
                 }
                 return true;
             }
@@ -298,15 +279,46 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                     overlayParams.y = newY;
                     clampOverlayPositionToScreen();
                     windowManager.updateViewLayout(overlayView, overlayParams);
+                    saveOverlayLayoutPrefs(false);
                     return true;
                 case MotionEvent.ACTION_UP:
-                    saveOverlayLayoutPrefs();
+                    saveOverlayLayoutPrefs(true);
                     v.performClick();
                     return true;
                 default:
                     return false;
             }
         });
+    }
+
+    private void loadSavedOverlayGeometry() {
+        try {
+            android.content.SharedPreferences sp =
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            int w = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
+            int h = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
+            if (w >= 1 && h >= 1) {
+                overlayWidthPx = w;
+                overlayHeightPx = h;
+            }
+            overlayX = sp.getInt(KEY_LAST_X, overlayX);
+            overlayY = sp.getInt(KEY_LAST_Y, overlayY);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private int clampLoadedX(int x) {
+        int[] screenSize = getAvailableScreenSizePx();
+        if (screenSize == null) return x;
+        int maxX = Math.max(0, screenSize[0] - overlayWidthPx);
+        return Math.max(0, Math.min(maxX, x));
+    }
+
+    private int clampLoadedY(int y) {
+        int[] screenSize = getAvailableScreenSizePx();
+        if (screenSize == null) return y;
+        int maxY = Math.max(0, screenSize[1] - overlayHeightPx);
+        return Math.max(0, Math.min(maxY, y));
     }
 
     private View createOverlayCard() {
@@ -349,6 +361,36 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         btnDismissOverlay.setContentDescription("Close overlay");
         btnDismissOverlay.setOnClickListener(v -> hideOverlay(OverlayService.this));
         card.addView(btnDismissOverlay);
+
+        {
+            ImageButton btnShowApp = new ImageButton(this);
+            FrameLayout.LayoutParams appParams = new FrameLayout.LayoutParams(
+                    scalePopupButtonSize(56),
+                    scalePopupButtonSize(56),
+                    Gravity.TOP | Gravity.END
+            );
+            appParams.rightMargin = 0;
+            appParams.topMargin = 0;
+            btnShowApp.setLayoutParams(appParams);
+            btnShowApp.setBackground(null);
+            btnShowApp.setImageResource(R.drawable.ic_popup);
+            btnShowApp.setColorFilter(0xFFFFFFFF);
+            btnShowApp.setPadding(
+                    scalePopupIconPadding(10),
+                    scalePopupIconPadding(10),
+                    scalePopupIconPadding(10),
+                    scalePopupIconPadding(10)
+            );
+            btnShowApp.setContentDescription("Show app");
+            btnShowApp.setOnClickListener(v -> {
+                markMainVisible();
+                try {
+                    MainActivity.launchFromOverlay(OverlayService.this);
+                } catch (Throwable ignored) {
+                }
+            });
+            card.addView(btnShowApp);
+        }
 
         if (popupMode) {
             ImageButton btnRecording = new ImageButton(this);
@@ -398,6 +440,18 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         button.setImageTintList(android.content.res.ColorStateList.valueOf(
                 recording ? 0xFFFF3B30 : 0xFFFFFFFF
         ));
+    }
+
+    private void markMainVisible() {
+        if (uiPrefs != null) {
+            UiPrefs.setLastUiState(uiPrefs, UiPrefs.UI_STATE_MAIN);
+        }
+    }
+
+    private void markCurrentOverlayState() {
+        if (uiPrefs != null) {
+            UiPrefs.setLastUiState(uiPrefs, popupMode ? UiPrefs.UI_STATE_POPUP : UiPrefs.UI_STATE_OVERLAY);
+        }
     }
 
     private void applyOverlayCornerRadius() {
@@ -469,12 +523,15 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                     }
                     overlayParams.y = resizeStartY;
                     clampOverlayPositionToScreen();
+                    overlayWidthPx = overlayParams.width;
+                    overlayHeightPx = overlayParams.height;
                     windowManager.updateViewLayout(overlayView, overlayParams);
                     applyPreviewTransform();
+                    saveOverlayLayoutPrefs(false);
                     return true;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    saveOverlayLayoutPrefs();
+                    saveOverlayLayoutPrefs(true);
                     return true;
                 default:
                     return false;
@@ -603,7 +660,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         }
         applyPreviewTransform();
         if (persist) {
-            saveOverlayLayoutPrefs();
+            saveOverlayLayoutPrefs(true);
         }
     }
 
@@ -659,17 +716,25 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         return new int[]{dm.widthPixels, dm.heightPixels};
     }
 
-    private void saveOverlayLayoutPrefs() {
+    private void saveOverlayLayoutPrefs(boolean synchronous) {
         if (overlayParams == null) return;
         try {
+            overlayWidthPx = overlayParams.width;
+            overlayHeightPx = overlayParams.height;
+            overlayX = overlayParams.x;
+            overlayY = overlayParams.y;
             android.content.SharedPreferences sp =
                     getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            sp.edit()
+            android.content.SharedPreferences.Editor editor = sp.edit()
                     .putInt(KEY_LAST_X, overlayParams.x)
                     .putInt(KEY_LAST_Y, overlayParams.y)
                     .putInt(KEY_OVERLAY_W, overlayWidthPx)
-                    .putInt(KEY_OVERLAY_H, overlayHeightPx)
-                    .apply();
+                    .putInt(KEY_OVERLAY_H, overlayHeightPx);
+            if (synchronous && !editor.commit()) {
+                android.util.Log.w("OverlayService", "Failed to persist overlay geometry");
+            } else if (!synchronous) {
+                editor.apply();
+            }
         } catch (Throwable ignored) {
         }
     }
@@ -677,7 +742,11 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     @Override
     public void onDestroy() {
         super.onDestroy();
+        saveOverlayLayoutPrefs(true);
         sPopupVisible = false;
+        if (uiPrefs != null && !UiPrefs.UI_STATE_MAIN.equals(UiPrefs.getLastUiState(uiPrefs))) {
+            markCurrentOverlayState();
+        }
         if (uiPrefs != null) {
             uiPrefs.unregisterOnSharedPreferenceChangeListener(prefListener);
         }
