@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.content.Context;
@@ -12,7 +13,9 @@ final class TestVideoSources {
 
     static boolean shouldUse(Context context) {
         if (context == null || !BuildConfig.DEBUG) return false;
-        return UiPrefs.isDevTestVideoSourcesEnabled(UiPrefs.getPrefs(context)) || hasAllFiles(context);
+        return UiPrefs.isDevTestVideoSourcesEnabled(UiPrefs.getPrefs(context))
+                || hasAllFiles(context)
+                || hasDebugAsset(context);
     }
 
     static boolean hasAllFiles(Context context) {
@@ -23,11 +26,37 @@ final class TestVideoSources {
     }
 
     static File getFile(Context context, int cameraIndex) {
+        File file = getExpectedFile(context, cameraIndex);
+        if (file.isFile()) {
+            return file;
+        }
+        File frontFallback = getExpectedFile(context, 15);
+        if (frontFallback.isFile()) {
+            return frontFallback;
+        }
+        return file;
+    }
+
+    static File getExpectedFile(Context context, int cameraIndex) {
         return new File(getRootDirectory(context), fileNameFor(cameraIndex));
     }
 
     static String expectedPath(Context context) {
         return getRootDirectory(context).getAbsolutePath();
+    }
+
+    static String assetNameFor(int cameraIndex) {
+        return "front_camera_sample_1.mp4";
+    }
+
+    static boolean hasDebugAsset(Context context) {
+        if (context == null) return false;
+        try {
+            context.getAssets().open(assetNameFor(15)).close();
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private static File getRootDirectory(Context context) {
