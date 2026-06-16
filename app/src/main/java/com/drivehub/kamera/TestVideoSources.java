@@ -1,7 +1,11 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.content.Context;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 final class TestVideoSources {
 
@@ -12,7 +16,9 @@ final class TestVideoSources {
 
     static boolean shouldUse(Context context) {
         if (context == null || !BuildConfig.DEBUG) return false;
-        return UiPrefs.isDevTestVideoSourcesEnabled(UiPrefs.getPrefs(context)) || hasAllFiles(context);
+        return UiPrefs.isDevTestVideoSourcesEnabled(UiPrefs.getPrefs(context))
+                || hasAllFiles(context)
+                || hasDebugAsset(context);
     }
 
     static boolean hasAllFiles(Context context) {
@@ -23,11 +29,55 @@ final class TestVideoSources {
     }
 
     static File getFile(Context context, int cameraIndex) {
+        File file = getExpectedFile(context, cameraIndex);
+        if (file.isFile()) {
+            return file;
+        }
+        File frontFallback = getExpectedFile(context, 15);
+        if (frontFallback.isFile()) {
+            return frontFallback;
+        }
+        return file;
+    }
+
+    static File getExpectedFile(Context context, int cameraIndex) {
         return new File(getRootDirectory(context), fileNameFor(cameraIndex));
     }
 
     static String expectedPath(Context context) {
         return getRootDirectory(context).getAbsolutePath();
+    }
+
+    static String assetNameFor(int cameraIndex) {
+        return "front_camera_sample_1.mp4";
+    }
+
+    static boolean hasDebugAsset(Context context) {
+        if (context == null) return false;
+        try {
+            context.getAssets().open(assetNameFor(15)).close();
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    static File materializeDebugAsset(Context context, int cameraIndex) throws IOException {
+        File target = getExpectedFile(context, cameraIndex);
+        File root = target.getParentFile();
+        if (root != null && !root.exists() && !root.mkdirs()) {
+            return target;
+        }
+        try (InputStream in = context.getAssets().open(assetNameFor(cameraIndex));
+             FileOutputStream out = new FileOutputStream(target, false)) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.getFD().sync();
+        }
+        return target;
     }
 
     private static File getRootDirectory(Context context) {

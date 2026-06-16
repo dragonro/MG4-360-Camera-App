@@ -1,3 +1,5 @@
+// Author: AdrianBega/DualBytes
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.annotation.SuppressLint;
@@ -8,6 +10,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.provider.DocumentsContract;
+import android.provider.Settings;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -15,11 +19,13 @@ import android.os.Handler;
 import android.util.DisplayMetrics;
 import android.os.SystemClock;
 import android.os.Looper;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -39,21 +45,28 @@ import androidx.core.view.WindowInsetsCompat;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
+    public static final String ACTION_SHOW_APP = "com.drivehub.kamera.action.SHOW_APP";
+
     private static final String AVM_PREFS_NAME = "AVM_Settings";
     private static final String KEY_SAFETY_WARNING = "ShowSafetyWarning";
     private static final int REQ_RECORDING_FOLDER = 5001;
+    private static final int REQ_OVERLAY_PERMISSION = 5002;
     private static final int SWIPE_THRESHOLD_PX = 140;
-
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
     private ImageButton btnRecording;
+    private ImageButton btnCameraPopup;
     private TextView tvRecordingTimer;
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
     private boolean testPreviewRunning = false;
+    private boolean mainPreviewOwnsSurface = false;
+    private boolean restoreOverlayOnLaunch = false;
+    private boolean overlayRestoreStarted = false;
     private float downX = 0f;
     private float downY = 0f;
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
+    private final SyntheticTestPreview syntheticTestPreview = new SyntheticTestPreview();
 
     private static volatile boolean sMainVisible = false;
     private static volatile boolean sSettingsDialogOpen = false;
@@ -93,7 +106,35 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private final BroadcastReceiver recordingStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            updateRecordingButton();
+            syncRecordingUi();
+        }
+    };
+
+    private final BroadcastReceiver recordingWarningReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+            String code = intent.getStringExtra(RecordingService.EXTRA_WARNING_CODE);
+            int messageRes = RecordingService.WARNING_NOT_ENOUGH_SPACE.equals(code)
+                    ? R.string.recording_warning_not_enough_space
+                    : RecordingService.WARNING_PRUNE_FAILED.equals(code)
+                    ? R.string.recording_warning_prune_failed
+                    : R.string.recording_warning_storage_full;
+            Toast.makeText(MainActivity.this, messageRes, Toast.LENGTH_LONG).show();
+            syncRecordingUi();
+        }
+    };
+
+    private final BroadcastReceiver popupReadyReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+            if (!OverlayService.ACTION_POPUP_READY.equals(intent.getAction())) return;
+            try {
+                unregisterReceiver(this);
+            } catch (Throwable ignored) {
+            }
+            finishAndRemoveTask();
         }
     };
 
@@ -105,10 +146,26 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         return sMainVisible && !sSettingsDialogOpen;
     }
 
+    public static void launchFromOverlay(Context context) {
+        if (context == null) return;
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        context.startActivity(intent);
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        String lastUiState = UiPrefs.getLastUiState(UiPrefs.getPrefs(this));
+        restoreOverlayOnLaunch = UiPrefs.UI_STATE_OVERLAY.equals(lastUiState)
+                || UiPrefs.UI_STATE_POPUP.equals(lastUiState);
+        if (restoreOverlayOnLaunch) {
+            resumeRecordingIfNeeded();
+            restoreOverlayOnly(lastUiState);
+            return;
+        }
+
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -130,9 +187,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         btnSettings.setOnClickListener(v -> showSettingsDialog());
 
         btnRecording = findViewById(R.id.btnRecording);
+        btnCameraPopup = findViewById(R.id.btnCameraPopup);
         tvRecordingTimer = findViewById(R.id.tvRecordingTimer);
         if (btnRecording != null) {
             btnRecording.setOnClickListener(v -> toggleRecording());
+        }
+        if (btnCameraPopup != null) {
+            btnCameraPopup.setOnClickListener(v -> {
+                if (UiPrefs.isCameraPopupEnabled(UiPrefs.getPrefs(this))) {
+                    startPopupOverlay();
+                }
+            });
         }
 
         ImageButton btnClose = findViewById(R.id.btnClose);
@@ -140,7 +205,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
-        updateRecordingButton();
+        applyCameraPopupVisibility();
+        resumeRecordingIfNeeded();
+        syncRecordingUi();
         updateRecordingTimer();
 
         try {
@@ -177,6 +244,31 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         });
     }
 
+    private void restoreOverlayOnly(String lastUiState) {
+        if (overlayRestoreStarted || isFinishing()) return;
+        overlayRestoreStarted = true;
+        Window window = getWindow();
+        if (window != null) {
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.width = 1;
+            params.height = 1;
+            params.gravity = Gravity.TOP | Gravity.START;
+            params.alpha = 0f;
+            window.setAttributes(params);
+        }
+        boolean restorePopup = UiPrefs.UI_STATE_POPUP.equals(lastUiState);
+        UiPrefs.setLastUiState(
+                UiPrefs.getPrefs(this),
+                restorePopup ? UiPrefs.UI_STATE_POPUP : UiPrefs.UI_STATE_OVERLAY
+        );
+        if (restorePopup) {
+            OverlayService.showPopup(this, currentVideoIndex);
+        } else {
+            OverlayService.showOverlay(this, currentVideoIndex);
+        }
+        finishAndRemoveTask();
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -194,11 +286,22 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     new IntentFilter(RecordingService.ACTION_STATE_CHANGED),
                     ContextCompat.RECEIVER_NOT_EXPORTED
             );
+            ContextCompat.registerReceiver(
+                    this,
+                    recordingWarningReceiver,
+                    new IntentFilter(RecordingService.ACTION_RECORDING_WARNING),
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+            );
         } catch (Throwable ignored) {
         }
-        OverlayService.hideOverlay(this);
+        if (!OverlayService.isPopupVisible()) {
+            if (UiPrefs.UI_STATE_MAIN.equals(UiPrefs.getLastUiState(UiPrefs.getPrefs(this)))) {
+                OverlayService.hideOverlay(this);
+            }
+        }
         applyWarningVisibility();
-        updateRecordingButton();
+        applyCameraPopupVisibility();
+        syncRecordingUi();
         updateRecordingTimer();
     }
 
@@ -207,6 +310,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         super.onStop();
         sMainVisible = false;
         sSettingsDialogOpen = false;
+        if (!OverlayService.isPopupVisible() && !restoreOverlayOnLaunch) {
+            UiPrefs.setLastUiState(UiPrefs.getPrefs(this), UiPrefs.UI_STATE_MAIN);
+        }
         otaController.stop();
         recordingTimerHandler.removeCallbacks(recordingTimerTick);
         try {
@@ -217,12 +323,23 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             unregisterReceiver(recordingStateReceiver);
         } catch (Throwable ignored) {
         }
+        try {
+            unregisterReceiver(recordingWarningReceiver);
+        } catch (Throwable ignored) {
+        }
+        try {
+            unregisterReceiver(popupReadyReceiver);
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         sMainVisible = false;
+        if (!OverlayService.isPopupVisible() && !restoreOverlayOnLaunch) {
+            UiPrefs.setLastUiState(UiPrefs.getPrefs(this), UiPrefs.UI_STATE_MAIN);
+        }
         otaController.stop();
         stopPreview();
     }
@@ -251,23 +368,33 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Switch swRotateToDrivingDirection =
                 dialog.findViewById(R.id.switchOverlayRotateToDrivingDirection);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
+        Switch swEnableCameraPopup = dialog.findViewById(R.id.switchEnableCameraPopup);
         Switch swEnableRecording = dialog.findViewById(R.id.switchEnableRecording);
         TextView tvRecordsPathValue = dialog.findViewById(R.id.tvRecordsPathValue);
+        TextView tvRecordingStorageQuotaValue = dialog.findViewById(R.id.tvRecordingStorageQuotaValue);
         Button btnExportUsb = dialog.findViewById(R.id.btnExportUsb);
+        Button btnOpenRecordingFolder = dialog.findViewById(R.id.btnOpenRecordingFolder);
         RadioGroup rgRecordingDuration = dialog.findViewById(R.id.rgRecordingDuration);
         RadioButton rbRecordingDuration1 = dialog.findViewById(R.id.rbRecordingDuration1);
         RadioButton rbRecordingDuration2 = dialog.findViewById(R.id.rbRecordingDuration2);
         RadioButton rbRecordingDuration5 = dialog.findViewById(R.id.rbRecordingDuration5);
         RadioButton rbRecordingDuration10 = dialog.findViewById(R.id.rbRecordingDuration10);
+        SeekBar seekRecordingStorageQuota = dialog.findViewById(R.id.seekRecordingStorageQuota);
+        Switch swLoopRecording = dialog.findViewById(R.id.switchLoopRecording);
         swSafetyWarning.setChecked(avmPrefs.getBoolean(KEY_SAFETY_WARNING, true));
         swSafetyWarning.setOnCheckedChangeListener((btn, checked) -> {
             avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, checked).apply();
             applyWarningVisibility();
         });
+        swEnableCameraPopup.setChecked(UiPrefs.isCameraPopupEnabled(prefs));
+        swEnableCameraPopup.setOnCheckedChangeListener((btn, checked) -> {
+            prefs.edit().putBoolean(UiPrefs.KEY_ENABLE_CAMERA_POPUP, checked).apply();
+            applyCameraPopupVisibility();
+        });
         swEnableRecording.setChecked(UiPrefs.isRecordingButtonEnabled(prefs));
         swEnableRecording.setOnCheckedChangeListener((btn, checked) -> {
             prefs.edit().putBoolean(UiPrefs.KEY_ENABLE_RECORDING_BUTTON, checked).apply();
-            updateRecordingButton();
+            syncRecordingUi();
             if (!checked && RecordingService.isRecording(this)) {
                 RecordingService.stopRecording(this);
             }
@@ -275,6 +402,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         recordingPathValueView = tvRecordsPathValue;
         refreshRecordingPathLabel(tvRecordsPathValue);
         btnExportUsb.setOnClickListener(v -> openRecordingFolderPicker());
+        btnOpenRecordingFolder.setOnClickListener(v -> openRecordingFolder());
         int durationMin = UiPrefs.getRecordingDurationMin(prefs);
         if (durationMin == 2) {
             rgRecordingDuration.check(rbRecordingDuration2.getId());
@@ -291,6 +419,46 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     : checkedId == rbRecordingDuration10.getId() ? 10 : 1;
             prefs.edit().putInt(UiPrefs.KEY_RECORDING_DURATION_MIN, value).apply();
         });
+        int quotaPercent = UiPrefs.getRecordingStorageQuotaPercent(prefs);
+        tvRecordingStorageQuotaValue.setText(getString(
+                R.string.settings_recording_storage_limit_value,
+                quotaPercent
+        ));
+        seekRecordingStorageQuota.setMax(
+                UiPrefs.MAX_RECORDING_STORAGE_QUOTA_PERCENT
+                        - UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT
+        );
+        seekRecordingStorageQuota.setProgress(quotaPercent - UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT);
+        seekRecordingStorageQuota.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                int value = UiPrefs.clampRecordingStorageQuotaPercent(
+                        UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT + progress
+                );
+                tvRecordingStorageQuotaValue.setText(getString(
+                        R.string.settings_recording_storage_limit_value,
+                        value
+                ));
+                if (fromUser) {
+                    prefs.edit().putInt(UiPrefs.KEY_RECORDING_STORAGE_QUOTA_PERCENT, value).apply();
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                int value = UiPrefs.clampRecordingStorageQuotaPercent(
+                        UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT + seekBar.getProgress()
+                );
+                prefs.edit().putInt(UiPrefs.KEY_RECORDING_STORAGE_QUOTA_PERCENT, value).apply();
+            }
+        });
+        swLoopRecording.setChecked(UiPrefs.isLoopRecordingEnabled(prefs));
+        swLoopRecording.setOnCheckedChangeListener((btn, checked) ->
+                prefs.edit().putBoolean(UiPrefs.KEY_LOOP_RECORDING, checked).apply());
         Switch swAllowBetaUpdates = dialog.findViewById(R.id.switchAllowBetaUpdates);
         SeekBar seekOverlayHideDelay = dialog.findViewById(R.id.seekOverlayHideDelay);
         EditText etOverlayHideDelayValue = dialog.findViewById(R.id.etOverlayHideDelayValue);
@@ -345,6 +513,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 swOverlay,
                 swRotateToDrivingDirection,
                 swSafetyWarning,
+                swEnableCameraPopup,
                 swAllowBetaUpdates,
                 dialogClose,
                 seekOverlayHideDelay,
@@ -448,6 +617,12 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_OVERLAY_PERMISSION) {
+            if (Settings.canDrawOverlays(this) && UiPrefs.isCameraPopupEnabled(UiPrefs.getPrefs(this))) {
+                startPopupOverlay();
+            }
+            return;
+        }
         if (requestCode != REQ_RECORDING_FOLDER || resultCode != RESULT_OK || data == null) return;
         Uri treeUri = data.getData();
         if (treeUri == null) return;
@@ -473,6 +648,39 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             startActivityForResult(intent, REQ_RECORDING_FOLDER);
         } catch (Throwable t) {
             Toast.makeText(this, R.string.settings_records_path_selection_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openRecordingFolder() {
+        Uri treeUri = RecordingStorageManager.getTreeUri(this);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        if (treeUri != null) {
+            intent.setData(treeUri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        } else {
+            Uri defaultUri = DocumentsContract.buildDocumentUri(
+                    "com.android.externalstorage.documents",
+                    "primary:Download/mg4_cam_records"
+            );
+            intent.setDataAndType(defaultUri, DocumentsContract.Document.MIME_TYPE_DIR);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        }
+
+        try {
+            startActivity(Intent.createChooser(intent, getString(R.string.settings_open_recording_folder)));
+        } catch (Throwable firstFailure) {
+            try {
+                Intent downloads = new Intent(Intent.ACTION_VIEW);
+                downloads.setDataAndType(
+                        DocumentsContract.buildRootUri("com.android.externalstorage.documents", "primary"),
+                        DocumentsContract.Root.MIME_TYPE_ITEM
+                );
+                startActivity(Intent.createChooser(downloads, getString(R.string.settings_open_recording_folder)));
+            } catch (Throwable ignored) {
+                Toast.makeText(this, R.string.settings_records_path_open_failed, Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -513,10 +721,21 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         } else {
             RecordingService.startRecording(this);
         }
-        updateRecordingButton();
+        syncRecordingUi();
     }
 
-    private void updateRecordingButton() {
+    private void resumeRecordingIfNeeded() {
+        SharedPreferences prefs = UiPrefs.getPrefs(this);
+        if (UiPrefs.getRecordingStartedAtMs(prefs) <= 0L) {
+            return;
+        }
+        if (RecordingService.isRecording(this)) {
+            return;
+        }
+        RecordingService.startIfNeeded(this);
+    }
+
+    private void syncRecordingUi() {
         if (btnRecording == null) return;
         boolean enabled = UiPrefs.isRecordingButtonEnabled(UiPrefs.getPrefs(this));
         boolean recording = RecordingService.isRecording(this);
@@ -569,6 +788,46 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if (banner != null) banner.setVisibility(visibility);
     }
 
+    private void applyCameraPopupVisibility() {
+        if (btnCameraPopup == null) return;
+        boolean show = UiPrefs.isCameraPopupEnabled(UiPrefs.getPrefs(this));
+        btnCameraPopup.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    private void startPopupOverlay() {
+        if (OverlayService.isPopupVisible()) {
+            OverlayService.hideOverlay(this);
+            return;
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            try {
+                startActivityForResult(intent, REQ_OVERLAY_PERMISSION);
+            } catch (Throwable t) {
+                Toast.makeText(this, R.string.settings_overlay_permission_required, Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        try {
+            ContextCompat.registerReceiver(
+                    this,
+                    popupReadyReceiver,
+                    new IntentFilter(OverlayService.ACTION_POPUP_READY),
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+            );
+        } catch (Throwable ignored) {
+        }
+        OverlayService.showPopup(this, currentVideoIndex);
+    }
+
+    static void requestAppVisibility(Context context) {
+        if (context == null) return;
+        Intent intent = new Intent(ACTION_SHOW_APP);
+        intent.setPackage(context.getPackageName());
+        context.sendBroadcast(intent);
+    }
+
     // -------------------------------------------------------------------------
     // Camera preview
     // -------------------------------------------------------------------------
@@ -580,19 +839,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             return;
         }
         stopPreview();
-        boolean ok = false;
-        if (TestVideoSources.shouldUse(this)) {
-            ok = testVideoPlayer.start(this, currentVideoIndex, surfaceHolder.getSurface());
-            testPreviewRunning = ok;
-        }
-        if (!ok) {
-            try {
-                ok = CameraProbe.startPreview(currentVideoIndex, surfaceHolder.getSurface());
-            } catch (Throwable t) {
-                ok = false;
-            }
-            previewRunning = ok;
-        }
+        boolean ok = PreviewSourceController.start(
+                this,
+                currentVideoIndex,
+                surfaceHolder.getSurface(),
+                testVideoPlayer,
+                syntheticTestPreview
+        );
+        testPreviewRunning = ok && TestVideoSources.shouldUse(this);
+        previewRunning = ok && !testPreviewRunning;
+        mainPreviewOwnsSurface = ok;
         if (tvStatus != null) {
             tvStatus.setText(ok
                     ? getString(R.string.main_preview_status, cameraLabel(currentVideoIndex))
@@ -601,17 +857,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void stopPreview() {
-        if (testPreviewRunning) {
-            testVideoPlayer.stop();
-            testPreviewRunning = false;
+        if (mainPreviewOwnsSurface || previewRunning || testPreviewRunning) {
+            PreviewSourceController.stopSurface(
+                    testVideoPlayer,
+                    surfaceHolder != null ? surfaceHolder.getSurface() : null
+            );
+            syntheticTestPreview.stop();
         }
-        if (previewRunning) {
-            try {
-                CameraProbe.stopPreview();
-            } catch (Throwable ignored) {
-            }
-            previewRunning = false;
-        }
+        testPreviewRunning = false;
+        previewRunning = false;
+        mainPreviewOwnsSurface = false;
         if (tvStatus != null) tvStatus.setText(R.string.main_preview_stopped);
     }
 

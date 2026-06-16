@@ -1,3 +1,5 @@
+// Author: AdrianBega/DualBytes
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.graphics.drawable.GradientDrawable;
@@ -19,6 +21,7 @@ public class TileViewActivity extends AppCompatActivity {
     private final SurfaceHolder[]          holders   = new SurfaceHolder[4];
     private final SurfaceHolder.Callback[] callbacks = new SurfaceHolder.Callback[4];
     private final TestVideoPlayer[] testVideoPlayers = new TestVideoPlayer[4];
+    private final SyntheticTestPreview[] syntheticTestPreviews = new SyntheticTestPreview[4];
     private android.content.SharedPreferences prefs;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener =
             (sharedPreferences, key) -> {
@@ -42,15 +45,18 @@ public class TileViewActivity extends AppCompatActivity {
             SurfaceHolder holder = sv.getHolder();
             holders[i] = holder;
             testVideoPlayers[i] = new TestVideoPlayer();
+            syntheticTestPreviews[i] = new SyntheticTestPreview();
 
             callbacks[i] = new SurfaceHolder.Callback() {
                 @Override
                 public void surfaceCreated(SurfaceHolder h) {
-                    if (TestVideoSources.shouldUse(TileViewActivity.this)
-                            && testVideoPlayers[slot].start(TileViewActivity.this, cameraIndex, h.getSurface())) {
-                        return;
-                    }
-                    CameraProbe.startPreview(cameraIndex, h.getSurface());
+                    PreviewSourceController.start(
+                            TileViewActivity.this,
+                            cameraIndex,
+                            h.getSurface(),
+                            testVideoPlayers[slot],
+                            syntheticTestPreviews[slot]
+                    );
                 }
 
                 @Override
@@ -59,6 +65,7 @@ public class TileViewActivity extends AppCompatActivity {
                 @Override
                 public void surfaceDestroyed(SurfaceHolder h) {
                     testVideoPlayers[slot].stop();
+                    syntheticTestPreviews[slot].stop();
                 }
             };
             holder.addCallback(callbacks[i]);
@@ -105,7 +112,12 @@ public class TileViewActivity extends AppCompatActivity {
                 player.stop();
             }
         }
-        CameraProbe.stopPreview();
+        for (SyntheticTestPreview preview : syntheticTestPreviews) {
+            if (preview != null) {
+                preview.stop();
+            }
+        }
+        PreviewSourceController.stopNative();
         for (int i = 0; i < holders.length; i++) {
             if (holders[i] != null && callbacks[i] != null) {
                 holders[i].removeCallback(callbacks[i]);

@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 public final class CameraProbe {
@@ -13,6 +14,9 @@ public final class CameraProbe {
     /** Starts preview on the given /dev/video index onto the provided Surface. */
     public static native boolean startPreview(int videoIndex, android.view.Surface surface);
 
+    /** Stops preview for the provided Surface while keeping other preview surfaces alive. */
+    public static native void stopPreviewSurface(android.view.Surface surface);
+
     /** Stops any running preview. */
     public static native void stopPreview();
 
@@ -26,4 +30,3 @@ public final class CameraProbe {
     /** Stops MP4 recording for the given slot. */
     public static native void stopMp4Record(int slot);
 }
-

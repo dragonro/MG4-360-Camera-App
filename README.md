@@ -5,21 +5,32 @@ Experimental fork from the original work by jamakr4.
 
 Community mod for the MG4 EV (AAOS 9, pre-2026 facelift) that improves the 360° turn signal camera behavior — removing the launcher overlay in favor of a Tesla-style tile view and raising the auto-close speed threshold.
 
-# Features for v0.7
+# Features for v0.7.5.5
 - **Manual camera popup** — open the live camera view as a floating popup from the main app
 - **Split preview support** — main activity and popup can display the same MG4 camera feed at the same time
 - **Signal camera overlay** — automatic camera popup when the indicator is activated
 - **Recording controls** — start and stop recording from the app and overlay, with synchronized state
+- **Recording timer sync** — the overlay popup shows the same live recording timer as the main activity
 - **Overlay restore** — reopen the app with the last visible state, position, and size preserved
 - **Resizable popup** — move and resize the popup with corner handles and a small corner radius
 - **Debug sample video mode** — emulator testing can use the bundled MP4 sample instead of a real vehicle camera
+- **Recording storage quota** — limit recordings to a configurable share of free storage and optionally loop by deleting the oldest segments
 - **OTA release channel** — download and install promoted releases directly from GitHub
+- **Release workflow** — the control script can build, promote, and copy the signed release APK to the MG USB key
 - **Full access to the camera system**
 - **Language support for English and German with auto select based on the vehicle language**
 
 ## Build Setup
 
 OpenCV is referenced from a local path, so Android builds can fail if `OpenCV_DIR` is not set correctly.
+
+The repository includes `scripts/control-script.sh` for common release and debug tasks:
+
+- Build debug
+- Install or run debug on the emulator
+- Build release
+- Promote the current release on GitHub
+- Copy the signed release APK to the MG USB key when needed
 
 Before building:
 - Download the OpenCV Android SDK from [opencv/opencv releases](https://github.com/opencv/opencv/releases)

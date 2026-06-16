@@ -1,0 +1,270 @@
+#!/usr/bin/env bash
+# Author: AdrianBega/DualBytes
+# Updated: AdrianBega/DualBytes
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_GRADLE="${ROOT_DIR}/app/build.gradle"
+TOOLS_DIR="${ROOT_DIR}/tools"
+RELEASE_DIR="${ROOT_DIR}/app/build/outputs/apk/release"
+ANDROID_SDK_DIR="${HOME}/Library/Android/sdk"
+if [[ ! -d "${ANDROID_SDK_DIR}" ]]; then
+  ANDROID_SDK_DIR="${HOME}/Android/Sdk"
+fi
+EMULATOR_BIN="${ANDROID_SDK_DIR}/emulator/emulator"
+ADB_BIN="${ANDROID_SDK_DIR}/platform-tools/adb"
+GITHUB_REPO=""
+
+ensure_emulator_running() {
+  if "${ADB_BIN}" devices | awk 'NR > 1 && $2 == "device" { found = 1 } END { exit found ? 0 : 1 }'; then
+    return 0
+  fi
+
+  if [[ ! -x "${EMULATOR_BIN}" ]]; then
+    echo "Could not find emulator binary at ${EMULATOR_BIN}" >&2
+    exit 1
+  fi
+
+  local avd
+  avd="$("${EMULATOR_BIN}" -list-avds | head -n 1)"
+  if [[ -z "${avd}" ]]; then
+    echo "No Android Virtual Device found" >&2
+    exit 1
+  fi
+
+  nohup "${EMULATOR_BIN}" -avd "${avd}" >/tmp/mg4-emulator.log 2>&1 &
+
+  local i
+  for i in $(seq 1 120); do
+    if "${ADB_BIN}" wait-for-device >/dev/null 2>&1 && "${ADB_BIN}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' | grep -q '^1$'; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "Emulator did not become ready in time" >&2
+  exit 1
+}
+
+current_version() {
+  sed -n 's/^[[:space:]]*versionName "\([^"]*\)".*/\1/p' "${APP_GRADLE}" | head -n 1
+}
+
+current_version_code() {
+  sed -n 's/^[[:space:]]*versionCode \([0-9][0-9]*\).*/\1/p' "${APP_GRADLE}" | head -n 1
+}
+
+github_repo() {
+  if [[ -n "${GITHUB_REPO}" ]]; then
+    printf '%s\n' "${GITHUB_REPO}"
+    return 0
+  fi
+
+  local remote_url owner_repo
+  remote_url="$(git -C "${ROOT_DIR}" remote get-url origin 2>/dev/null || true)"
+  if [[ -z "${remote_url}" ]]; then
+    echo "Could not determine origin remote URL" >&2
+    exit 1
+  fi
+
+  case "${remote_url}" in
+    git@github.com:*)
+      owner_repo="${remote_url#git@github.com:}"
+      ;;
+    https://github.com/*)
+      owner_repo="${remote_url#https://github.com/}"
+      ;;
+    http://github.com/*)
+      owner_repo="${remote_url#http://github.com/}"
+      ;;
+    *)
+      echo "Unsupported origin remote URL: ${remote_url}" >&2
+      exit 1
+      ;;
+  esac
+
+  owner_repo="${owner_repo%.git}"
+  if [[ -z "${owner_repo}" || "${owner_repo}" != */* ]]; then
+    echo "Could not parse GitHub repository from origin remote: ${remote_url}" >&2
+    exit 1
+  fi
+
+  GITHUB_REPO="${owner_repo}"
+  printf '%s\n' "${GITHUB_REPO}"
+}
+
+build_debug() {
+  cd "${ROOT_DIR}"
+  ./gradlew assembleDebug
+}
+
+install_debug() {
+  cd "${ROOT_DIR}"
+  ensure_emulator_running
+  ./gradlew app:installDebug
+  if [[ -f "${ROOT_DIR}/app/src/debug/assets/front_camera_sample_1.mp4" ]]; then
+    "${TOOLS_DIR}/install_debug_test_videos.sh"
+  fi
+}
+
+run_debug() {
+  ensure_emulator_running
+  if [[ -f "${ROOT_DIR}/app/src/debug/assets/front_camera_sample_1.mp4" ]]; then
+    "${TOOLS_DIR}/install_debug_test_videos.sh"
+  fi
+  "${ADB_BIN}" shell am start -n com.drivehub.dualbytes.kamera/com.drivehub.kamera.MainActivity
+}
+
+build_install_run_debug() {
+  build_debug
+  install_debug
+  run_debug
+}
+
+build_release() {
+  cd "${ROOT_DIR}"
+  ./gradlew assembleRelease
+}
+
+promote_release() {
+  cd "${ROOT_DIR}"
+
+  local version
+  version="$(current_version)"
+  if [[ -z "${version}" ]]; then
+    echo "Could not read versionName from app/build.gradle" >&2
+    exit 1
+  fi
+
+  local input_apk="${RELEASE_DIR}/app-release.apk"
+  if [[ ! -f "${input_apk}" ]]; then
+    input_apk="${RELEASE_DIR}/app-release-unsigned.apk"
+  fi
+  local signed_apk="${RELEASE_DIR}/MG4-360-Camera-App-v${version}-release.apk"
+  local sha_file="${signed_apk}.sha256"
+  local apksigner_jar
+  apksigner_jar="$(find "${HOME}/Library/Android/sdk/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -n 1)"
+  if [[ -z "${apksigner_jar}" ]]; then
+    apksigner_jar="$(find "${HOME}/Android/Sdk/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -n 1)"
+  fi
+  if [[ -z "${apksigner_jar}" ]]; then
+    echo "Could not find apksigner.jar" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "${input_apk}" ]]; then
+    echo "Missing release APK: ${input_apk}" >&2
+    exit 1
+  fi
+
+  java -jar "${apksigner_jar}" sign \
+    --key "${TOOLS_DIR}/platform.pk8" \
+    --cert "${TOOLS_DIR}/platform.x509.pem" \
+    --out "${signed_apk}" \
+    "${input_apk}"
+
+  shasum -a 256 "${signed_apk}" | awk '{print $1}' > "${sha_file}"
+
+  local target_commit
+  target_commit="$(git rev-parse HEAD)"
+
+  local release_tag="v${version}"
+  local release_notes="Signed release for MG4-360-Camera-App ${version}.\n\nAssets:\n- MG4-360-Camera-App-v${version}-release.apk\n- MG4-360-Camera-App-v${version}-release.apk.sha256"
+  local repo
+  repo="$(github_repo)"
+
+  if gh release view "${release_tag}" --repo "${repo}" >/dev/null 2>&1; then
+    gh release edit "${release_tag}" \
+      --repo "${repo}" \
+      --title "${release_tag}" \
+      --notes "${release_notes}" \
+      --target "${target_commit}"
+    gh release upload "${release_tag}" "${signed_apk}" "${sha_file}" --clobber --repo "${repo}"
+  else
+    gh release create "${release_tag}" \
+      "${signed_apk}" \
+      "${sha_file}" \
+      --repo "${repo}" \
+      --title "${release_tag}" \
+      --notes "${release_notes}" \
+      --target "${target_commit}"
+  fi
+}
+
+increment_patch_version() {
+  cd "${ROOT_DIR}"
+
+  local version version_code major minor patch build new_version new_version_code
+  version="$(current_version)"
+  version_code="$(current_version_code)"
+  if [[ -z "${version}" || -z "${version_code}" ]]; then
+    echo "Could not read versionName/versionCode from app/build.gradle" >&2
+    exit 1
+  fi
+
+  IFS='.' read -r major minor patch build extra <<< "${version}"
+  if [[ -n "${extra:-}" || -z "${major}" || -z "${minor}" || -z "${patch}" || -z "${build}" ]]; then
+    echo "Version format must be 0.x.x.x" >&2
+    exit 1
+  fi
+
+  if [[ "${major}" != "0" ]]; then
+    echo "Increment option expects version format 0.x.x.x, found ${version}" >&2
+    exit 1
+  fi
+
+  new_version="${major}.${minor}.${patch}.$((build + 1))"
+  new_version_code="$((version_code + 1))"
+
+  python3 - <<'PY' "${APP_GRADLE}" "${new_version_code}" "${new_version}"
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+new_version_code = sys.argv[2]
+new_version = sys.argv[3]
+text = path.read_text()
+text_new = re.sub(r'versionCode \d+', f'versionCode {new_version_code}', text, count=1)
+text_new = re.sub(r'versionName "([^"]+)"', f'versionName "{new_version}"', text_new, count=1)
+if text_new == text:
+    raise SystemExit("No version fields updated")
+path.write_text(text_new)
+PY
+
+  echo "Updated version to ${new_version} (versionCode ${new_version_code})"
+}
+
+show_menu() {
+  cat <<'EOF'
+1. Build debug app
+2. Install debug in the emulator
+3. Run debug in the emulator
+4. Build, install and run debug in the emulator
+5. Build release
+6. Promote release on GitHub
+9. Increment patch version
+EOF
+}
+
+main() {
+  while true; do
+    show_menu
+    read -r -p "Select an option: " choice
+    case "${choice}" in
+      1) build_debug ;;
+      2) install_debug ;;
+      3) run_debug ;;
+      4) build_install_run_debug ;;
+      5) build_release ;;
+      6) promote_release ;;
+      9) increment_patch_version ;;
+      *) echo "Invalid option: ${choice}" ;;
+    esac
+    echo
+  done
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main
+fi

@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.content.Context;
@@ -15,9 +16,13 @@ final class TestVideoPlayer {
         if (context == null || surface == null || !surface.isValid()) return false;
 
         File file = TestVideoSources.getFile(context, cameraIndex);
-        if (!file.isFile()) return false;
+        boolean useAsset = BuildConfig.DEBUG && TestVideoSources.hasDebugAsset(context);
 
         try {
+            if (useAsset) {
+                file = TestVideoSources.materializeDebugAsset(context, cameraIndex);
+            }
+            if (!file.isFile()) return false;
             MediaPlayer player = new MediaPlayer();
             player.setDataSource(file.getAbsolutePath());
             player.setSurface(surface);

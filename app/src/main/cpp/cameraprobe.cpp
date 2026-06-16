@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 #include <jni.h>
 #include <string>
 #include <vector>
@@ -15,6 +16,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include <linux/videodev2.h>
 
@@ -111,7 +113,8 @@ static std::string probeOne(int fd)
 
 // ---- Preview state ----
 static int g_fd = -1;
-static ANativeWindow *g_window = nullptr;
+static std::vector<ANativeWindow *> g_windows;
+static pthread_mutex_t g_windowsMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t g_thread = 0;
 static volatile bool g_running = false;
 
@@ -119,6 +122,103 @@ static int g_width = 0;
 static int g_height = 0;
 static int g_srcStrideBytes = 0;
 static int g_videoIndex = -1;
+
+static void releaseAllPreviewWindowsLocked();
+
+static void stopPreviewInternal()
+{
+    if (!g_running)
+        return;
+    g_running = false;
+    if (g_thread)
+    {
+        pthread_join(g_thread, nullptr);
+        g_thread = 0;
+    }
+    pthread_mutex_lock(&g_windowsMutex);
+    releaseAllPreviewWindowsLocked();
+    pthread_mutex_unlock(&g_windowsMutex);
+    if (g_fd >= 0)
+    {
+        close(g_fd);
+        g_fd = -1;
+    }
+    g_videoIndex = -1;
+}
+
+static void releaseAllPreviewWindowsLocked()
+{
+    for (ANativeWindow *window : g_windows)
+    {
+        if (window)
+        {
+            ANativeWindow_release(window);
+        }
+    }
+    g_windows.clear();
+}
+
+static bool addPreviewWindow(JNIEnv *env, jobject surface)
+{
+    ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
+    if (!window)
+    {
+        logw("ANativeWindow_fromSurface failed");
+        return false;
+    }
+
+    int displayWidth = g_width;
+    int displayHeight = g_height / 2;
+    ANativeWindow_setBuffersGeometry(window,
+                                     displayWidth,
+                                     displayHeight,
+                                     AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM);
+
+    pthread_mutex_lock(&g_windowsMutex);
+    for (ANativeWindow *existing : g_windows)
+    {
+        if (existing == window)
+        {
+            pthread_mutex_unlock(&g_windowsMutex);
+            ANativeWindow_release(window);
+            return true;
+        }
+    }
+    g_windows.push_back(window);
+    pthread_mutex_unlock(&g_windowsMutex);
+    return true;
+}
+
+static bool removePreviewWindow(JNIEnv *env, jobject surface)
+{
+    if (!surface)
+    {
+        return false;
+    }
+
+    ANativeWindow *target = ANativeWindow_fromSurface(env, surface);
+    if (!target)
+    {
+        return false;
+    }
+
+    bool removed = false;
+    pthread_mutex_lock(&g_windowsMutex);
+    for (auto it = g_windows.begin(); it != g_windows.end(); ++it)
+    {
+        if (*it == target)
+        {
+            ANativeWindow_release(*it);
+            g_windows.erase(it);
+            removed = true;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_windowsMutex);
+
+    ANativeWindow_release(target);
+    return removed;
+}
 
 static void *previewThread(void * /*arg*/)
 {
@@ -173,8 +273,6 @@ static void *previewThread(void * /*arg*/)
         return nullptr;
     }
 
-    ANativeWindow_Buffer outBuf{};
-
     while (g_running)
     {
         // Poll before DQBUF to avoid busy-waiting when the driver stalls.
@@ -193,27 +291,42 @@ static void *previewThread(void * /*arg*/)
             continue;
         }
 
-        if (g_window && ANativeWindow_lock(g_window, &outBuf, nullptr) == 0)
+        int displayWidth = g_width;
+        int displayHeight = g_height / 2; // The driver duplicates the frame vertically, so use the top half.
+
+        cv::Mat uyvyFrame(g_height, g_width, CV_8UC2,
+                          buffers[buf.index].start, g_srcStrideBytes);
+        cv::Mat uyvyCropped = uyvyFrame(cv::Rect(0, 0, displayWidth, displayHeight));
+        cv::Mat rgbaFrame(displayHeight, displayWidth, CV_8UC4);
+        cv::cvtColor(uyvyCropped, rgbaFrame, cv::COLOR_YUV2RGBA_UYVY);
+
+        // Mirror the rear camera (videoIndex 17)
+        if (g_videoIndex == 17)
         {
-            uint8_t *dst = static_cast<uint8_t *>(outBuf.bits);
-            int dstStrideBytes = outBuf.stride * 4;
-            int displayWidth = g_width;
-            int displayHeight = g_height / 2; // The driver duplicates the frame vertically, so use the top half.
+            cv::flip(rgbaFrame, rgbaFrame, 1);
+        }
 
-            // UYVY → RGBA via OpenCV (ARM NEON optimized)
-            cv::Mat uyvyFrame(g_height, g_width, CV_8UC2,
-                              buffers[buf.index].start, g_srcStrideBytes);
-            cv::Mat uyvyCropped = uyvyFrame(cv::Rect(0, 0, displayWidth, displayHeight));
-            cv::Mat rgbaFrame(displayHeight, displayWidth, CV_8UC4, dst, dstStrideBytes);
-            cv::cvtColor(uyvyCropped, rgbaFrame, cv::COLOR_YUV2RGBA_UYVY);
+        std::vector<ANativeWindow *> windows;
+        pthread_mutex_lock(&g_windowsMutex);
+        windows = g_windows;
+        for (ANativeWindow *window : windows)
+        {
+            ANativeWindow_acquire(window);
+        }
+        pthread_mutex_unlock(&g_windowsMutex);
 
-            // Mirror the rear camera (videoIndex 17)
-            if (g_videoIndex == 17)
+        for (ANativeWindow *window : windows)
+        {
+            ANativeWindow_Buffer outBuf{};
+            if (window && ANativeWindow_lock(window, &outBuf, nullptr) == 0)
             {
-                cv::flip(rgbaFrame, rgbaFrame, 1);
+                uint8_t *dst = static_cast<uint8_t *>(outBuf.bits);
+                int dstStrideBytes = outBuf.stride * 4;
+                cv::Mat outFrame(displayHeight, displayWidth, CV_8UC4, dst, dstStrideBytes);
+                rgbaFrame.copyTo(outFrame);
+                ANativeWindow_unlockAndPost(window);
             }
-
-            ANativeWindow_unlockAndPost(g_window);
+            ANativeWindow_release(window);
         }
 
         ioctl(g_fd, VIDIOC_QBUF, &buf);
@@ -269,8 +382,12 @@ Java_com_drivehub_kamera_CameraProbe_startPreview(JNIEnv *env, jclass, jint vide
 {
     if (g_running)
     {
-        logw("Already running");
-        return JNI_FALSE;
+        if (videoIndex != g_videoIndex)
+        {
+            logw("Preview already running for video%d, refusing video%d", g_videoIndex, videoIndex);
+            return JNI_FALSE;
+        }
+        return addPreviewWindow(env, surface) ? JNI_TRUE : JNI_FALSE;
     }
 
     std::string path = "/dev/video" + std::to_string(videoIndex);
@@ -296,30 +413,25 @@ Java_com_drivehub_kamera_CameraProbe_startPreview(JNIEnv *env, jclass, jint vide
     g_videoIndex = videoIndex;
     logi("Using size %dx%d stride=%d", g_width, g_height, g_srcStrideBytes);
 
-    g_window = ANativeWindow_fromSurface(env, surface);
-    if (!g_window)
+    pthread_mutex_lock(&g_windowsMutex);
+    releaseAllPreviewWindowsLocked();
+    pthread_mutex_unlock(&g_windowsMutex);
+
+    if (!addPreviewWindow(env, surface))
     {
-        logw("ANativeWindow_fromSurface failed");
         close(g_fd);
         g_fd = -1;
         return JNI_FALSE;
     }
-
-    int displayWidth = g_width;
-    int displayHeight = g_height / 2;
-
-    ANativeWindow_setBuffersGeometry(g_window,
-                                     displayWidth,
-                                     displayHeight,
-                                     AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM);
 
     g_running = true;
     if (pthread_create(&g_thread, nullptr, previewThread, nullptr) != 0)
     {
         logw("pthread_create failed");
         g_running = false;
-        ANativeWindow_release(g_window);
-        g_window = nullptr;
+        pthread_mutex_lock(&g_windowsMutex);
+        releaseAllPreviewWindowsLocked();
+        pthread_mutex_unlock(&g_windowsMutex);
         close(g_fd);
         g_fd = -1;
         return JNI_FALSE;
@@ -328,24 +440,25 @@ Java_com_drivehub_kamera_CameraProbe_startPreview(JNIEnv *env, jclass, jint vide
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_drivehub_kamera_CameraProbe_stopPreview(JNIEnv * /*env*/, jclass /*clazz*/)
+Java_com_drivehub_kamera_CameraProbe_stopPreviewSurface(JNIEnv *env, jclass /*clazz*/, jobject surface)
 {
     if (!g_running)
         return;
-    g_running = false;
-    if (g_thread)
+
+    removePreviewWindow(env, surface);
+
+    pthread_mutex_lock(&g_windowsMutex);
+    bool hasWindows = !g_windows.empty();
+    pthread_mutex_unlock(&g_windowsMutex);
+
+    if (!hasWindows)
     {
-        pthread_join(g_thread, nullptr);
-        g_thread = 0;
+        stopPreviewInternal();
     }
-    if (g_window)
-    {
-        ANativeWindow_release(g_window);
-        g_window = nullptr;
-    }
-    if (g_fd >= 0)
-    {
-        close(g_fd);
-        g_fd = -1;
-    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_drivehub_kamera_CameraProbe_stopPreview(JNIEnv * /*env*/, jclass /*clazz*/)
+{
+    stopPreviewInternal();
 }

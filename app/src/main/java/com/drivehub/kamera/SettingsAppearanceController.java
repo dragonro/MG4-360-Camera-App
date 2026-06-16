@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.app.Dialog;
@@ -29,6 +30,7 @@ final class SettingsAppearanceController {
     private Switch swOverlay;
     private Switch swRotateToDrivingDirection;
     private Switch swSafetyWarning;
+    private Switch swEnableCameraPopup;
     private Switch swAllowBetaUpdates;
     private ImageButton dialogClose;
     private SeekBar seekOverlayHideDelay;
@@ -62,6 +64,7 @@ final class SettingsAppearanceController {
             Switch swOverlay,
             Switch swRotateToDrivingDirection,
             Switch swSafetyWarning,
+            Switch swEnableCameraPopup,
             Switch swAllowBetaUpdates,
             ImageButton dialogClose,
             SeekBar seekOverlayHideDelay,
@@ -82,6 +85,7 @@ final class SettingsAppearanceController {
         this.swOverlay = swOverlay;
         this.swRotateToDrivingDirection = swRotateToDrivingDirection;
         this.swSafetyWarning = swSafetyWarning;
+        this.swEnableCameraPopup = swEnableCameraPopup;
         this.swAllowBetaUpdates = swAllowBetaUpdates;
         this.dialogClose = dialogClose;
         this.seekOverlayHideDelay = seekOverlayHideDelay;
@@ -299,6 +303,9 @@ final class SettingsAppearanceController {
         }
         if (swSafetyWarning != null) {
             swSafetyWarning.setTrackTintList(buildToggleTrackTint(accentColor));
+        }
+        if (swEnableCameraPopup != null) {
+            swEnableCameraPopup.setTrackTintList(buildToggleTrackTint(accentColor));
         }
         if (swAllowBetaUpdates != null) {
             swAllowBetaUpdates.setTrackTintList(buildToggleTrackTint(accentColor));

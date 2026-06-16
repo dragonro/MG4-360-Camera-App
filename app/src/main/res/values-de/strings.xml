@@ -1,3 +1,5 @@
+<!-- Author: AdrianBega/DualBytes -->
+<!-- Updated: AdrianBega/DualBytes -->
 <resources>
     <string name="app_name">360 Cam</string>
     <string name="settings_tab_update">Update</string>
@@ -11,6 +13,8 @@
     <string name="settings_section_signal_camera">BLINKER-KAMERA</string>
     <string name="settings_overlay_on_signal">Kamera beim Blinken anzeigen</string>
     <string name="settings_overlay_rotate_to_driving_direction">Spiegelkameras in Fahrtrichtung drehen</string>
+    <string name="settings_enable_camera_popup">Kamera-Popup aktivieren</string>
+    <string name="settings_overlay_permission_required">„Über anderen Apps einblenden“ erlauben, um das Popup zu öffnen</string>
     <string name="safety_warning_text">Bitte achte auf die Umgebung!</string>
     <string name="show_safety_warning">Sicherheitswarnung anzeigen</string>
     <string name="settings_section_open_source_credits">OPEN-SOURCE CREDITS</string>
@@ -20,6 +24,7 @@
     <string name="settings_dev_unlocked">Entwickler-Einstellungen freigeschaltet</string>
     <string name="settings_dev_test_video_sources">TEST-VIDEOQUELLEN</string>
     <string name="settings_dev_use_test_videos">MP4-Dateien statt /dev/video nutzen</string>
+    <string name="main_button_camera_popup">Kamera-Popup</string>
     <string name="settings_dev_test_video_path">Erwartete Dateien: %1$s/front.mp4, right.mp4, left.mp4, rear.mp4. Dateien per adb run-as in dieses Debug-App-Verzeichnis kopieren.</string>
     <string name="settings_dev_open_tile_test">Vier-Kamera-Test öffnen</string>
     <string name="settings_dev_polling_rates">POLLING-RATEN</string>
@@ -35,6 +40,13 @@
     <string name="settings_allow_beta_updates">Beta-Releases zulassen</string>
     <string name="settings_enable_recording">Aufnahme aktivieren</string>
     <string name="settings_recording_duration">Aufnahmedauer</string>
+    <string name="settings_recording_storage_limit">Speicherlimit für Aufnahmen</string>
+    <string name="settings_recording_storage_limit_value">%1$d%%</string>
+    <string name="settings_recording_storage_limit_hint">App-Aufnahmen dürfen bis zu diesem Anteil des freien und wieder freigebbaren Aufnahmespeichers nutzen.</string>
+    <string name="settings_loop_recording">Loop-Aufnahme (aus: Aufnahme stoppen)</string>
+    <string name="recording_warning_not_enough_space">Aufnahme konnte nicht gestartet werden: nicht genug zugewiesener Speicherplatz.</string>
+    <string name="recording_warning_storage_full">Aufnahme gestoppt: zugewiesener Speicherplatz ist voll.</string>
+    <string name="recording_warning_prune_failed">Aufnahme gestoppt: alte Aufnahmen konnten nicht gelöscht werden.</string>
     <string-array name="recording_duration_options">
         <item>1 Min.</item>
         <item>2 Min.</item>
@@ -62,7 +74,9 @@
     <string name="settings_record_loop">Aufnahmeschleife (Min.)</string>
     <string name="settings_total_retention">Gesamtspeicherzeit (Min.)</string>
     <string name="settings_records_path">Aufnahmepfad</string>
-    <string name="settings_export_usb">Aufnahmen auf USB exportieren (TODO)</string>
+    <string name="settings_export_usb">Aufnahmeordner ändern</string>
+    <string name="settings_open_recording_folder">Aufnahmeordner öffnen</string>
+    <string name="settings_records_path_open_failed">Aufnahmeordner konnte nicht geöffnet werden</string>
     <string name="settings_storage_permission_required">Speicherberechtigung erforderlich</string>
     <string name="settings_usb_export_todo">USB-Export TODO (derzeit deaktiviert)</string>
     <string name="camera_front">Vorne</string>

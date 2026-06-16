@@ -1,3 +1,5 @@
+<!-- Author: AdrianBega/DualBytes -->
+<!-- Updated: AdrianBega/DualBytes -->
 <resources>
     <string name="app_name">360 Cam</string>
     <string name="settings_tab_update">Update</string>
@@ -11,6 +13,8 @@
     <string name="settings_section_signal_camera">SIGNAL CAMERA</string>
     <string name="settings_overlay_on_signal">Show Signal Camera on turn signal</string>
     <string name="settings_overlay_rotate_to_driving_direction">Rotate side cameras to driving direction</string>
+    <string name="settings_enable_camera_popup">Enable camera popup</string>
+    <string name="settings_overlay_permission_required">Allow display over other apps to open the popup</string>
     <string name="safety_warning_text">Please pay attention to the surrounding environment!</string>
     <string name="show_safety_warning">Show safety warning</string>
     <string name="settings_section_open_source_credits">OPEN SOURCE CREDITS</string>
@@ -37,6 +41,13 @@
     <string name="settings_allow_beta_updates">Allow beta releases</string>
     <string name="settings_enable_recording">Enable recording</string>
     <string name="settings_recording_duration">Recording duration</string>
+    <string name="settings_recording_storage_limit">Recording storage limit</string>
+    <string name="settings_recording_storage_limit_value">%1$d%%</string>
+    <string name="settings_recording_storage_limit_hint">App recordings can use up to this percentage of currently free and reclaimable recording space.</string>
+    <string name="settings_loop_recording">Loop recording (Stop recording if off)</string>
+    <string name="recording_warning_not_enough_space">Recording could not start: not enough allocated storage space.</string>
+    <string name="recording_warning_storage_full">Recording stopped: allocated storage space is full.</string>
+    <string name="recording_warning_prune_failed">Recording stopped: old recordings could not be deleted.</string>
     <string-array name="recording_duration_options">
         <item>1 min</item>
         <item>2 min</item>
@@ -48,6 +59,7 @@
     <string name="settings_version_format">Version %1$s</string>
     <string name="settings_version_beta">BETA</string>
     <string name="settings_back">Back</string>
+    <string name="main_button_camera_popup">Camera popup</string>
     <string name="settings_record_enabled">Recording enabled (start automatically on boot)</string>
     <string name="settings_kill_oem_on_reverse">Disable OEM 360 camera application</string>
     <string name="settings_overlay_hide_delay">Overlay hide delay</string>
@@ -65,9 +77,11 @@
     <string name="settings_total_retention">Total retention (min)</string>
     <string name="settings_records_path">Recording path</string>
     <string name="settings_export_usb">Change recording folder</string>
+    <string name="settings_open_recording_folder">Open recording folder</string>
     <string name="settings_records_path_custom">Custom: %1$s</string>
     <string name="settings_records_path_default">Default: %1$s</string>
     <string name="settings_records_path_selection_failed">Could not open the folder picker</string>
+    <string name="settings_records_path_open_failed">Could not open the recording folder</string>
     <string name="settings_records_path_selected">Recording folder updated</string>
     <string name="settings_storage_permission_required">Storage permission required</string>
     <string name="settings_usb_export_todo">USB export TODO (disabled for now)</string>
