@@ -18,6 +18,8 @@ final class UiPrefs {
     static final String KEY_OVERLAY_MIN_SHOW_MS = "overlayMinShowMs";
     static final String KEY_ENABLE_RECORDING_BUTTON = "enableRecordingButton";
     static final String KEY_RECORDING_DURATION_MIN = "recordingDurationMin";
+    static final String KEY_RECORDING_STORAGE_QUOTA_PERCENT = "recordingStorageQuotaPercent";
+    static final String KEY_LOOP_RECORDING = "loopRecording";
     static final String KEY_RECORDING_STARTED_AT_MS = "recordingStartedAtMs";
     static final String KEY_RECORDING_TREE_URI = "recordingTreeUri";
     static final String KEY_LAST_UI_STATE = "lastUiState";
@@ -34,9 +36,12 @@ final class UiPrefs {
     static final int MAX_DEV_POLLING_MS = 5000;
     static final int OVERLAY_HIDE_DELAY_STEP_MS = 100;
     static final int OVERLAY_MIN_SHOW_STEP_MS = 100;
+    static final int MIN_RECORDING_STORAGE_QUOTA_PERCENT = 10;
+    static final int MAX_RECORDING_STORAGE_QUOTA_PERCENT = 90;
     private static final int DEFAULT_TILE_CORNER_RADIUS = 16;
     private static final int DEFAULT_OVERLAY_HIDE_DELAY_MS = 0;
     private static final int DEFAULT_OVERLAY_MIN_SHOW_MS = 3000;
+    private static final int DEFAULT_RECORDING_STORAGE_QUOTA_PERCENT = 60;
     static final int DEFAULT_DEV_DEFAULT_POLLING_MS = 100;
     static final int DEFAULT_DEV_SIGNAL_OFF_POLLING_MS = 20;
     private static final String DEFAULT_ACCENT_COLOR = "#E7E7E7";
@@ -90,6 +95,16 @@ final class UiPrefs {
         int value = prefs.getInt(KEY_RECORDING_DURATION_MIN, 1);
         if (value == 2 || value == 5 || value == 10) return value;
         return 1;
+    }
+
+    static int getRecordingStorageQuotaPercent(SharedPreferences prefs) {
+        return clampRecordingStorageQuotaPercent(
+                prefs.getInt(KEY_RECORDING_STORAGE_QUOTA_PERCENT, DEFAULT_RECORDING_STORAGE_QUOTA_PERCENT)
+        );
+    }
+
+    static boolean isLoopRecordingEnabled(SharedPreferences prefs) {
+        return prefs.getBoolean(KEY_LOOP_RECORDING, true);
     }
 
     static long getRecordingStartedAtMs(SharedPreferences prefs) {
@@ -193,5 +208,10 @@ final class UiPrefs {
 
     static int clampDevPollingMs(int value) {
         return Math.max(MIN_DEV_POLLING_MS, Math.min(MAX_DEV_POLLING_MS, value));
+    }
+
+    static int clampRecordingStorageQuotaPercent(int value) {
+        return Math.max(MIN_RECORDING_STORAGE_QUOTA_PERCENT,
+                Math.min(MAX_RECORDING_STORAGE_QUOTA_PERCENT, value));
     }
 }

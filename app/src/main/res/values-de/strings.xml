@@ -40,6 +40,13 @@
     <string name="settings_allow_beta_updates">Beta-Releases zulassen</string>
     <string name="settings_enable_recording">Aufnahme aktivieren</string>
     <string name="settings_recording_duration">Aufnahmedauer</string>
+    <string name="settings_recording_storage_limit">Speicherlimit für Aufnahmen</string>
+    <string name="settings_recording_storage_limit_value">%1$d%%</string>
+    <string name="settings_recording_storage_limit_hint">App-Aufnahmen dürfen bis zu diesem Anteil des freien und wieder freigebbaren Aufnahmespeichers nutzen.</string>
+    <string name="settings_loop_recording">Loop-Aufnahme (aus: Aufnahme stoppen)</string>
+    <string name="recording_warning_not_enough_space">Aufnahme konnte nicht gestartet werden: nicht genug zugewiesener Speicherplatz.</string>
+    <string name="recording_warning_storage_full">Aufnahme gestoppt: zugewiesener Speicherplatz ist voll.</string>
+    <string name="recording_warning_prune_failed">Aufnahme gestoppt: alte Aufnahmen konnten nicht gelöscht werden.</string>
     <string-array name="recording_duration_options">
         <item>1 Min.</item>
         <item>2 Min.</item>

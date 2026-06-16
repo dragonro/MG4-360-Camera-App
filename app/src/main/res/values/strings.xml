@@ -41,6 +41,13 @@
     <string name="settings_allow_beta_updates">Allow beta releases</string>
     <string name="settings_enable_recording">Enable recording</string>
     <string name="settings_recording_duration">Recording duration</string>
+    <string name="settings_recording_storage_limit">Recording storage limit</string>
+    <string name="settings_recording_storage_limit_value">%1$d%%</string>
+    <string name="settings_recording_storage_limit_hint">App recordings can use up to this percentage of currently free and reclaimable recording space.</string>
+    <string name="settings_loop_recording">Loop recording (Stop recording if off)</string>
+    <string name="recording_warning_not_enough_space">Recording could not start: not enough allocated storage space.</string>
+    <string name="recording_warning_storage_full">Recording stopped: allocated storage space is full.</string>
+    <string name="recording_warning_prune_failed">Recording stopped: old recordings could not be deleted.</string>
     <string-array name="recording_duration_options">
         <item>1 min</item>
         <item>2 min</item>

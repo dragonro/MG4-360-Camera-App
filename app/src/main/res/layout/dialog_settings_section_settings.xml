@@ -166,4 +166,58 @@
             android:text="10 min" />
 
     </RadioGroup>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/DrivehubSettingsLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/settings_recording_storage_limit" />
+
+        <TextView
+            android:id="@+id/tvRecordingStorageQuotaValue"
+            style="@style/DrivehubSettingsBodyMuted"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="60%" />
+    </LinearLayout>
+
+    <SeekBar
+        android:id="@+id/seekRecordingStorageQuota"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="80" />
+
+    <TextView
+        style="@style/DrivehubSettingsBodyMuted"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="@string/settings_recording_storage_limit_hint" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/DrivehubSettingsLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/settings_loop_recording" />
+
+        <Switch
+            android:id="@+id/switchLoopRecording"
+            style="@style/DrivehubSettingsSwitch" />
+
+    </LinearLayout>
 </LinearLayout>

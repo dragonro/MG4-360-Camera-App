@@ -36,8 +36,13 @@ public class RecordingService extends Service {
     public static final String ACTION_START = "com.drivehub.kamera.action.START_RECORDING";
     public static final String ACTION_STOP = "com.drivehub.kamera.action.STOP_RECORDING";
     public static final String ACTION_STATE_CHANGED = "com.drivehub.kamera.action.RECORDING_STATE_CHANGED";
+    public static final String ACTION_RECORDING_WARNING = "com.drivehub.kamera.action.RECORDING_WARNING";
     public static final String EXTRA_IS_RECORDING = "extra_is_recording";
     public static final String EXTRA_IS_ENABLED = "extra_is_enabled";
+    public static final String EXTRA_WARNING_CODE = "extra_warning_code";
+    public static final String WARNING_NOT_ENOUGH_SPACE = "not_enough_space_to_start";
+    public static final String WARNING_STORAGE_FULL = "recording_stopped_storage_full";
+    public static final String WARNING_PRUNE_FAILED = "recording_prune_failed";
 
     private static final String PREFS_NAME = "rec_prefs";
     private static final String KEY_ENABLED = "enabled";
@@ -48,6 +53,8 @@ public class RecordingService extends Service {
     private static final String RECORDING_EXTENSION = ".mp4";
     private static final String RECORDING_MIME_TYPE = "video/mp4";
     private static final long DEFAULT_FRAME_DURATION_US = 33_333L;
+    private static final long RECORDING_BITRATE_BITS_PER_SECOND = 2_500_000L;
+    private static final int RECORDING_STORAGE_SAFETY_PERCENT = 120;
     private static final String TAG = "RecordingService";
 
     private Thread worker;
@@ -55,7 +62,6 @@ public class RecordingService extends Service {
     private volatile boolean recording;
 
     public static void startRecording(Context context) {
-        publishRecordingState(context, true);
         Intent i = new Intent(context, RecordingService.class);
         i.setAction(ACTION_START);
         context.startForegroundService(i);
@@ -107,6 +113,13 @@ public class RecordingService extends Service {
 
         SharedPreferences prefs = UiPrefs.getPrefs(this);
         if (!UiPrefs.isRecordingButtonEnabled(prefs)) {
+            setRecordingState(false);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
+        if (!canStartInitialRecording()) {
+            setRecordingState(false);
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -117,6 +130,34 @@ public class RecordingService extends Service {
         worker = new Thread(this::recordOnce, "RecordingServiceWorker");
         worker.start();
         return START_STICKY;
+    }
+
+    private boolean canStartInitialRecording() {
+        File baseDir = RecordingStorageManager.getWritableBaseDir(this);
+        if (!baseDir.exists() && !baseDir.mkdirs()) {
+            publishStorageWarning(WARNING_NOT_ENOUGH_SPACE);
+            return false;
+        }
+        int durationMin = UiPrefs.getRecordingDurationMin(UiPrefs.getPrefs(this));
+        long segmentDurationMs = Math.max(60_000L, durationMin * 60_000L);
+        File segmentBaseDir = RecordingStorageManager.getTreeUri(this) != null
+                ? new File(getCacheDir(), "recording_tmp")
+                : baseDir;
+        if (!segmentBaseDir.exists() && !segmentBaseDir.mkdirs()) {
+            publishStorageWarning(WARNING_NOT_ENOUGH_SPACE);
+            return false;
+        }
+        RecordingStoragePolicy.Result result = RecordingStoragePolicy.ensureFileTargetSpace(
+                this,
+                segmentBaseDir,
+                estimateSegmentBytes(segmentDurationMs),
+                null
+        );
+        if (!result.ok) {
+            publishStorageWarning(result.warningCode);
+            return false;
+        }
+        return true;
     }
 
     private void startRecordingForeground(Notification notification) {
@@ -141,10 +182,11 @@ public class RecordingService extends Service {
 
         try {
             while (!stopRequested) {
-                String segmentStamp = sessionStamp + "_" + String.format(Locale.US, "%02d", segmentIndex++);
-                if (!startSegment(baseDir, segmentStamp, segmentDurationMs)) {
+                String segmentStamp = sessionStamp + "_" + String.format(Locale.US, "%02d", segmentIndex);
+                if (!startSegment(baseDir, segmentStamp, segmentDurationMs, segmentIndex)) {
                     break;
                 }
+                segmentIndex++;
             }
         } finally {
             stopRecordingNative();
@@ -152,18 +194,33 @@ public class RecordingService extends Service {
         }
     }
 
-    private boolean startSegment(File baseDir, String segmentStamp, long segmentDurationMs) {
+    private boolean startSegment(File baseDir, String segmentStamp, long segmentDurationMs, int segmentIndex) {
         boolean useTree = RecordingStorageManager.getTreeUri(this) != null;
         File segmentBaseDir = useTree ? new File(getCacheDir(), "recording_tmp") : baseDir;
         if (!segmentBaseDir.exists() && !segmentBaseDir.mkdirs()) {
+            return false;
+        }
+        RecordingStoragePolicy.Result storageReady = RecordingStoragePolicy.ensureFileTargetSpace(
+                this,
+                segmentBaseDir,
+                estimateSegmentBytes(segmentDurationMs),
+                segmentStamp
+        );
+        if (!storageReady.ok) {
+            publishStorageWarning(segmentIndex == 0
+                    ? storageReady.warningCode
+                    : normalizeStorageWarning(storageReady.warningCode));
             return false;
         }
         if (shouldUseDebugDemoRecording()) {
             Log.i(TAG, "Starting debug demo recording segment=" + segmentStamp);
             boolean ok = startDebugDemoSegment(segmentBaseDir, segmentStamp, segmentDurationMs);
             if (useTree && ok) {
-                copySegmentToTree(segmentBaseDir, segmentStamp);
+                ok = copySegmentToTree(segmentBaseDir, segmentStamp);
                 deleteSegmentFiles(segmentBaseDir, segmentStamp);
+            }
+            if (ok && !enforceCompletedSegmentQuota(useTree, segmentBaseDir, segmentStamp)) {
+                return false;
             }
             return ok;
         }
@@ -193,27 +250,59 @@ public class RecordingService extends Service {
         sleepUntilSegmentEnd(segmentDurationMs);
         stopRecordingNative();
         if (useTree) {
-            copySegmentToTree(segmentBaseDir, segmentStamp);
+            if (!copySegmentToTree(segmentBaseDir, segmentStamp)) {
+                publishStorageWarning(WARNING_STORAGE_FULL);
+                deleteSegmentFiles(segmentBaseDir, segmentStamp);
+                return false;
+            }
             deleteSegmentFiles(segmentBaseDir, segmentStamp);
+        }
+        if (!enforceCompletedSegmentQuota(useTree, segmentBaseDir, segmentStamp)) {
+            return false;
         }
         return true;
     }
 
-    private void copySegmentToTree(File segmentBaseDir, String segmentStamp) {
+    private boolean enforceCompletedSegmentQuota(boolean useTree, File segmentBaseDir, String segmentStamp) {
+        RecordingStoragePolicy.Result result = useTree
+                ? RecordingStoragePolicy.enforceTreeQuota(
+                this,
+                RecordingStorageManager.resolveTreeDocument(this),
+                null
+        )
+                : RecordingStoragePolicy.enforceFileTargetQuota(this, segmentBaseDir, null);
+        if (!result.ok) {
+            publishStorageWarning(normalizeStorageWarning(result.warningCode));
+            return false;
+        }
+        return true;
+    }
+
+    private boolean copySegmentToTree(File segmentBaseDir, String segmentStamp) {
         DocumentFile tree = RecordingStorageManager.resolveTreeDocument(this);
-        if (tree == null) return;
+        if (tree == null) return false;
+        boolean copiedAll = true;
         for (int cameraIndex : CAMERA_INDICES) {
             File source = segmentFile(segmentBaseDir, segmentStamp, cameraIndex);
-            if (!source.isFile()) continue;
+            if (!source.isFile()) {
+                copiedAll = false;
+                continue;
+            }
             String name = source.getName();
             try {
                 DocumentFile existing = tree.findFile(name);
                 if (existing != null) existing.delete();
                 DocumentFile outDoc = tree.createFile(RECORDING_MIME_TYPE, name);
-                if (outDoc == null) continue;
+                if (outDoc == null) {
+                    copiedAll = false;
+                    continue;
+                }
                 try (FileInputStream in = new FileInputStream(source);
                      OutputStream out = getContentResolver().openOutputStream(outDoc.getUri())) {
-                    if (out == null) continue;
+                    if (out == null) {
+                        copiedAll = false;
+                        continue;
+                    }
                     byte[] buffer = new byte[64 * 1024];
                     int read;
                     while ((read = in.read(buffer)) != -1) {
@@ -221,9 +310,12 @@ public class RecordingService extends Service {
                     }
                     out.flush();
                 }
-            } catch (Throwable ignored) {
+            } catch (Throwable t) {
+                Log.w(TAG, "Could not copy recording segment to tree: " + name, t);
+                copiedAll = false;
             }
         }
+        return copiedAll;
     }
 
     private void deleteSegmentFiles(File segmentBaseDir, String segmentStamp) {
@@ -389,6 +481,29 @@ public class RecordingService extends Service {
 
     private File segmentFile(File dir, String segmentStamp, int cameraIndex) {
         return new File(dir, segmentStamp + "_" + cameraIndex + RECORDING_EXTENSION);
+    }
+
+    private long estimateSegmentBytes(long segmentDurationMs) {
+        long seconds = Math.max(1L, (segmentDurationMs + 999L) / 1000L);
+        long bytesPerCamera = (RECORDING_BITRATE_BITS_PER_SECOND / 8L) * seconds;
+        return ((bytesPerCamera * CAMERA_INDICES.length) * RECORDING_STORAGE_SAFETY_PERCENT) / 100L;
+    }
+
+    private String normalizeStorageWarning(@Nullable String warningCode) {
+        if (WARNING_PRUNE_FAILED.equals(warningCode)) {
+            return WARNING_PRUNE_FAILED;
+        }
+        if (WARNING_NOT_ENOUGH_SPACE.equals(warningCode)) {
+            return WARNING_STORAGE_FULL;
+        }
+        return warningCode == null ? WARNING_STORAGE_FULL : warningCode;
+    }
+
+    private void publishStorageWarning(@Nullable String warningCode) {
+        Intent warning = new Intent(ACTION_RECORDING_WARNING);
+        warning.setPackage(getPackageName());
+        warning.putExtra(EXTRA_WARNING_CODE, warningCode == null ? WARNING_STORAGE_FULL : warningCode);
+        sendBroadcast(warning);
     }
 
     private void requestStop() {

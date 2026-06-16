@@ -110,6 +110,21 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
     };
 
+    private final BroadcastReceiver recordingWarningReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+            String code = intent.getStringExtra(RecordingService.EXTRA_WARNING_CODE);
+            int messageRes = RecordingService.WARNING_NOT_ENOUGH_SPACE.equals(code)
+                    ? R.string.recording_warning_not_enough_space
+                    : RecordingService.WARNING_PRUNE_FAILED.equals(code)
+                    ? R.string.recording_warning_prune_failed
+                    : R.string.recording_warning_storage_full;
+            Toast.makeText(MainActivity.this, messageRes, Toast.LENGTH_LONG).show();
+            syncRecordingUi();
+        }
+    };
+
     private final BroadcastReceiver popupReadyReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -271,6 +286,12 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     new IntentFilter(RecordingService.ACTION_STATE_CHANGED),
                     ContextCompat.RECEIVER_NOT_EXPORTED
             );
+            ContextCompat.registerReceiver(
+                    this,
+                    recordingWarningReceiver,
+                    new IntentFilter(RecordingService.ACTION_RECORDING_WARNING),
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+            );
         } catch (Throwable ignored) {
         }
         if (!OverlayService.isPopupVisible()) {
@@ -300,6 +321,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
         try {
             unregisterReceiver(recordingStateReceiver);
+        } catch (Throwable ignored) {
+        }
+        try {
+            unregisterReceiver(recordingWarningReceiver);
         } catch (Throwable ignored) {
         }
         try {
@@ -346,6 +371,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Switch swEnableCameraPopup = dialog.findViewById(R.id.switchEnableCameraPopup);
         Switch swEnableRecording = dialog.findViewById(R.id.switchEnableRecording);
         TextView tvRecordsPathValue = dialog.findViewById(R.id.tvRecordsPathValue);
+        TextView tvRecordingStorageQuotaValue = dialog.findViewById(R.id.tvRecordingStorageQuotaValue);
         Button btnExportUsb = dialog.findViewById(R.id.btnExportUsb);
         Button btnOpenRecordingFolder = dialog.findViewById(R.id.btnOpenRecordingFolder);
         RadioGroup rgRecordingDuration = dialog.findViewById(R.id.rgRecordingDuration);
@@ -353,6 +379,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         RadioButton rbRecordingDuration2 = dialog.findViewById(R.id.rbRecordingDuration2);
         RadioButton rbRecordingDuration5 = dialog.findViewById(R.id.rbRecordingDuration5);
         RadioButton rbRecordingDuration10 = dialog.findViewById(R.id.rbRecordingDuration10);
+        SeekBar seekRecordingStorageQuota = dialog.findViewById(R.id.seekRecordingStorageQuota);
+        Switch swLoopRecording = dialog.findViewById(R.id.switchLoopRecording);
         swSafetyWarning.setChecked(avmPrefs.getBoolean(KEY_SAFETY_WARNING, true));
         swSafetyWarning.setOnCheckedChangeListener((btn, checked) -> {
             avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, checked).apply();
@@ -391,6 +419,46 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     : checkedId == rbRecordingDuration10.getId() ? 10 : 1;
             prefs.edit().putInt(UiPrefs.KEY_RECORDING_DURATION_MIN, value).apply();
         });
+        int quotaPercent = UiPrefs.getRecordingStorageQuotaPercent(prefs);
+        tvRecordingStorageQuotaValue.setText(getString(
+                R.string.settings_recording_storage_limit_value,
+                quotaPercent
+        ));
+        seekRecordingStorageQuota.setMax(
+                UiPrefs.MAX_RECORDING_STORAGE_QUOTA_PERCENT
+                        - UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT
+        );
+        seekRecordingStorageQuota.setProgress(quotaPercent - UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT);
+        seekRecordingStorageQuota.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                int value = UiPrefs.clampRecordingStorageQuotaPercent(
+                        UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT + progress
+                );
+                tvRecordingStorageQuotaValue.setText(getString(
+                        R.string.settings_recording_storage_limit_value,
+                        value
+                ));
+                if (fromUser) {
+                    prefs.edit().putInt(UiPrefs.KEY_RECORDING_STORAGE_QUOTA_PERCENT, value).apply();
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                int value = UiPrefs.clampRecordingStorageQuotaPercent(
+                        UiPrefs.MIN_RECORDING_STORAGE_QUOTA_PERCENT + seekBar.getProgress()
+                );
+                prefs.edit().putInt(UiPrefs.KEY_RECORDING_STORAGE_QUOTA_PERCENT, value).apply();
+            }
+        });
+        swLoopRecording.setChecked(UiPrefs.isLoopRecordingEnabled(prefs));
+        swLoopRecording.setOnCheckedChangeListener((btn, checked) ->
+                prefs.edit().putBoolean(UiPrefs.KEY_LOOP_RECORDING, checked).apply());
         Switch swAllowBetaUpdates = dialog.findViewById(R.id.switchAllowBetaUpdates);
         SeekBar seekOverlayHideDelay = dialog.findViewById(R.id.seekOverlayHideDelay);
         EditText etOverlayHideDelayValue = dialog.findViewById(R.id.etOverlayHideDelayValue);
