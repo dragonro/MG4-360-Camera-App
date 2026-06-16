@@ -14,6 +14,8 @@ fi
 EMULATOR_BIN="${ANDROID_SDK_DIR}/emulator/emulator"
 ADB_BIN="${ANDROID_SDK_DIR}/platform-tools/adb"
 GITHUB_REPO=""
+SIM_RECEIVER="com.drivehub.dualbytes.kamera/com.drivehub.kamera.DebugSignalSimulationReceiver"
+SIM_ACTION="com.drivehub.kamera.debug.SET_SIGNAL_STATE"
 
 ensure_emulator_running() {
   if "${ADB_BIN}" devices | awk 'NR > 1 && $2 == "device" { found = 1 } END { exit found ? 0 : 1 }'; then
@@ -191,6 +193,52 @@ promote_release() {
   fi
 }
 
+simulate_signal_state() {
+  local label="$1"
+  local lamp="$2"
+  local gear="$3"
+
+  ensure_emulator_running
+  "${ADB_BIN}" shell am broadcast \
+    -n "${SIM_RECEIVER}" \
+    -a "${SIM_ACTION}" \
+    --ei lamp "${lamp}" \
+    --ei gear "${gear}" >/dev/null
+  echo "Simulated ${label} (lamp=${lamp}, gear=${gear})"
+}
+
+show_simulation_menu() {
+  cat <<'EOF'
+1. Left turn signal
+2. Right turn signal
+3. Signal off
+4. Reverse gear
+5. Drive gear
+6. Left signal while driving
+7. Right signal while driving
+0. Back
+EOF
+}
+
+simulate_actions_menu() {
+  while true; do
+    show_simulation_menu
+    read -r -p "Select a simulated action: " choice
+    case "${choice}" in
+      1) simulate_signal_state "left turn signal" 1 0 ;;
+      2) simulate_signal_state "right turn signal" 2 0 ;;
+      3) simulate_signal_state "signal off" 0 0 ;;
+      4) simulate_signal_state "reverse gear" 0 2 ;;
+      5) simulate_signal_state "drive gear" 0 0 ;;
+      6) simulate_signal_state "left signal while driving" 1 1 ;;
+      7) simulate_signal_state "right signal while driving" 2 1 ;;
+      0) return 0 ;;
+      *) echo "Invalid simulated action: ${choice}" ;;
+    esac
+    echo
+  done
+}
+
 increment_patch_version() {
   cd "${ROOT_DIR}"
 
@@ -243,6 +291,7 @@ show_menu() {
 4. Build, install and run debug in the emulator
 5. Build release
 6. Promote release on GitHub
+8. Simulate actions
 9. Increment patch version
 EOF
 }
@@ -258,6 +307,7 @@ main() {
       4) build_install_run_debug ;;
       5) build_release ;;
       6) promote_release ;;
+      8) simulate_actions_menu ;;
       9) increment_patch_version ;;
       *) echo "Invalid option: ${choice}" ;;
     esac
