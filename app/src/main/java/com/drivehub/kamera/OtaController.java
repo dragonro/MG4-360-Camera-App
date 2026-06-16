@@ -295,10 +295,12 @@ final class OtaController {
                 throw new IllegalStateException("Downloaded APK not found");
             }
 
-            Intent installIntent = new Intent(Intent.ACTION_VIEW);
+            Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
             installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
             installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            installIntent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true);
+            installIntent.putExtra(Intent.EXTRA_RETURN_RESULT, false);
 
             PackageManager pm = activity.getPackageManager();
             if (pm != null && installIntent.resolveActivity(pm) != null) {
