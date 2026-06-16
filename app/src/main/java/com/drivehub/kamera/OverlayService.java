@@ -121,7 +121,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener =
             (sharedPreferences, key) -> {
                 if (UiPrefs.KEY_TILE_CORNER_RADIUS.equals(key)) {
-                    applyOverlayCornerRadius();
+                    applyCurrentOverlayCornerRadius();
                 } else if (UiPrefs.KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION.equals(key)) {
                     updateOverlayPresentation(true);
                 }
@@ -201,7 +201,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 overlayParams.x = clampLoadedX(overlayX);
                 overlayParams.y = clampLoadedY(overlayY);
             }
-            applyOverlayCornerRadius();
+            applyCurrentOverlayCornerRadius();
             updateOverlayPresentation(false);
             syncRecordingUi();
             // If the overlay is already open and only the camera index changed, switch the feed.
@@ -467,7 +467,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             card.addView(btnShowApp);
         }
 
-        if (popupMode) {
+        if (usesPopupChrome()) {
             LinearLayout recordingControls = new LinearLayout(this);
             recordingControls.setOrientation(LinearLayout.VERTICAL);
             recordingControls.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -528,11 +528,15 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             addResizeHandle(card, Gravity.BOTTOM | Gravity.START, true);
         }
         applyOverlayCornerRadius(card);
-        if (popupMode) {
+        if (usesPopupChrome()) {
             applyPopupCornerRadius(card);
         }
 
         return card;
+    }
+
+    private boolean usesPopupChrome() {
+        return true;
     }
 
     private void syncRecordingUi() {
@@ -604,6 +608,13 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         applyOverlayCornerRadius(overlayView);
     }
 
+    private void applyCurrentOverlayCornerRadius() {
+        applyOverlayCornerRadius();
+        if (usesPopupChrome()) {
+            applyPopupCornerRadius(overlayView);
+        }
+    }
+
     private void applyOverlayCornerRadius(View target) {
         if (target == null || uiPrefs == null) return;
         target.post(() -> {
@@ -646,7 +657,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         handle.setColorFilter(0xFFFFFFFF);
         handle.setContentDescription(fromLeft ? "Resize popup from lower left" : "Resize popup from lower right");
         handle.setOnTouchListener((v, event) -> {
-            if (!popupMode || overlayParams == null || windowManager == null) return false;
+            if (!usesPopupChrome() || overlayParams == null || windowManager == null) return false;
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     resizeStartRawX = event.getRawX();
