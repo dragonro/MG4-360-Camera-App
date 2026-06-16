@@ -51,7 +51,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private static final int REQ_RECORDING_FOLDER = 5001;
     private static final int REQ_OVERLAY_PERMISSION = 5002;
     private static final int SWIPE_THRESHOLD_PX = 140;
-
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
     private ImageButton btnRecording;
@@ -60,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
     private boolean testPreviewRunning = false;
+    private boolean mainPreviewOwnsSurface = false;
     private boolean restoreOverlayOnLaunch = false;
     private boolean overlayRestoreStarted = false;
     private float downX = 0f;
@@ -731,6 +731,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         );
         testPreviewRunning = ok && TestVideoSources.shouldUse(this);
         previewRunning = ok && !testPreviewRunning;
+        mainPreviewOwnsSurface = ok;
         if (tvStatus != null) {
             tvStatus.setText(ok
                     ? getString(R.string.main_preview_status, cameraLabel(currentVideoIndex))
@@ -739,10 +740,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void stopPreview() {
-        PreviewSourceController.stop(testVideoPlayer);
-        syntheticTestPreview.stop();
+        if (mainPreviewOwnsSurface || previewRunning || testPreviewRunning) {
+            PreviewSourceController.stopSurface(
+                    testVideoPlayer,
+                    surfaceHolder != null ? surfaceHolder.getSurface() : null
+            );
+            syntheticTestPreview.stop();
+        }
         testPreviewRunning = false;
         previewRunning = false;
+        mainPreviewOwnsSurface = false;
         if (tvStatus != null) tvStatus.setText(R.string.main_preview_stopped);
     }
 

@@ -16,6 +16,7 @@ import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -43,6 +44,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
     private static final String CHANNEL_ID = "mg4_overlay";
     private static final int NOTIF_ID = 99;
+    private static final String TAG = "OverlayService";
 
     /** Default overlay size in px; the aspect ratio is preserved. */
     private static final int DEFAULT_OVERLAY_WIDTH_PX = 1000;
@@ -68,6 +70,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private WindowManager.LayoutParams overlayParams;
     private int cameraIndex = 15; // Default: front
     private boolean popupMode;
+    private boolean renderedPopupMode;
     private ImageButton recordingButton;
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
     private final SyntheticTestPreview syntheticTestPreview = new SyntheticTestPreview();
@@ -144,6 +147,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        boolean oldPopupMode = popupMode;
         if (intent != null && intent.hasExtra(EXTRA_CAMERA_INDEX)) {
             cameraIndex = intent.getIntExtra(EXTRA_CAMERA_INDEX, 15);
         }
@@ -163,6 +167,9 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
         if (overlayView == null) {
             showFloatingWindow();
+        } else if (oldPopupMode != popupMode || renderedPopupMode != popupMode) {
+            Log.i(TAG, "Rebuilding overlay controls for popupMode=" + popupMode);
+            rebuildFloatingWindow();
         } else {
             if (overlayParams != null) {
                 overlayParams.width = overlayWidthPx;
@@ -208,6 +215,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         clampOverlayPositionToScreen();
 
         overlayView = createOverlayCard();
+        renderedPopupMode = popupMode;
 
         scaleGestureDetector = new ScaleGestureDetector(this,
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -289,6 +297,27 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                     return false;
             }
         });
+    }
+
+    private void rebuildFloatingWindow() {
+        if (windowManager == null || overlayView == null) {
+            showFloatingWindow();
+            return;
+        }
+        saveOverlayLayoutPrefs(true);
+        stopPreview();
+        if (textureSurface != null) {
+            textureSurface.release();
+            textureSurface = null;
+        }
+        try {
+            windowManager.removeView(overlayView);
+        } catch (Throwable ignored) {
+        }
+        overlayView = null;
+        textureView = null;
+        recordingButton = null;
+        showFloatingWindow();
     }
 
     private void loadSavedOverlayGeometry() {
@@ -384,6 +413,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             btnShowApp.setContentDescription("Show app");
             btnShowApp.setOnClickListener(v -> {
                 markMainVisible();
+                stopPreview();
+                stopSelf();
                 try {
                     MainActivity.launchFromOverlay(OverlayService.this);
                 } catch (Throwable ignored) {
@@ -642,7 +673,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     }
 
     private boolean shouldRotatePreviewToDrivingDirection() {
-        return uiPrefs != null
+        return !popupMode
+                && uiPrefs != null
                 && UiPrefs.isOverlayRotationToDrivingDirectionEnabled(uiPrefs)
                 && (cameraIndex == 14 || cameraIndex == 16);
     }
@@ -833,11 +865,15 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             return;
         }
         applyPreviewTransform();
-        PreviewSourceController.start(this, cameraIndex, textureSurface, testVideoPlayer, syntheticTestPreview);
+        Log.i(TAG, "Starting overlay preview cameraIndex=" + cameraIndex + " popupMode=" + popupMode);
+        boolean ok = PreviewSourceController.start(this, cameraIndex, textureSurface, testVideoPlayer, syntheticTestPreview);
+        if (!ok) {
+            Log.w(TAG, "Overlay preview failed to start cameraIndex=" + cameraIndex + " popupMode=" + popupMode);
+        }
     }
 
     private void stopPreview() {
-        PreviewSourceController.stop(testVideoPlayer);
+        PreviewSourceController.stopSurface(testVideoPlayer, textureSurface);
         syntheticTestPreview.stop();
     }
 }

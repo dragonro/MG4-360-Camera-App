@@ -1,4 +1,5 @@
 // Author: AdrianBega/DualBytes
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.content.Context;
@@ -55,6 +56,18 @@ final class PreviewSourceController {
             testVideoPlayer.stop();
         }
         stopNative();
+    }
+
+    static void stopSurface(TestVideoPlayer testVideoPlayer, Surface surface) {
+        if (testVideoPlayer != null) {
+            testVideoPlayer.stop();
+        }
+        try {
+            if (surface != null) {
+                CameraProbe.stopPreviewSurface(surface);
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     static void stopNative() {
