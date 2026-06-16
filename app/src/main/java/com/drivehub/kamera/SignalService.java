@@ -65,9 +65,7 @@ public class SignalService extends Service {
     private final Runnable hideRunnable = new Runnable() {
         @Override
         public void run() {
-            clearOverlayShownTimestamp();
-            OverlayService.hideOverlay(SignalService.this);
-            Log.i(TAG, "Signal off (delayed) => overlay hide");
+            Log.i(TAG, "Ignoring delayed signal-off hide; overlay close conditions are not defined yet.");
         }
     };
 
@@ -96,10 +94,21 @@ public class SignalService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        startAsForegroundService();
+
         if (handleDebugSimulationIntent(intent)) {
             return START_STICKY;
         }
 
+        boolean carOk = tryStartCarApiListener();
+        if (!carOk) {
+            Log.w(TAG, "Car API listener acilamadi, system property polling fallback.");
+            startPropertyPollingFallback();
+        }
+        return START_STICKY;
+    }
+
+    private void startAsForegroundService() {
         Notification n = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
                 .setContentTitle(getString(R.string.app_name))
@@ -108,13 +117,6 @@ public class SignalService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
         startForeground(NOTIF_ID, n);
-
-        boolean carOk = tryStartCarApiListener();
-        if (!carOk) {
-            Log.w(TAG, "Car API listener acilamadi, system property polling fallback.");
-            startPropertyPollingFallback();
-        }
-        return START_STICKY;
     }
 
     private boolean handleDebugSimulationIntent(@Nullable Intent intent) {
@@ -126,13 +128,18 @@ public class SignalService extends Service {
             return true;
         }
 
-        currentLamp = intent.getIntExtra(EXTRA_DEBUG_LAMP, currentLamp);
-        currentGear = intent.getIntExtra(EXTRA_DEBUG_GEAR, currentGear);
-        lastLamp = Integer.MIN_VALUE;
-        lastGear = Integer.MIN_VALUE;
-        currentMode = -1;
-        Log.i(TAG, "Debug simulated signal state lamp=" + currentLamp + " gear=" + currentGear);
-        updateOverlayDecision();
+        int simulatedLamp = intent.getIntExtra(EXTRA_DEBUG_LAMP, currentLamp);
+        int simulatedGear = intent.getIntExtra(EXTRA_DEBUG_GEAR, currentGear);
+        mainHandler.post(() -> {
+            currentLamp = simulatedLamp;
+            currentGear = simulatedGear;
+            lastLamp = Integer.MIN_VALUE;
+            lastGear = Integer.MIN_VALUE;
+            currentMode = -1;
+            mainHandler.removeCallbacks(hideRunnable);
+            Log.i(TAG, "Debug simulated signal state lamp=" + currentLamp + " gear=" + currentGear);
+            updateOverlayDecision();
+        });
         return true;
     }
 
@@ -286,21 +293,12 @@ public class SignalService extends Service {
             return;
         }
 
-        if (nextMode == 3) { // reverse
-            // No overlay is wanted for reverse: hide it if present and leave only OEM/main screen behavior.
-            mainHandler.removeCallbacks(hideRunnable);
-            clearOverlayShownTimestamp();
-            OverlayService.hideOverlay(this);
-            Log.i(TAG, "Reverse => no overlay (disabled for reverse)");
-            return;
-        }
-
-        // For non-reverse signal states, skip the overlay if the OEM AVM is already in the foreground.
+        // For signal states, skip the overlay if the OEM AVM is already in the foreground.
         if (isOemAvmInForeground()) {
             mainHandler.removeCallbacks(hideRunnable);
             clearOverlayShownTimestamp();
             OverlayService.hideOverlay(this);
-            Log.i(TAG, "OEM AVM visible (turn signal) => skip overlay.");
+            Log.i(TAG, "OEM AVM visible => skip overlay.");
             return;
         }
 
@@ -313,10 +311,12 @@ public class SignalService extends Service {
             markOverlayShownNow();
             OverlayService.showOverlay(this, 14);
             Log.i(TAG, "Right signal => overlay v14");
+        } else if (nextMode == 3) {
+            markOverlayShownNow();
+            OverlayService.showOverlay(this, 17);
+            Log.i(TAG, "Reverse => overlay v17");
         } else {
-            long delayMs = computeOverlayHideDelayMs();
-            mainHandler.postDelayed(hideRunnable, delayMs);
-            Log.i(TAG, "Signal/gear off => will hide overlay after " + delayMs + "ms");
+            Log.i(TAG, "Signal/gear off => keeping current overlay visible");
         }
     }
 
@@ -421,7 +421,6 @@ public class SignalService extends Service {
             pollThread = null;
         }
         mainHandler.removeCallbacks(hideRunnable);
-        OverlayService.hideOverlay(this);
         sInstance = null;
     }
 

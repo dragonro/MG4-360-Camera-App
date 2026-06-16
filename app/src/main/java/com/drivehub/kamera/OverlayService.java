@@ -66,6 +66,14 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private static final String KEY_LAST_Y = "last_y";
     private static final String KEY_OVERLAY_W = "overlay_w";
     private static final String KEY_OVERLAY_H = "overlay_h";
+    private static final String KEY_POPUP_LAST_X = "popup_last_x";
+    private static final String KEY_POPUP_LAST_Y = "popup_last_y";
+    private static final String KEY_POPUP_W = "popup_w";
+    private static final String KEY_POPUP_H = "popup_h";
+    private static final String KEY_SIGNAL_OVERLAY_LAST_X = "signal_overlay_last_x";
+    private static final String KEY_SIGNAL_OVERLAY_LAST_Y = "signal_overlay_last_y";
+    private static final String KEY_SIGNAL_OVERLAY_W = "signal_overlay_w";
+    private static final String KEY_SIGNAL_OVERLAY_H = "signal_overlay_h";
     private static volatile boolean sPopupVisible = false;
 
     private WindowManager windowManager;
@@ -342,16 +350,34 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         try {
             android.content.SharedPreferences sp =
                     getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            int w = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
-            int h = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
+            int fallbackW = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
+            int fallbackH = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
+            int w = sp.getInt(overlayWidthPrefKey(), fallbackW);
+            int h = sp.getInt(overlayHeightPrefKey(), fallbackH);
             if (w >= 1 && h >= 1) {
                 overlayWidthPx = w;
                 overlayHeightPx = h;
             }
-            overlayX = sp.getInt(KEY_LAST_X, overlayX);
-            overlayY = sp.getInt(KEY_LAST_Y, overlayY);
+            overlayX = sp.getInt(overlayXPrefKey(), sp.getInt(KEY_LAST_X, overlayX));
+            overlayY = sp.getInt(overlayYPrefKey(), sp.getInt(KEY_LAST_Y, overlayY));
         } catch (Throwable ignored) {
         }
+    }
+
+    private String overlayXPrefKey() {
+        return popupMode ? KEY_POPUP_LAST_X : KEY_SIGNAL_OVERLAY_LAST_X;
+    }
+
+    private String overlayYPrefKey() {
+        return popupMode ? KEY_POPUP_LAST_Y : KEY_SIGNAL_OVERLAY_LAST_Y;
+    }
+
+    private String overlayWidthPrefKey() {
+        return popupMode ? KEY_POPUP_W : KEY_SIGNAL_OVERLAY_W;
+    }
+
+    private String overlayHeightPrefKey() {
+        return popupMode ? KEY_POPUP_H : KEY_SIGNAL_OVERLAY_H;
     }
 
     private int clampLoadedX(int x) {
@@ -737,25 +763,23 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     }
 
     private void normalizeOverlaySizeForCurrentMode() {
-        boolean shouldRotate = shouldRotatePreviewToDrivingDirection();
-        boolean isLandscape = overlayWidthPx >= overlayHeightPx;
-        if (shouldRotate == isLandscape) {
-            int swappedWidth = overlayHeightPx;
-            overlayHeightPx = overlayWidthPx;
-            overlayWidthPx = swappedWidth;
-        }
         int[] clamped = clampOverlaySize(overlayWidthPx);
         overlayWidthPx = clamped[0];
         overlayHeightPx = clamped[1];
     }
 
     private float getActiveOverlayAspect() {
-        return shouldRotatePreviewToDrivingDirection()
-                ? (float) DEFAULT_OVERLAY_HEIGHT_PX / (float) DEFAULT_OVERLAY_WIDTH_PX
-                : (float) DEFAULT_OVERLAY_WIDTH_PX / (float) DEFAULT_OVERLAY_HEIGHT_PX;
+        return (float) DEFAULT_OVERLAY_WIDTH_PX / (float) DEFAULT_OVERLAY_HEIGHT_PX;
     }
 
     private boolean shouldRotatePreviewToDrivingDirection() {
+        // The overlay receives the same processed MG4 preview as the main activity. That feed is
+        // already orientation-correct, so applying the side-camera UI rotation here rotates it twice
+        // and corrupts the persisted overlay dimensions.
+        return false;
+    }
+
+    private boolean isSideCameraRotationSettingActive() {
         return !popupMode
                 && uiPrefs != null
                 && UiPrefs.isOverlayRotationToDrivingDirectionEnabled(uiPrefs)
@@ -847,10 +871,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             android.content.SharedPreferences sp =
                     getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             android.content.SharedPreferences.Editor editor = sp.edit()
-                    .putInt(KEY_LAST_X, overlayParams.x)
-                    .putInt(KEY_LAST_Y, overlayParams.y)
-                    .putInt(KEY_OVERLAY_W, overlayWidthPx)
-                    .putInt(KEY_OVERLAY_H, overlayHeightPx);
+                    .putInt(overlayXPrefKey(), overlayParams.x)
+                    .putInt(overlayYPrefKey(), overlayParams.y)
+                    .putInt(overlayWidthPrefKey(), overlayWidthPx)
+                    .putInt(overlayHeightPrefKey(), overlayHeightPx);
             if (synchronous && !editor.commit()) {
                 android.util.Log.w("OverlayService", "Failed to persist overlay geometry");
             } else if (!synchronous) {
@@ -949,7 +973,11 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             return;
         }
         applyPreviewTransform();
-        Log.i(TAG, "Starting overlay preview cameraIndex=" + cameraIndex + " popupMode=" + popupMode);
+        boolean rotationSettingActive = isSideCameraRotationSettingActive();
+        Log.i(TAG, "Starting overlay preview cameraIndex=" + cameraIndex
+                + " popupMode=" + popupMode
+                + " rotationSettingActive=" + rotationSettingActive
+                + " rotationApplied=" + shouldRotatePreviewToDrivingDirection());
         boolean ok = PreviewSourceController.start(this, cameraIndex, textureSurface, testVideoPlayer, syntheticTestPreview);
         if (!ok) {
             Log.w(TAG, "Overlay preview failed to start cameraIndex=" + cameraIndex + " popupMode=" + popupMode);

@@ -16,6 +16,11 @@
                 <action android:name="com.drivehub.kamera.debug.SET_SIGNAL_STATE" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".SignalService"
+            android:exported="true"
+            tools:replace="android:exported" />
     </application>
 
 </manifest>

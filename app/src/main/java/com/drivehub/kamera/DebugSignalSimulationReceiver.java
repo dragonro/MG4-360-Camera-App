@@ -34,6 +34,11 @@ public class DebugSignalSimulationReceiver extends BroadcastReceiver {
                 SignalService.EXTRA_DEBUG_GEAR,
                 intent.getIntExtra(SignalService.EXTRA_DEBUG_GEAR, 0)
         );
-        context.startForegroundService(service);
+        try {
+            context.startForegroundService(service);
+        } catch (IllegalStateException e) {
+            Log.w(TAG, "Signal simulation service start blocked by Android background limits. "
+                    + "Use control-script option 8, which starts the service through adb.", e);
+        }
     }
 }

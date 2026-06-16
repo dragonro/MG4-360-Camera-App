@@ -14,7 +14,7 @@ fi
 EMULATOR_BIN="${ANDROID_SDK_DIR}/emulator/emulator"
 ADB_BIN="${ANDROID_SDK_DIR}/platform-tools/adb"
 GITHUB_REPO=""
-SIM_RECEIVER="com.drivehub.dualbytes.kamera/com.drivehub.kamera.DebugSignalSimulationReceiver"
+SIM_SERVICE="com.drivehub.dualbytes.kamera/com.drivehub.kamera.SignalService"
 SIM_ACTION="com.drivehub.kamera.debug.SET_SIGNAL_STATE"
 
 ensure_emulator_running() {
@@ -199,8 +199,8 @@ simulate_signal_state() {
   local gear="$3"
 
   ensure_emulator_running
-  "${ADB_BIN}" shell am broadcast \
-    -n "${SIM_RECEIVER}" \
+  "${ADB_BIN}" shell am start-foreground-service \
+    -n "${SIM_SERVICE}" \
     -a "${SIM_ACTION}" \
     --ei lamp "${lamp}" \
     --ei gear "${gear}" >/dev/null
