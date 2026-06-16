@@ -40,8 +40,11 @@ public class SignalService extends Service {
     private static final int TURN_PROP_ID = 0x21409326;
     private static final int REVERSE_GEAR_VALUE = 2;
     private static final String OEM_AVM_PACKAGE = "com.saicmotor.hmi.aroundview";
+    public static final String ACTION_DEBUG_SET_SIGNAL_STATE = "com.drivehub.kamera.debug.SET_SIGNAL_STATE";
     public static final String ACTION_ROUTE_CAMERA = "com.drivehub.kamera.ACTION_ROUTE_CAMERA";
     public static final String EXTRA_CAMERA_INDEX = "camera_index";
+    public static final String EXTRA_DEBUG_LAMP = "lamp";
+    public static final String EXTRA_DEBUG_GEAR = "gear";
 
     private static volatile SignalService sInstance;
 
@@ -93,6 +96,10 @@ public class SignalService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (handleDebugSimulationIntent(intent)) {
+            return START_STICKY;
+        }
+
         Notification n = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
                 .setContentTitle(getString(R.string.app_name))
@@ -108,6 +115,25 @@ public class SignalService extends Service {
             startPropertyPollingFallback();
         }
         return START_STICKY;
+    }
+
+    private boolean handleDebugSimulationIntent(@Nullable Intent intent) {
+        if (intent == null || !ACTION_DEBUG_SET_SIGNAL_STATE.equals(intent.getAction())) {
+            return false;
+        }
+        if (!BuildConfig.DEBUG) {
+            Log.w(TAG, "Ignoring signal simulation in non-debug build.");
+            return true;
+        }
+
+        currentLamp = intent.getIntExtra(EXTRA_DEBUG_LAMP, currentLamp);
+        currentGear = intent.getIntExtra(EXTRA_DEBUG_GEAR, currentGear);
+        lastLamp = Integer.MIN_VALUE;
+        lastGear = Integer.MIN_VALUE;
+        currentMode = -1;
+        Log.i(TAG, "Debug simulated signal state lamp=" + currentLamp + " gear=" + currentGear);
+        updateOverlayDecision();
+        return true;
     }
 
     private boolean tryStartCarApiListener() {
