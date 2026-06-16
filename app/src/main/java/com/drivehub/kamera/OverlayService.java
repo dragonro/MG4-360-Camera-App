@@ -359,7 +359,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 scalePopupIconPadding(10)
         );
         btnDismissOverlay.setContentDescription("Close overlay");
-        btnDismissOverlay.setOnClickListener(v -> hideOverlay(OverlayService.this));
+        btnDismissOverlay.setOnClickListener(v -> closeOverlayFromUser());
         card.addView(btnDismissOverlay);
 
         {
@@ -452,6 +452,12 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (uiPrefs != null) {
             UiPrefs.setLastUiState(uiPrefs, popupMode ? UiPrefs.UI_STATE_POPUP : UiPrefs.UI_STATE_OVERLAY);
         }
+    }
+
+    private void closeOverlayFromUser() {
+        saveOverlayLayoutPrefs(true);
+        markCurrentOverlayState();
+        stopSelf();
     }
 
     private void applyOverlayCornerRadius() {
@@ -764,6 +770,15 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         }
         overlayView = null;
         textureView = null;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        saveOverlayLayoutPrefs(true);
+        if (uiPrefs != null && overlayView != null) {
+            markCurrentOverlayState();
+        }
+        super.onTaskRemoved(rootIntent);
     }
 
     private void createNotificationChannel() {

@@ -18,11 +18,13 @@ import android.os.Handler;
 import android.util.DisplayMetrics;
 import android.os.SystemClock;
 import android.os.Looper;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -139,6 +141,14 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        String lastUiState = UiPrefs.getLastUiState(UiPrefs.getPrefs(this));
+        restoreOverlayOnLaunch = UiPrefs.UI_STATE_OVERLAY.equals(lastUiState)
+                || UiPrefs.UI_STATE_POPUP.equals(lastUiState);
+        if (restoreOverlayOnLaunch) {
+            restoreOverlayOnly(lastUiState);
+            return;
+        }
+
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -150,9 +160,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         SurfaceView surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
-        String lastUiState = UiPrefs.getLastUiState(UiPrefs.getPrefs(this));
-        restoreOverlayOnLaunch = UiPrefs.UI_STATE_OVERLAY.equals(lastUiState)
-                || UiPrefs.UI_STATE_POPUP.equals(lastUiState);
 
         tvStatus = findViewById(R.id.tvStatus);
         if (tvStatus != null) {
@@ -190,27 +197,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         } catch (Throwable ignored) {
         }
 
-        if (restoreOverlayOnLaunch) {
-            surfaceView.post(() -> {
-                if (overlayRestoreStarted || isFinishing()) return;
-                overlayRestoreStarted = true;
-                boolean restorePopup = UiPrefs.UI_STATE_POPUP.equals(
-                        UiPrefs.getLastUiState(UiPrefs.getPrefs(this))
-                );
-                UiPrefs.setLastUiState(
-                        UiPrefs.getPrefs(this),
-                        restorePopup ? UiPrefs.UI_STATE_POPUP : UiPrefs.UI_STATE_OVERLAY
-                );
-                if (restorePopup) {
-                    OverlayService.showPopup(this, currentVideoIndex);
-                } else {
-                    OverlayService.showOverlay(this, currentVideoIndex);
-                }
-                finishAndRemoveTask();
-            });
-            return;
-        }
-
         surfaceView.setOnTouchListener((v, event) -> {
             if (event == null) return false;
             switch (event.getActionMasked()) {
@@ -238,6 +224,31 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             }
             return false;
         });
+    }
+
+    private void restoreOverlayOnly(String lastUiState) {
+        if (overlayRestoreStarted || isFinishing()) return;
+        overlayRestoreStarted = true;
+        Window window = getWindow();
+        if (window != null) {
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.width = 1;
+            params.height = 1;
+            params.gravity = Gravity.TOP | Gravity.START;
+            params.alpha = 0f;
+            window.setAttributes(params);
+        }
+        boolean restorePopup = UiPrefs.UI_STATE_POPUP.equals(lastUiState);
+        UiPrefs.setLastUiState(
+                UiPrefs.getPrefs(this),
+                restorePopup ? UiPrefs.UI_STATE_POPUP : UiPrefs.UI_STATE_OVERLAY
+        );
+        if (restorePopup) {
+            OverlayService.showPopup(this, currentVideoIndex);
+        } else {
+            OverlayService.showOverlay(this, currentVideoIndex);
+        }
+        finishAndRemoveTask();
     }
 
     @Override
