@@ -1,3 +1,4 @@
+<!-- Author: AdrianBega/DualBytes -->
 <resources>
     <string name="app_name">360 Cam</string>
     <string name="settings_tab_update">Update</string>
@@ -12,6 +13,7 @@
     <string name="settings_overlay_on_signal">Kamera beim Blinken anzeigen</string>
     <string name="settings_overlay_rotate_to_driving_direction">Spiegelkameras in Fahrtrichtung drehen</string>
     <string name="settings_enable_camera_popup">Kamera-Popup aktivieren</string>
+    <string name="settings_overlay_permission_required">„Über anderen Apps einblenden“ erlauben, um das Popup zu öffnen</string>
     <string name="safety_warning_text">Bitte achte auf die Umgebung!</string>
     <string name="show_safety_warning">Sicherheitswarnung anzeigen</string>
     <string name="settings_section_open_source_credits">OPEN-SOURCE CREDITS</string>

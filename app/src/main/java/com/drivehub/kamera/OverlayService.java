@@ -1,3 +1,4 @@
+// Author: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.app.Notification;
@@ -5,12 +6,15 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -33,6 +37,8 @@ import androidx.core.app.NotificationCompat;
 public class OverlayService extends Service implements TextureView.SurfaceTextureListener {
 
     public static final String EXTRA_CAMERA_INDEX = "camera_index";
+    public static final String EXTRA_POPUP_MODE = "popup_mode";
+    public static final String ACTION_POPUP_READY = "com.drivehub.kamera.action.POPUP_READY";
 
     private static final String CHANNEL_ID = "mg4_overlay";
     private static final int NOTIF_ID = 99;
@@ -40,9 +46,12 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     /** Default overlay size in px; the aspect ratio is preserved. */
     private static final int DEFAULT_OVERLAY_WIDTH_PX = 1000;
     private static final int DEFAULT_OVERLAY_HEIGHT_PX = 480;
-    /** Min/max bounds for two-finger pinch resizing. */
-    private static final int OVERLAY_MIN_WIDTH_PX = 240;
-    private static final int OVERLAY_MAX_WIDTH_PX = 3840;
+    private static final float POPUP_CORNER_RADIUS_DP = 2f;
+    private static final int POPUP_BUTTON_SIZE_SCALE_PERCENT = 120;
+    private static final int POPUP_ICON_SIZE_SCALE_PERCENT = 130;
+    private static final int POPUP_RESIZE_HANDLE_SIZE_DP = 18;
+    private static final float POPUP_MIN_SCREEN_FRACTION = 0.10f;
+    private static final float POPUP_MAX_SCREEN_FRACTION = 0.80f;
 
     private static final String PREFS_NAME = "overlay_prefs";
     private static final String KEY_LAST_X = "last_x";
@@ -56,6 +65,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private Surface textureSurface;
     private WindowManager.LayoutParams overlayParams;
     private int cameraIndex = 15; // Default: front
+    private boolean popupMode;
+    private ImageButton recordingButton;
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
 
     /** Current window size, updated via pinch gestures. */
@@ -68,6 +79,12 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private float initialY;
     private float initialTouchX;
     private float initialTouchY;
+    private float resizeStartRawX;
+    private float resizeStartRawY;
+    private int resizeStartX;
+    private int resizeStartY;
+    private int resizeStartW;
+    private int resizeStartH;
     private android.content.SharedPreferences uiPrefs;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener =
             (sharedPreferences, key) -> {
@@ -77,10 +94,24 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                     updateOverlayPresentation(true);
                 }
             };
+    private final BroadcastReceiver recordingStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            syncRecordingUi();
+        }
+    };
 
     public static void showOverlay(Context context, int cameraIndex) {
         Intent i = new Intent(context, OverlayService.class);
         i.putExtra(EXTRA_CAMERA_INDEX, cameraIndex);
+        i.putExtra(EXTRA_POPUP_MODE, false);
+        context.startForegroundService(i);
+    }
+
+    public static void showPopup(Context context, int cameraIndex) {
+        Intent i = new Intent(context, OverlayService.class);
+        i.putExtra(EXTRA_CAMERA_INDEX, cameraIndex);
+        i.putExtra(EXTRA_POPUP_MODE, true);
         context.startForegroundService(i);
     }
 
@@ -95,6 +126,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         uiPrefs = UiPrefs.getPrefs(this);
         uiPrefs.registerOnSharedPreferenceChangeListener(prefListener);
+        try {
+            registerReceiver(recordingStateReceiver, new IntentFilter(RecordingService.ACTION_STATE_CHANGED));
+        } catch (Throwable ignored) {
+        }
         createNotificationChannel();
     }
 
@@ -103,6 +138,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (intent != null && intent.hasExtra(EXTRA_CAMERA_INDEX)) {
             cameraIndex = intent.getIntExtra(EXTRA_CAMERA_INDEX, 15);
         }
+        popupMode = intent != null && intent.getBooleanExtra(EXTRA_POPUP_MODE, false);
         // Run as a foreground service so the overlay survives while the app is in the background.
         Notification notif = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
@@ -128,20 +164,33 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
     private void showFloatingWindow() {
         if (windowManager == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            stopSelf();
+            return;
+        }
 
         int layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 
-        // Size: use the saved value or the default while keeping the aspect ratio fixed.
-        try {
-            android.content.SharedPreferences sp =
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            int w = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
-            int h = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
-            if (w >= OVERLAY_MIN_WIDTH_PX && h >= 1) {
-                overlayWidthPx = w;
-                overlayHeightPx = h;
+        // Popup mode starts small so it behaves like a compact floating preview.
+        if (popupMode) {
+            int[] screenSize = getAvailableScreenSizePx();
+            if (screenSize != null) {
+                overlayWidthPx = clampToPopupBounds(Math.round(screenSize[0] * 0.20f), true);
+                overlayHeightPx = clampToPopupBounds(Math.round(screenSize[1] * 0.20f), false);
             }
-        } catch (Throwable ignored) {
+        } else {
+            // Normal overlay keeps using the saved value or the default while preserving aspect.
+            try {
+                android.content.SharedPreferences sp =
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                int w = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
+                int h = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
+                if (w >= 1 && h >= 1) {
+                    overlayWidthPx = w;
+                    overlayHeightPx = h;
+                }
+            } catch (Throwable ignored) {
+            }
         }
         normalizeOverlaySizeForCurrentMode();
 
@@ -196,8 +245,16 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                     }
                 });
 
-        windowManager.addView(overlayView, overlayParams);
+        try {
+            windowManager.addView(overlayView, overlayParams);
+        } catch (SecurityException | IllegalStateException | WindowManager.BadTokenException e) {
+            stopSelf();
+            return;
+        }
         applyPreviewTransform();
+        if (popupMode) {
+            sendBroadcast(new Intent(ACTION_POPUP_READY));
+        }
 
         overlayView.setOnTouchListener((v, event) -> {
             // Two fingers: pinch to resize, with no dragging.
@@ -266,23 +323,74 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
         ImageButton btnDismissOverlay = new ImageButton(this);
         FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
-                dpToPx(84),
-                dpToPx(84),
+                scalePopupButtonSize(56),
+                scalePopupButtonSize(56),
                 Gravity.TOP | Gravity.START
         );
-        closeParams.leftMargin = dpToPx(3);
-        closeParams.topMargin = dpToPx(3);
+        closeParams.leftMargin = 0;
+        closeParams.topMargin = 0;
         btnDismissOverlay.setLayoutParams(closeParams);
         btnDismissOverlay.setBackground(null);
         btnDismissOverlay.setImageResource(R.drawable.ic_close);
         btnDismissOverlay.setColorFilter(0xFFFFFFFF);
-        btnDismissOverlay.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20));
+        btnDismissOverlay.setPadding(
+                scalePopupIconPadding(10),
+                scalePopupIconPadding(10),
+                scalePopupIconPadding(10),
+                scalePopupIconPadding(10)
+        );
         btnDismissOverlay.setContentDescription("Close overlay");
         btnDismissOverlay.setOnClickListener(v -> hideOverlay(OverlayService.this));
         card.addView(btnDismissOverlay);
+
+        if (popupMode) {
+            ImageButton btnRecording = new ImageButton(this);
+            recordingButton = btnRecording;
+            FrameLayout.LayoutParams recordParams = new FrameLayout.LayoutParams(
+                    scalePopupButtonSize(56),
+                    scalePopupButtonSize(56),
+                    Gravity.BOTTOM | Gravity.END
+            );
+            recordParams.rightMargin = 0;
+            recordParams.bottomMargin = 0;
+            btnRecording.setLayoutParams(recordParams);
+            btnRecording.setBackground(null);
+            btnRecording.setImageResource(R.drawable.ic_record_circle);
+            btnRecording.setPadding(
+                    scalePopupIconPadding(10),
+                    scalePopupIconPadding(10),
+                    scalePopupIconPadding(10),
+                    scalePopupIconPadding(10)
+            );
+            btnRecording.setContentDescription("Toggle recording");
+            btnRecording.setOnClickListener(v -> {
+                if (RecordingService.isRecording(OverlayService.this)) {
+                    RecordingService.stopRecording(OverlayService.this);
+                } else {
+                    RecordingService.startRecording(OverlayService.this);
+                }
+                syncRecordingUi();
+            });
+            card.addView(btnRecording);
+
+            addResizeHandle(card, Gravity.BOTTOM | Gravity.END, false);
+            addResizeHandle(card, Gravity.BOTTOM | Gravity.START, true);
+        }
         applyOverlayCornerRadius(card);
+        if (popupMode) {
+            applyPopupCornerRadius(card);
+        }
 
         return card;
+    }
+
+    private void syncRecordingUi() {
+        ImageButton button = recordingButton;
+        if (button == null) return;
+        boolean recording = RecordingService.isRecording(this);
+        button.setImageTintList(android.content.res.ColorStateList.valueOf(
+                recording ? 0xFFFF3B30 : 0xFFFFFFFF
+        ));
     }
 
     private void applyOverlayCornerRadius() {
@@ -302,6 +410,108 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         });
     }
 
+    private void applyPopupCornerRadius(View target) {
+        if (target == null) return;
+        target.post(() -> {
+            if (!(target.getBackground() instanceof android.graphics.drawable.GradientDrawable)) {
+                return;
+            }
+            android.graphics.drawable.GradientDrawable background =
+                    (android.graphics.drawable.GradientDrawable) target.getBackground().mutate();
+            background.setCornerRadius(POPUP_CORNER_RADIUS_DP * getResources().getDisplayMetrics().density);
+            background.setStroke(dpToPx(1), 0xFF8A8A8A);
+            target.invalidateOutline();
+        });
+    }
+
+    private void addResizeHandle(FrameLayout card, int gravity, boolean fromLeft) {
+        ImageButton handle = new ImageButton(this);
+        int size = dpToPx(POPUP_RESIZE_HANDLE_SIZE_DP);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size, gravity);
+        params.leftMargin = 0;
+        params.rightMargin = 0;
+        params.bottomMargin = -dpToPx(3);
+        handle.setLayoutParams(params);
+        handle.setBackground(null);
+        handle.setImageResource(fromLeft ? R.drawable.ic_resize_corner_bottom_left
+                : R.drawable.ic_resize_corner_bottom_right);
+        handle.setPadding(0, 0, 0, 0);
+        handle.setColorFilter(0xFFFFFFFF);
+        handle.setContentDescription(fromLeft ? "Resize popup from lower left" : "Resize popup from lower right");
+        handle.setOnTouchListener((v, event) -> {
+            if (!popupMode || overlayParams == null || windowManager == null) return false;
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    resizeStartRawX = event.getRawX();
+                    resizeStartRawY = event.getRawY();
+                    resizeStartX = overlayParams.x;
+                    resizeStartY = overlayParams.y;
+                    resizeStartW = overlayParams.width;
+                    resizeStartH = overlayParams.height;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    int dx = Math.round(event.getRawX() - resizeStartRawX);
+                    int newW = fromLeft ? resizeStartW - dx : resizeStartW + dx;
+                    int[] clamped = clampPopupResize(newW);
+                    overlayParams.width = clamped[0];
+                    overlayParams.height = clamped[1];
+                    if (fromLeft) {
+                        overlayParams.x = resizeStartX + (resizeStartW - overlayParams.width);
+                    } else {
+                        overlayParams.x = resizeStartX;
+                    }
+                    overlayParams.y = resizeStartY;
+                    clampOverlayPositionToScreen();
+                    windowManager.updateViewLayout(overlayView, overlayParams);
+                    applyPreviewTransform();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    saveOverlayLayoutPrefs();
+                    return true;
+                default:
+                    return false;
+            }
+        });
+        card.addView(handle);
+    }
+
+    private int[] clampPopupResize(int w) {
+        float aspect = getActiveOverlayAspect();
+        int[] screenSize = getAvailableScreenSizePx();
+        int maxW = screenSize != null ? Math.round(screenSize[0] * POPUP_MAX_SCREEN_FRACTION) : w;
+        int maxH = screenSize != null ? Math.round(screenSize[1] * POPUP_MAX_SCREEN_FRACTION) : w;
+        int minW = screenSize != null ? Math.round(screenSize[0] * POPUP_MIN_SCREEN_FRACTION) : w;
+        int minH = screenSize != null ? Math.round(screenSize[1] * POPUP_MIN_SCREEN_FRACTION) : w;
+        w = Math.max(minW, Math.min(maxW, w));
+        int h = Math.round(w / aspect);
+        if (h > maxH) {
+            h = maxH;
+            w = Math.round(h * aspect);
+        }
+        if (h < minH) {
+            h = minH;
+            w = Math.round(h * aspect);
+        }
+        if (w > maxW) {
+            w = maxW;
+            h = Math.round(w / aspect);
+        }
+        if (w < minW) {
+            w = minW;
+            h = Math.round(w / aspect);
+        }
+        return new int[]{w, h};
+    }
+
+    private int scalePopupButtonSize(int dp) {
+        return Math.round(dpToPx(dp) * (POPUP_BUTTON_SIZE_SCALE_PERCENT / 100f));
+    }
+
+    private int scalePopupIconPadding(int dp) {
+        return Math.round(dpToPx(dp) * (POPUP_ICON_SIZE_SCALE_PERCENT / 100f));
+    }
+
     private int dpToPx(int dp) {
         return Math.round(dp * getResources().getDisplayMetrics().density);
     }
@@ -309,32 +519,37 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     /** Keeps the active overlay aspect ratio while clamping size to screen and min/max bounds. */
     private int[] clampOverlaySize(int w) {
         float aspect = getActiveOverlayAspect();
-        int maxW = OVERLAY_MAX_WIDTH_PX;
-        int maxH = OVERLAY_MAX_WIDTH_PX;
         int[] screenSize = getAvailableScreenSizePx();
-        if (screenSize != null) {
-            maxW = Math.min(maxW, screenSize[0]);
-            maxH = Math.min(maxH, screenSize[1]);
-        }
-        if (w < OVERLAY_MIN_WIDTH_PX) {
-            w = OVERLAY_MIN_WIDTH_PX;
-        }
-        if (w > maxW) {
-            w = maxW;
-        }
+        int minW = screenSize != null ? Math.round(screenSize[0] * POPUP_MIN_SCREEN_FRACTION) : w;
+        int maxW = screenSize != null ? Math.round(screenSize[0] * POPUP_MAX_SCREEN_FRACTION) : w;
+        int maxH = screenSize != null ? Math.round(screenSize[1] * POPUP_MAX_SCREEN_FRACTION) : w;
+        int minH = screenSize != null ? Math.round(screenSize[1] * POPUP_MIN_SCREEN_FRACTION) : w;
+        w = Math.max(minW, Math.min(maxW, w));
         int h = Math.round(w / aspect);
         if (h > maxH) {
             h = maxH;
             w = Math.round(h * aspect);
-            if (w < OVERLAY_MIN_WIDTH_PX) {
-                w = OVERLAY_MIN_WIDTH_PX;
-            }
-            if (w > maxW) {
-                w = maxW;
-            }
+            h = Math.round(w / aspect);
+        }
+        if (h < minH) {
+            h = minH;
+            w = Math.round(h * aspect);
+        }
+        if (w > maxW) {
+            w = maxW;
             h = Math.round(w / aspect);
         }
         return new int[]{w, h};
+    }
+
+    private int clampToPopupBounds(int value, boolean width) {
+        int[] screenSize = getAvailableScreenSizePx();
+        if (screenSize == null) {
+            return value;
+        }
+        int min = Math.round((width ? screenSize[0] : screenSize[1]) * POPUP_MIN_SCREEN_FRACTION);
+        int max = Math.round((width ? screenSize[0] : screenSize[1]) * POPUP_MAX_SCREEN_FRACTION);
+        return Math.max(min, Math.min(max, value));
     }
 
     private void normalizeOverlaySizeForCurrentMode() {
@@ -458,6 +673,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         if (uiPrefs != null) {
             uiPrefs.unregisterOnSharedPreferenceChangeListener(prefListener);
         }
+        try {
+            unregisterReceiver(recordingStateReceiver);
+        } catch (Throwable ignored) {
+        }
         stopPreview();
         if (textureSurface != null) {
             textureSurface.release();
@@ -522,27 +741,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             return;
         }
         applyPreviewTransform();
-        testVideoPlayer.stop();
-        try {
-            CameraProbe.stopPreview();
-        } catch (Throwable ignored) {
-        }
-        if (TestVideoSources.shouldUse(this)
-                && testVideoPlayer.start(this, cameraIndex, textureSurface)) {
-            return;
-        }
-        try {
-            CameraProbe.startPreview(cameraIndex, textureSurface);
-        } catch (Throwable t) {
-            // Emulators and unsupported ABIs can fail to load the native camera probe.
-        }
+        PreviewSourceController.start(this, cameraIndex, textureSurface, testVideoPlayer);
     }
 
     private void stopPreview() {
-        testVideoPlayer.stop();
-        try {
-            CameraProbe.stopPreview();
-        } catch (Throwable ignored) {
-        }
+        PreviewSourceController.stop(testVideoPlayer);
     }
 }

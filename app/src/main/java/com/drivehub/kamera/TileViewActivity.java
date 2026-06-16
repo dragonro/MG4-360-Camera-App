@@ -1,3 +1,4 @@
+// Author: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.graphics.drawable.GradientDrawable;
@@ -46,11 +47,12 @@ public class TileViewActivity extends AppCompatActivity {
             callbacks[i] = new SurfaceHolder.Callback() {
                 @Override
                 public void surfaceCreated(SurfaceHolder h) {
-                    if (TestVideoSources.shouldUse(TileViewActivity.this)
-                            && testVideoPlayers[slot].start(TileViewActivity.this, cameraIndex, h.getSurface())) {
-                        return;
-                    }
-                    CameraProbe.startPreview(cameraIndex, h.getSurface());
+                    PreviewSourceController.start(
+                            TileViewActivity.this,
+                            cameraIndex,
+                            h.getSurface(),
+                            testVideoPlayers[slot]
+                    );
                 }
 
                 @Override
@@ -105,7 +107,7 @@ public class TileViewActivity extends AppCompatActivity {
                 player.stop();
             }
         }
-        CameraProbe.stopPreview();
+        PreviewSourceController.stopNative();
         for (int i = 0; i < holders.length; i++) {
             if (holders[i] != null && callbacks[i] != null) {
                 holders[i].removeCallback(callbacks[i]);
