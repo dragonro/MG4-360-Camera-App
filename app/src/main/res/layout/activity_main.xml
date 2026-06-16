@@ -85,6 +85,37 @@
         app:layout_constraintStart_toStartOf="parent" />
 
     <ImageButton
+        android:id="@+id/btnRecording"
+        android:layout_width="108dp"
+        android:layout_height="108dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/main_button_recording"
+        android:padding="24dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_record_circle"
+        android:tint="#FFFFFF"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tvRecordingTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-28dp"
+        android:includeFontPadding="false"
+        android:paddingTop="0dp"
+        android:paddingBottom="0dp"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="@id/btnRecording"
+        app:layout_constraintStart_toStartOf="@id/btnRecording"
+        app:layout_constraintTop_toBottomOf="@id/btnRecording" />
+
+    <ImageButton
         android:id="@+id/btnClose"
         android:layout_width="148dp"
         android:layout_height="148dp"

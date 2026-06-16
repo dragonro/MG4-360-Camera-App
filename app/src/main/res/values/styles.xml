@@ -46,6 +46,17 @@
         <item name="android:track">@drawable/switch_selector_green</item>
     </style>
 
+    <style name="DrivehubSettingsRadioButton" parent="@android:style/Widget.CompoundButton.RadioButton">
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:textColor">@color/settings_text_primary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingEnd">6dp</item>
+        <item name="android:focusable">false</item>
+    </style>
+
     <!-- Shared visual sizing for settings sliders. -->
     <style name="DrivehubSettingsSlider" parent="">
         <item name="android:layout_height">32dp</item>

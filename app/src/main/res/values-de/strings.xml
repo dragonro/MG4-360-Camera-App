@@ -7,6 +7,7 @@
     <string name="settings_tab_dev">Dev</string>
     <string name="settings_section_driving">FAHREN</string>
     <string name="settings_section_display">ANZEIGE</string>
+    <string name="settings_section_recording">AUFNAHME</string>
     <string name="settings_section_signal_camera">BLINKER-KAMERA</string>
     <string name="settings_overlay_on_signal">Kamera beim Blinken anzeigen</string>
     <string name="settings_overlay_rotate_to_driving_direction">Spiegelkameras in Fahrtrichtung drehen</string>
@@ -32,6 +33,14 @@
     <string name="settings_section_latest_release">LETZTES RELEASE</string>
     <string name="settings_section_changelog">CHANGELOG</string>
     <string name="settings_allow_beta_updates">Beta-Releases zulassen</string>
+    <string name="settings_enable_recording">Aufnahme aktivieren</string>
+    <string name="settings_recording_duration">Aufnahmedauer</string>
+    <string-array name="recording_duration_options">
+        <item>1 Min.</item>
+        <item>2 Min.</item>
+        <item>5 Min.</item>
+        <item>10 Min.</item>
+    </string-array>
     <string name="settings_dialog_close">Schließen</string>
     <string name="settings_version_unknown">Version ?</string>
     <string name="settings_version_format">Version %1$s</string>
@@ -69,6 +78,7 @@
     <string name="main_camera_label_rear">Heckkamera (/dev/video17)</string>
     <string name="main_camera_label_unknown">/dev/video%1$d</string>
     <string name="main_button_settings">Einstellungen</string>
+    <string name="main_button_recording">Aufnahme</string>
     <string name="main_button_close_app">App schließen</string>
     <string name="settings_tab_optik">Darstellung</string>
     <string name="settings_section_tileview">Blinker-Kamera</string>
@@ -92,7 +102,7 @@
     <string name="ota_dialog_mobile_warning_message">Der Download von Version %1$s kann mobiles Datenvolumen des Fahrzeugs verbrauchen, wenn das Auto nicht mit WLAN verbunden ist. Möchtest du fortfahren?</string>
     <string name="ota_dialog_download_started_message">Das Update für Version %1$s wird jetzt geschützt heruntergeladen.</string>
     <string name="ota_dialog_download_failed_message">Der Update-Download konnte nicht gestartet werden (%1$s).</string>
-    <string name="ota_dialog_open_downloads_failed_message">Der Download-Ordner konnte nicht geöffnet werden (%1$s).</string>
+    <string name="ota_dialog_open_downloads_failed_message">Die Update-APK konnte nicht geöffnet werden (%1$s).</string>
     <string name="ota_error_no_hash">Im neuesten Release fehlt ein SHA-256-Asset für die APK</string>
     <string name="ota_error_invalid_hash">Das SHA-256-Asset des neuesten Releases ist ungültig</string>
     <string name="ota_error_no_release">Es konnte kein Release gefunden werden</string>
@@ -114,7 +124,7 @@
     <string name="ota_action_close">Schließen</string>
     <string name="ota_action_download_anyway">Fortfahren</string>
     <string name="ota_action_retry_download">Download erneut</string>
-    <string name="ota_action_install_update">Downloads öffnen</string>
+    <string name="ota_action_install_update">Update installieren</string>
     <string name="ota_toast_checking">Suche nach Updates…</string>
     <string name="ota_error_no_apk">Im neuesten Release wurde kein APK-Asset gefunden</string>
     <string name="ota_update_hint">Über das Update-Badge unten kannst du Updates direkt installieren.</string>

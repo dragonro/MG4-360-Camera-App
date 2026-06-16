@@ -5,8 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.view.View;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -35,6 +37,7 @@ public class SettingsActivity extends AppCompatActivity {
     private static final String OEM_AVM_PACKAGE = "com.saicmotor.hmi.aroundview";
 
     private static final int REQ_STORAGE = 1337;
+    private static final int REQ_RECORDING_FOLDER = 1338;
 
     private SwitchCompat swEnabled;
     private SwitchCompat swOverlayOnSignal;
@@ -42,6 +45,7 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView tvSegment;
     private TextView tvTotal;
     private TextView tvPath;
+    private TextView tvPathValue;
     private EditText etSegmentMin;
     private EditText etTotalMin;
     private EditText etOverlayHideDelaySeconds;
@@ -76,9 +80,7 @@ public class SettingsActivity extends AppCompatActivity {
         etTotalMin = findViewById(R.id.etTotalMin);
         btnExportUsb = findViewById(R.id.btnExportUsb);
         tvPath = findViewById(R.id.tvRecordsPath);
-
-        String recordsPath = getRecordsBaseDir().getAbsolutePath();
-        tvPath.setText(recordsPath);
+        tvPathValue = findViewById(R.id.tvRecordsPathValue);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
@@ -191,11 +193,17 @@ public class SettingsActivity extends AppCompatActivity {
         });
 
         btnExportUsb.setOnClickListener(v -> {
-            // TODO: USB export code will come in a later step.
-            Toast.makeText(this, R.string.settings_usb_export_todo, Toast.LENGTH_LONG).show();
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQ_RECORDING_FOLDER);
+            } catch (Throwable t) {
+                Toast.makeText(this, R.string.settings_records_path_selection_failed, Toast.LENGTH_LONG).show();
+            }
         });
-
-        updateUsbButtonVisibility();
 
         IntentFilter f = new IntentFilter();
         f.addAction(Intent.ACTION_MEDIA_MOUNTED);
@@ -210,11 +218,26 @@ public class SettingsActivity extends AppCompatActivity {
         unregisterReceiver(usbReceiver);
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_RECORDING_FOLDER || resultCode != RESULT_OK || data == null) return;
+        Uri treeUri = data.getData();
+        if (treeUri == null) return;
+        final int takeFlags = data.getFlags()
+                & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        try {
+            getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+            RecordingStorageManager.setTreeUri(this, treeUri);
+            Toast.makeText(this, R.string.settings_records_path_selected, Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            Toast.makeText(this, R.string.settings_records_path_selection_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void updateUsbButtonVisibility() {
-        // Simple approach: show the button if a USB mount point exists.
-        // This can be expanded to be more device-agnostic if needed.
-        boolean usbMounted = findMountedUsbRoot() != null;
-        btnExportUsb.setVisibility(usbMounted ? View.VISIBLE : View.GONE);
+        if (btnExportUsb != null) btnExportUsb.setVisibility(View.VISIBLE);
     }
 
     private File findMountedUsbRoot() {
@@ -234,12 +257,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private File getRecordsBaseDir() {
-        File downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File dir = new File(downloads, "mg4_cam_records");
-        // Create the directory.
-        //noinspection ResultOfMethodCallIgnored
-        dir.mkdirs();
-        return dir;
+        return RecordingStorageManager.getWritableBaseDir(this);
     }
 
     private int parsePositiveInt(String s, int def) {
@@ -302,10 +320,11 @@ public class SettingsActivity extends AppCompatActivity {
         etSegmentMin.setVisibility(vis);
         tvTotal.setVisibility(vis);
         etTotalMin.setVisibility(vis);
-        tvPath.setVisibility(vis);
+        if (tvPath != null) tvPath.setVisibility(View.VISIBLE);
+        if (tvPathValue != null) tvPathValue.setVisibility(View.VISIBLE);
         // The USB export button is shown only when recording is enabled and a USB device is mounted.
         if (btnExportUsb != null) {
-            btnExportUsb.setVisibility(visible ? btnExportUsb.getVisibility() : View.GONE);
+            btnExportUsb.setVisibility(View.VISIBLE);
         }
     }
 

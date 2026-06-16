@@ -14,6 +14,10 @@ final class UiPrefs {
     static final String KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION = "overlayRotateToDrivingDirection";
     static final String KEY_OVERLAY_HIDE_DELAY_MS = "overlayHideDelayMs";
     static final String KEY_OVERLAY_MIN_SHOW_MS = "overlayMinShowMs";
+    static final String KEY_ENABLE_RECORDING_BUTTON = "enableRecordingButton";
+    static final String KEY_RECORDING_DURATION_MIN = "recordingDurationMin";
+    static final String KEY_RECORDING_STARTED_AT_MS = "recordingStartedAtMs";
+    static final String KEY_RECORDING_TREE_URI = "recordingTreeUri";
     static final String KEY_DEV_DEFAULT_POLL_MS = "devDefaultPollMs";
     static final String KEY_DEV_SIGNAL_OFF_POLL_MS = "devSignalOffPollMs";
     static final String KEY_DEV_TEST_VIDEO_SOURCES = "devTestVideoSources";
@@ -66,6 +70,24 @@ final class UiPrefs {
 
     static int getDevSignalOffPollMs(SharedPreferences prefs) {
         return clampDevPollingMs(prefs.getInt(KEY_DEV_SIGNAL_OFF_POLL_MS, DEFAULT_DEV_SIGNAL_OFF_POLLING_MS));
+    }
+
+    static boolean isRecordingButtonEnabled(SharedPreferences prefs) {
+        return prefs.getBoolean(KEY_ENABLE_RECORDING_BUTTON, false);
+    }
+
+    static int getRecordingDurationMin(SharedPreferences prefs) {
+        int value = prefs.getInt(KEY_RECORDING_DURATION_MIN, 1);
+        if (value == 2 || value == 5 || value == 10) return value;
+        return 1;
+    }
+
+    static long getRecordingStartedAtMs(SharedPreferences prefs) {
+        return prefs.getLong(KEY_RECORDING_STARTED_AT_MS, 0L);
+    }
+
+    static String getRecordingTreeUri(SharedPreferences prefs) {
+        return prefs.getString(KEY_RECORDING_TREE_URI, null);
     }
 
     static boolean isDevTestVideoSourcesEnabled(SharedPreferences prefs) {

@@ -7,50 +7,75 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-
+import java.io.FileInputStream;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
+import androidx.documentfile.provider.DocumentFile;
 
 public class RecordingService extends Service {
 
-    public static final String ACTION_START = "start_recording";
-    public static final String ACTION_STOP = "stop_recording";
+    public static final String ACTION_START = "com.drivehub.kamera.action.START_RECORDING";
+    public static final String ACTION_STOP = "com.drivehub.kamera.action.STOP_RECORDING";
+    public static final String ACTION_STATE_CHANGED = "com.drivehub.kamera.action.RECORDING_STATE_CHANGED";
+    public static final String EXTRA_IS_RECORDING = "extra_is_recording";
+    public static final String EXTRA_IS_ENABLED = "extra_is_enabled";
 
     private static final String PREFS_NAME = "rec_prefs";
     private static final String KEY_ENABLED = "enabled";
-    private static final String KEY_SEGMENT_MIN = "segmentMin";
-    private static final String KEY_TOTAL_MIN = "totalMin";
-
     private static final String CHANNEL_ID = "mg4_recording";
     private static final int NOTIF_ID = 42;
+    private static final int[] SLOT_IDS = {0, 1, 2, 3};
+    private static final int[] CAMERA_INDICES = {15, 14, 16, 17};
+    private static final String TAG = "RecordingService";
 
     private Thread worker;
-    private volatile boolean stopRequested = false;
+    private volatile boolean stopRequested;
+    private volatile boolean recording;
 
-    public static void startIfNeeded(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
-        if (!enabled) return;
+    public static void startRecording(Context context) {
         Intent i = new Intent(context, RecordingService.class);
         i.setAction(ACTION_START);
         context.startForegroundService(i);
     }
 
-    public static void stopIfRunning(Context context) {
+    public static void stopRecording(Context context) {
         Intent i = new Intent(context, RecordingService.class);
         i.setAction(ACTION_STOP);
         context.startService(i);
+    }
+
+    public static boolean isRecording(Context context) {
+        SharedPreferences prefs = UiPrefs.getPrefs(context);
+        return prefs.getBoolean(EXTRA_IS_RECORDING, false);
+    }
+
+    public static boolean isRecordingEnabled(Context context) {
+        return UiPrefs.isRecordingButtonEnabled(UiPrefs.getPrefs(context));
+    }
+
+    public static void startIfNeeded(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (!prefs.getBoolean(KEY_ENABLED, false)) return;
+        startRecording(context);
+    }
+
+    public static void stopIfRunning(Context context) {
+        stopRecording(context);
     }
 
     @Override
@@ -61,174 +86,250 @@ public class RecordingService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) return START_STICKY;
-        String action = intent.getAction();
-
+        String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
-            stopRequested = true;
-            // If recording is still running, stop the native side immediately too.
-            // The 4 slots are fixed: 0=F (15), 1=R (17), 2=X (16), 3=Y (14)
-            try {
-                for (int s = 0; s < 4; s++) {
-                    CameraProbe.stopMp4Record(s);
-                }
-            } catch (Throwable ignored) {
-                // Even if the native layer fails, still continue shutting down the service.
-            }
-            // Interrupt the worker thread in case it is sleeping.
-            if (worker != null) {
-                worker.interrupt();
-            }
-            stopForeground(true);
+            requestStop();
             return START_NOT_STICKY;
         }
 
         if (worker != null) {
-            // Do not start again if it is already running.
             return START_STICKY;
         }
 
+        SharedPreferences prefs = UiPrefs.getPrefs(this);
+        if (!UiPrefs.isRecordingButtonEnabled(prefs)) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         stopRequested = false;
-        startForeground(NOTIF_ID, buildNotification(getString(R.string.notification_recording_starting)));
-        worker = new Thread(this::recordLoop, "RecordingServiceWorker");
+        prefs.edit().putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, SystemClock.elapsedRealtime()).apply();
+        setRecordingState(true);
+        startRecordingForeground(buildNotification(getString(R.string.notification_recording_starting)));
+        worker = new Thread(this::recordOnce, "RecordingServiceWorker");
         worker.start();
         return START_STICKY;
     }
 
-    private void recordLoop() {
-        // NOTE: For now we only record MP4 clips, not speed or turn-signal data.
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
-        int segmentMin = prefs.getInt(KEY_SEGMENT_MIN, 3);
-        int totalMin = prefs.getInt(KEY_TOTAL_MIN, 30);
+    private void startRecordingForeground(Notification notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTIF_ID, notification);
+        }
+    }
 
-        if (!enabled || segmentMin <= 0) {
-            stopSelf();
+    private void recordOnce() {
+        File baseDir = RecordingStorageManager.getWritableBaseDir(this);
+        if (!baseDir.exists() && !baseDir.mkdirs()) {
+            finishRecording();
             return;
         }
 
-        File baseDir = getRecordsBaseDir();
-        //noinspection ResultOfMethodCallIgnored
-        baseDir.mkdirs();
+        int durationMin = UiPrefs.getRecordingDurationMin(UiPrefs.getPrefs(this));
+        long segmentDurationMs = Math.max(60_000L, durationMin * 60_000L);
+        String sessionStamp = buildTimestamp();
+        int segmentIndex = 0;
 
-        // Output names for the 4 cameras.
-        // F = v15 (front), R = v17 (rear), X = v16 (left), Y = v14 (right)
-        int[] slots = new int[]{0, 1, 2, 3};
-        int[] videoIndices = new int[]{15, 17, 16, 14};
-        char[] names = new char[]{'F', 'R', 'X', 'Y'};
-
-        long segmentMs = segmentMin * 60L * 1000L;
-
-        // Convert total duration into a segment count: segmentMin=3, totalMin=30 => keep 10 segments.
-        int keepSegments = Math.max(1, totalMin / segmentMin);
-
-        while (!stopRequested) {
-            long now = System.currentTimeMillis();
-            String ts = makeTimestampBase(now);
-            File clipDir = baseDir; // Store files directly in the folder.
-
-            String[] outPaths = new String[4];
-            for (int i = 0; i < 4; i++) {
-                String fileName = ts + "_" + names[i] + ".mp4";
-                File out = new File(clipDir, fileName);
-                outPaths[i] = out.getAbsolutePath();
-            }
-
-            // Start recording all 4 cameras at the same time.
-            for (int i = 0; i < 4; i++) {
-                // width=720 height=240 fps=15 bitrate default 2.5Mbps
-                CameraProbe.startMp4Record(slots[i], videoIndices[i], outPaths[i], 720, 240, 15, 2500000);
-            }
-
-            // Wait until the segment duration is reached.
-            long start = SystemClock.elapsedRealtime();
-            while (!stopRequested && (SystemClock.elapsedRealtime() - start) < segmentMs) {
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException ignored) {
+        try {
+            while (!stopRequested) {
+                String segmentStamp = sessionStamp + "_" + String.format(Locale.US, "%02d", segmentIndex++);
+                if (!startSegment(baseDir, segmentStamp, segmentDurationMs)) {
+                    break;
                 }
             }
+        } finally {
+            stopRecordingNative();
+            finishRecording();
+        }
+    }
 
-            // Stop all 4 cameras.
-            for (int i = 0; i < 4; i++) {
-                CameraProbe.stopMp4Record(slots[i]);
+    private boolean startSegment(File baseDir, String segmentStamp, long segmentDurationMs) {
+        boolean useTree = RecordingStorageManager.getTreeUri(this) != null;
+        File segmentBaseDir = useTree ? new File(getCacheDir(), "recording_tmp") : baseDir;
+        if (!segmentBaseDir.exists() && !segmentBaseDir.mkdirs()) {
+            return false;
+        }
+        boolean[] started = new boolean[SLOT_IDS.length];
+        for (int i = 0; i < SLOT_IDS.length; i++) {
+            String outputPath = new File(segmentBaseDir, segmentStamp + "_" + CAMERA_INDICES[i] + ".mpg")
+                    .getAbsolutePath();
+            try {
+                started[i] = CameraProbe.startMp4Record(SLOT_IDS[i], CAMERA_INDICES[i], outputPath,
+                        720, 240, 15, 2_500_000);
+            } catch (Throwable t) {
+                started[i] = false;
             }
-
-            // Retention: delete the oldest segments.
-            cleanupOldSegments(baseDir, keepSegments);
-
-            // Check whether recording has been disabled in prefs.
-            enabled = prefs.getBoolean(KEY_ENABLED, false);
-            if (!enabled) break;
+            if (!started[i]) {
+                break;
+            }
         }
 
-        worker = null;
-        stopForeground(true);
+        if (!allStarted(started)) {
+            stopRecordingNative();
+            if (BuildConfig.DEBUG) {
+                writeDebugFallbackRecordings(baseDir, segmentStamp);
+                sleepUntilSegmentEnd(segmentDurationMs);
+                return true;
+            }
+            return false;
+        }
+
+        sleepUntilSegmentEnd(segmentDurationMs);
+        stopRecordingNative();
+        if (useTree) {
+            copySegmentToTree(segmentBaseDir, segmentStamp);
+            deleteSegmentFiles(segmentBaseDir, segmentStamp);
+        }
+        return true;
+    }
+
+    private void copySegmentToTree(File segmentBaseDir, String segmentStamp) {
+        DocumentFile tree = RecordingStorageManager.resolveTreeDocument(this);
+        if (tree == null) return;
+        for (int cameraIndex : CAMERA_INDICES) {
+            File source = new File(segmentBaseDir, segmentStamp + "_" + cameraIndex + ".mpg");
+            if (!source.isFile()) continue;
+            String name = source.getName();
+            try {
+                DocumentFile existing = tree.findFile(name);
+                if (existing != null) existing.delete();
+                DocumentFile outDoc = tree.createFile("application/octet-stream", name);
+                if (outDoc == null) continue;
+                try (FileInputStream in = new FileInputStream(source);
+                     OutputStream out = getContentResolver().openOutputStream(outDoc.getUri())) {
+                    if (out == null) continue;
+                    byte[] buffer = new byte[64 * 1024];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                    out.flush();
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private void deleteSegmentFiles(File segmentBaseDir, String segmentStamp) {
+        for (int cameraIndex : CAMERA_INDICES) {
+            File source = new File(segmentBaseDir, segmentStamp + "_" + cameraIndex + ".mpg");
+            //noinspection ResultOfMethodCallIgnored
+            source.delete();
+        }
+    }
+
+    private void sleepUntilSegmentEnd(long segmentDurationMs) {
+        long startedAt = SystemClock.elapsedRealtime();
+        long deadline = startedAt + segmentDurationMs;
+        while (!stopRequested && SystemClock.elapsedRealtime() < deadline) {
+            try {
+                Thread.sleep(250L);
+            } catch (InterruptedException ignored) {
+                // Re-check stopRequested and deadline.
+            }
+        }
+    }
+
+    private boolean allStarted(boolean[] started) {
+        for (boolean value : started) {
+            if (!value) return false;
+        }
+        return true;
+    }
+
+    private void writeDebugFallbackRecordings(File baseDir, String segmentStamp) {
+        for (int cameraIndex : CAMERA_INDICES) {
+            File source = TestVideoSources.getFile(this, cameraIndex);
+            File target = new File(baseDir, segmentStamp + "_" + cameraIndex + ".mpg");
+            try {
+                if (source.isFile()) {
+                    copyFile(source, target);
+                    Log.i(TAG, "Fallback copied " + source.getName() + " -> " + target.getName());
+                } else {
+                    writePlaceholderFile(target, cameraIndex);
+                    Log.i(TAG, "Fallback wrote placeholder " + target.getName());
+                }
+            } catch (IOException e) {
+                Log.w(TAG, "Fallback copy failed for " + source.getName(), e);
+            }
+        }
+    }
+
+    private void writePlaceholderFile(File target, int cameraIndex) throws IOException {
+        try (FileOutputStream out = new FileOutputStream(target)) {
+            String content = "debug-placeholder camera=" + cameraIndex + " ts=" + buildTimestamp() + "\n";
+            out.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.getFD().sync();
+        }
+    }
+
+    private void copyFile(File source, File target) throws IOException {
+        try (FileInputStream in = new FileInputStream(source);
+             FileOutputStream out = new FileOutputStream(target)) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.getFD().sync();
+        }
+    }
+
+    private void requestStop() {
+        stopRequested = true;
+        stopRecordingNative();
+        Thread t = worker;
+        if (t != null) {
+            t.interrupt();
+        }
         stopSelf();
     }
 
-    private void cleanupOldSegments(File baseDir, int keepSegments) {
-        File[] files = baseDir.listFiles();
-        if (files == null) return;
-
-        // baseName => earliestModified
-        Map<String, Long> groupTime = new HashMap<>();
-        for (File f : files) {
-            String name = f.getName();
-            if (!name.endsWith(".mp4")) continue;
-            // yymmddhhmm_X.mp4
-            int underscore = name.indexOf('_');
-            if (underscore <= 0) continue;
-            String base = name.substring(0, underscore);
-            long t = f.lastModified();
-            groupTime.merge(base, t, Math::min);
-        }
-
-        List<Map.Entry<String, Long>> groups = new ArrayList<>(groupTime.entrySet());
-        groups.sort(Comparator.comparingLong(Map.Entry::getValue));
-
-        if (groups.size() <= keepSegments) return;
-        int deleteCount = groups.size() - keepSegments;
-
-        char[] suffixes = new char[]{'F', 'R', 'X', 'Y'};
-        for (int i = 0; i < deleteCount; i++) {
-            String base = groups.get(i).getKey();
-            for (char s : suffixes) {
-                File f = new File(baseDir, base + "_" + s + ".mp4");
-                //noinspection ResultOfMethodCallIgnored
-                f.delete();
+    private void stopRecordingNative() {
+        for (int slot : SLOT_IDS) {
+            try {
+                CameraProbe.stopMp4Record(slot);
+            } catch (Throwable ignored) {
+                // Keep shutting down even if one slot fails.
             }
         }
     }
 
-    private File getRecordsBaseDir() {
-        // Android 9: write directly into the Downloads folder.
-        File downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File dir = new File(downloads, "mg4_cam_records");
-        //noinspection ResultOfMethodCallIgnored
-        dir.mkdirs();
-        return dir;
+    private void finishRecording() {
+        worker = null;
+        setRecordingState(false);
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
     }
 
-    private String makeTimestampBase(long epochMs) {
-        java.util.Calendar cal = java.util.Calendar.getInstance();
-        cal.setTimeInMillis(epochMs);
-        int yy = cal.get(java.util.Calendar.YEAR) % 100;
-        int aa = cal.get(java.util.Calendar.MONTH) + 1;
-        int gg = cal.get(java.util.Calendar.DAY_OF_MONTH);
-        int ss = cal.get(java.util.Calendar.HOUR_OF_DAY);
-        int dd = cal.get(java.util.Calendar.MINUTE);
-        return String.format(Locale.US, "%02d%02d%02d%02d%02d", yy, aa, gg, ss, dd);
+    private void setRecordingState(boolean value) {
+        recording = value;
+        SharedPreferences prefs = UiPrefs.getPrefs(this);
+        prefs.edit().putBoolean(EXTRA_IS_RECORDING, value).apply();
+        if (!value) {
+            prefs.edit().putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, 0L).apply();
+        }
+        Intent state = new Intent(ACTION_STATE_CHANGED);
+        state.setPackage(getPackageName());
+        state.putExtra(EXTRA_IS_RECORDING, value);
+        state.putExtra(EXTRA_IS_ENABLED, UiPrefs.isRecordingButtonEnabled(prefs));
+        sendBroadcast(state);
+    }
+
+    private String buildTimestamp() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US);
+        return sdf.format(new Date());
     }
 
     private Notification buildNotification(String text) {
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
                 .setContentTitle(getString(R.string.app_name))
                 .setContentText(text)
                 .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW);
-        return b.build();
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build();
     }
 
     private void createNotificationChannel() {
@@ -238,7 +339,9 @@ public class RecordingService extends Service {
                 NotificationManager.IMPORTANCE_LOW
         );
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) nm.createNotificationChannel(ch);
+        if (nm != null) {
+            nm.createNotificationChannel(ch);
+        }
     }
 
     @Nullable
@@ -250,9 +353,12 @@ public class RecordingService extends Service {
     @Override
     public void onDestroy() {
         stopRequested = true;
-        if (worker != null) {
+        stopRecordingNative();
+        setRecordingState(false);
+        Thread t = worker;
+        if (t != null) {
             try {
-                worker.join(1000);
+                t.join(1000L);
             } catch (InterruptedException ignored) {
             }
         }

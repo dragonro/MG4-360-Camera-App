@@ -7,6 +7,7 @@
     <string name="settings_tab_dev">Dev</string>
     <string name="settings_section_driving">DRIVING</string>
     <string name="settings_section_display">DISPLAY</string>
+    <string name="settings_section_recording">RECORDING</string>
     <string name="settings_section_signal_camera">SIGNAL CAMERA</string>
     <string name="settings_overlay_on_signal">Show Signal Camera on turn signal</string>
     <string name="settings_overlay_rotate_to_driving_direction">Rotate side cameras to driving direction</string>
@@ -14,6 +15,8 @@
     <string name="show_safety_warning">Show safety warning</string>
     <string name="settings_section_open_source_credits">OPEN SOURCE CREDITS</string>
     <string name="settings_section_additional_credits">ADDITIONAL CREDITS</string>
+    <string name="settings_section_dualbytes_credits">DUALBYTES VERSION</string>
+    <string name="settings_dualbytes_credit_text">This is a DualBytes version of the app.</string>
     <string name="settings_section_dev">DEVELOPER SETTINGS</string>
     <string name="settings_dev_hint">Diagnostics and experimental controls will appear here.</string>
     <string name="settings_dev_unlocked">Developer settings unlocked</string>
@@ -32,6 +35,14 @@
     <string name="settings_section_latest_release">LATEST RELEASE</string>
     <string name="settings_section_changelog">CHANGELOG</string>
     <string name="settings_allow_beta_updates">Allow beta releases</string>
+    <string name="settings_enable_recording">Enable recording</string>
+    <string name="settings_recording_duration">Recording duration</string>
+    <string-array name="recording_duration_options">
+        <item>1 min</item>
+        <item>2 min</item>
+        <item>5 min</item>
+        <item>10 min</item>
+    </string-array>
     <string name="settings_dialog_close">Close</string>
     <string name="settings_version_unknown">Version ?</string>
     <string name="settings_version_format">Version %1$s</string>
@@ -53,7 +64,11 @@
     <string name="settings_record_loop">Recording loop (min)</string>
     <string name="settings_total_retention">Total retention (min)</string>
     <string name="settings_records_path">Recording path</string>
-    <string name="settings_export_usb">Export recordings to USB (TODO)</string>
+    <string name="settings_export_usb">Change recording folder</string>
+    <string name="settings_records_path_custom">Custom: %1$s</string>
+    <string name="settings_records_path_default">Default: %1$s</string>
+    <string name="settings_records_path_selection_failed">Could not open the folder picker</string>
+    <string name="settings_records_path_selected">Recording folder updated</string>
     <string name="settings_storage_permission_required">Storage permission required</string>
     <string name="settings_usb_export_todo">USB export TODO (disabled for now)</string>
     <string name="camera_front">Front</string>
@@ -69,6 +84,7 @@
     <string name="main_camera_label_rear">Rear camera (/dev/video17)</string>
     <string name="main_camera_label_unknown">/dev/video%1$d</string>
     <string name="main_button_settings">Settings</string>
+    <string name="main_button_recording">Recording</string>
     <string name="main_button_close_app">Close app</string>
     <string name="settings_tab_optik">Appearance</string>
     <string name="settings_section_tileview">Signal Camera</string>
@@ -92,7 +108,7 @@
     <string name="ota_dialog_mobile_warning_message">Downloading version %1$s may use the car\'s mobile data if the vehicle is not connected to Wi-Fi. Do you want to continue?</string>
     <string name="ota_dialog_download_started_message">The update for version %1$s is now being downloaded securely.</string>
     <string name="ota_dialog_download_failed_message">The update download could not be started (%1$s).</string>
-    <string name="ota_dialog_open_downloads_failed_message">The Downloads folder could not be opened (%1$s).</string>
+    <string name="ota_dialog_open_downloads_failed_message">The update APK could not be opened (%1$s).</string>
     <string name="ota_error_no_hash">Latest release has no SHA-256 asset for the APK</string>
     <string name="ota_error_invalid_hash">Latest release SHA-256 asset is invalid</string>
     <string name="ota_error_no_release">No release could be found</string>
@@ -114,7 +130,7 @@
     <string name="ota_action_close">Close</string>
     <string name="ota_action_download_anyway">Download anyway</string>
     <string name="ota_action_retry_download">Retry download</string>
-    <string name="ota_action_install_update">Open Downloads</string>
+    <string name="ota_action_install_update">Install Update</string>
     <string name="ota_toast_checking">Checking for updates…</string>
     <string name="ota_error_no_apk">Latest release has no APK asset</string>
     <string name="ota_update_hint">Use the update badge at the bottom to refresh or start the download.</string>

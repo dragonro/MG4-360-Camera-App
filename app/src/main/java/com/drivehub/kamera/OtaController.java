@@ -3,6 +3,7 @@ package com.drivehub.kamera;
 import android.app.Dialog;
 import android.app.DownloadManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
@@ -36,7 +37,6 @@ final class OtaController {
     private TextView releaseChannelView;
     private TextView changelogView;
     private TextView githubStatusView;
-    private TextView gitlabStatusView;
     private Switch betaSwitch;
     private boolean suppressBetaToggleCallback = false;
 
@@ -51,15 +51,13 @@ final class OtaController {
             TextView releaseTitle,
             TextView releaseChannel,
             TextView changelog,
-            TextView githubStatus,
-            TextView gitlabStatus
+            TextView githubStatus
     ) {
         lastCheckInfo = null;
         releaseTitleView = releaseTitle;
         releaseChannelView = releaseChannel;
         changelogView = changelog;
         githubStatusView = githubStatus;
-        gitlabStatusView = gitlabStatus;
         betaSwitch = allowBetaSwitch;
 
         SharedPreferences prefs = UiPrefs.getPrefs(activity);
@@ -138,7 +136,7 @@ final class OtaController {
                 activity,
                 activity.getString(R.string.ota_dialog_download_started_message, info.latestVersion),
                 () -> retryDownload(downloadId),
-                this::openDownloadsFolder
+                this::openVerifiedApk
         );
         progressDialog = handle.dialog;
         progressDialog.setOnDismissListener(d -> stopProgressWatcher());
@@ -290,17 +288,32 @@ final class OtaController {
     // Install
     // -------------------------------------------------------------------------
 
-    private void openDownloadsFolder() {
+    private void openVerifiedApk() {
         try {
+            Uri apkUri = resolveDownloadedApkUri(verificationDownloadId);
+            if (apkUri == null) {
+                throw new IllegalStateException("Downloaded APK not found");
+            }
+
+            Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+            installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            installIntent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true);
+            installIntent.putExtra(Intent.EXTRA_RETURN_RESULT, false);
+
+            PackageManager pm = activity.getPackageManager();
+            if (pm != null && installIntent.resolveActivity(pm) != null) {
+                activity.startActivity(installIntent);
+                return;
+            }
             Intent downloadsIntent = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
             downloadsIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-            android.content.pm.PackageManager pm = activity.getPackageManager();
             if (pm != null && downloadsIntent.resolveActivity(pm) != null) {
                 activity.startActivity(downloadsIntent);
                 return;
             }
-            throw new IllegalStateException("Downloads app not available");
+            throw new IllegalStateException("No installer or Downloads app available");
         } catch (Exception e) {
             OtaDialogs.showMessageDialog(
                     activity,
@@ -470,11 +483,7 @@ final class OtaController {
         OtaUpdateManager.SourceStatus githubStatus = checking
                 ? null
                 : (info != null ? info.githubStatus : null);
-        OtaUpdateManager.SourceStatus gitlabStatus = checking
-                ? null
-                : (info != null ? info.gitlabStatus : null);
         renderSourceStatus(githubStatusView, githubStatus, checking);
-        renderSourceStatus(gitlabStatusView, gitlabStatus, checking);
     }
 
     private void renderSourceStatus(TextView view, OtaUpdateManager.SourceStatus status, boolean checking) {

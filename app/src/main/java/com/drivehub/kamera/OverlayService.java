@@ -523,16 +523,26 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         }
         applyPreviewTransform();
         testVideoPlayer.stop();
-        CameraProbe.stopPreview();
+        try {
+            CameraProbe.stopPreview();
+        } catch (Throwable ignored) {
+        }
         if (TestVideoSources.shouldUse(this)
                 && testVideoPlayer.start(this, cameraIndex, textureSurface)) {
             return;
         }
-        CameraProbe.startPreview(cameraIndex, textureSurface);
+        try {
+            CameraProbe.startPreview(cameraIndex, textureSurface);
+        } catch (Throwable t) {
+            // Emulators and unsupported ABIs can fail to load the native camera probe.
+        }
     }
 
     private void stopPreview() {
         testVideoPlayer.stop();
-        CameraProbe.stopPreview();
+        try {
+            CameraProbe.stopPreview();
+        } catch (Throwable ignored) {
+        }
     }
 }
