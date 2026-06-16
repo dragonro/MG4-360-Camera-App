@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Author: AdrianBega/DualBytes
+# Updated: AdrianBega/DualBytes
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -61,10 +62,16 @@ install_debug() {
   cd "${ROOT_DIR}"
   ensure_emulator_running
   ./gradlew app:installDebug
+  if [[ -f "${ROOT_DIR}/app/src/debug/assets/front_camera_sample_1.mp4" ]]; then
+    "${TOOLS_DIR}/install_debug_test_videos.sh"
+  fi
 }
 
 run_debug() {
   ensure_emulator_running
+  if [[ -f "${ROOT_DIR}/app/src/debug/assets/front_camera_sample_1.mp4" ]]; then
+    "${TOOLS_DIR}/install_debug_test_videos.sh"
+  fi
   "${ADB_BIN}" shell am start -n com.drivehub.dualbytes.kamera/com.drivehub.kamera.MainActivity
 }
 
