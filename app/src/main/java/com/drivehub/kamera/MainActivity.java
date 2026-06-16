@@ -47,6 +47,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
     private ImageButton btnRecording;
+    private ImageButton btnCameraPopup;
     private TextView tvRecordingTimer;
     private int currentVideoIndex = 15;
     private boolean previewRunning = false;
@@ -130,9 +131,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         btnSettings.setOnClickListener(v -> showSettingsDialog());
 
         btnRecording = findViewById(R.id.btnRecording);
+        btnCameraPopup = findViewById(R.id.btnCameraPopup);
         tvRecordingTimer = findViewById(R.id.tvRecordingTimer);
         if (btnRecording != null) {
             btnRecording.setOnClickListener(v -> toggleRecording());
+        }
+        if (btnCameraPopup != null) {
+            btnCameraPopup.setOnClickListener(v -> {
+                // Popup camera behavior will be added behind this control.
+            });
         }
 
         ImageButton btnClose = findViewById(R.id.btnClose);
@@ -140,6 +147,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         appearanceController.applyMainUiIconColors();
         applyWarningVisibility();
+        applyCameraPopupVisibility();
         updateRecordingButton();
         updateRecordingTimer();
 
@@ -198,6 +206,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
         OverlayService.hideOverlay(this);
         applyWarningVisibility();
+        applyCameraPopupVisibility();
         updateRecordingButton();
         updateRecordingTimer();
     }
@@ -268,6 +277,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         swEnableCameraPopup.setChecked(UiPrefs.isCameraPopupEnabled(prefs));
         swEnableCameraPopup.setOnCheckedChangeListener((btn, checked) -> {
             prefs.edit().putBoolean(UiPrefs.KEY_ENABLE_CAMERA_POPUP, checked).apply();
+            applyCameraPopupVisibility();
         });
         swEnableRecording.setChecked(UiPrefs.isRecordingButtonEnabled(prefs));
         swEnableRecording.setOnCheckedChangeListener((btn, checked) -> {
@@ -573,6 +583,12 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         View banner = findViewById(R.id.warningBanner);
         if (bg != null) bg.setVisibility(visibility);
         if (banner != null) banner.setVisibility(visibility);
+    }
+
+    private void applyCameraPopupVisibility() {
+        if (btnCameraPopup == null) return;
+        boolean show = UiPrefs.isCameraPopupEnabled(UiPrefs.getPrefs(this));
+        btnCameraPopup.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     // -------------------------------------------------------------------------

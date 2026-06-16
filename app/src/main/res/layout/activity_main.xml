@@ -130,4 +130,20 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <ImageButton
+        android:id="@+id/btnCameraPopup"
+        android:layout_width="148dp"
+        android:layout_height="148dp"
+        android:layout_marginEnd="2dp"
+        android:layout_marginTop="2dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/main_button_camera_popup"
+        android:padding="34dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_popup"
+        android:tint="#FFFFFF"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

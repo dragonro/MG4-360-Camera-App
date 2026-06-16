@@ -49,6 +49,7 @@
     <string name="settings_version_format">Version %1$s</string>
     <string name="settings_version_beta">BETA</string>
     <string name="settings_back">Back</string>
+    <string name="main_button_camera_popup">Camera popup</string>
     <string name="settings_record_enabled">Recording enabled (start automatically on boot)</string>
     <string name="settings_kill_oem_on_reverse">Disable OEM 360 camera application</string>
     <string name="settings_overlay_hide_delay">Overlay hide delay</string>
