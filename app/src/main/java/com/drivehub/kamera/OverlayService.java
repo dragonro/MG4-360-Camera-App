@@ -15,7 +15,10 @@ import android.graphics.SurfaceTexture;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -28,6 +31,8 @@ import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -72,6 +77,17 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private boolean popupMode;
     private boolean renderedPopupMode;
     private ImageButton recordingButton;
+    private TextView recordingTimer;
+    private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
+    private final Runnable recordingTimerTick = new Runnable() {
+        @Override
+        public void run() {
+            updateRecordingTimer();
+            if (RecordingService.isRecording(OverlayService.this) && recordingTimer != null) {
+                recordingTimerHandler.postDelayed(this, 1000L);
+            }
+        }
+    };
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
     private final SyntheticTestPreview syntheticTestPreview = new SyntheticTestPreview();
 
@@ -179,6 +195,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             }
             applyOverlayCornerRadius();
             updateOverlayPresentation(false);
+            syncRecordingUi();
             // If the overlay is already open and only the camera index changed, switch the feed.
             if (textureSurface != null && textureSurface.isValid()) {
                 startPreview();
@@ -247,6 +264,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             stopSelf();
             return;
         }
+        syncRecordingUi();
         applyPreviewTransform();
         if (popupMode) {
             sendBroadcast(new Intent(ACTION_POPUP_READY));
@@ -424,15 +442,25 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         }
 
         if (popupMode) {
-            ImageButton btnRecording = new ImageButton(this);
-            recordingButton = btnRecording;
-            FrameLayout.LayoutParams recordParams = new FrameLayout.LayoutParams(
-                    scalePopupButtonSize(56),
-                    scalePopupButtonSize(56),
+            LinearLayout recordingControls = new LinearLayout(this);
+            recordingControls.setOrientation(LinearLayout.VERTICAL);
+            recordingControls.setGravity(Gravity.CENTER_HORIZONTAL);
+            FrameLayout.LayoutParams controlsParams = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
                     Gravity.BOTTOM | Gravity.END
             );
-            recordParams.rightMargin = 0;
-            recordParams.bottomMargin = 0;
+            controlsParams.rightMargin = 0;
+            controlsParams.bottomMargin = 0;
+            recordingControls.setLayoutParams(controlsParams);
+
+            ImageButton btnRecording = new ImageButton(this);
+            recordingButton = btnRecording;
+            LinearLayout.LayoutParams recordParams = new LinearLayout.LayoutParams(
+                    scalePopupButtonSize(56),
+                    scalePopupButtonSize(56)
+            );
+            recordParams.gravity = Gravity.CENTER_HORIZONTAL;
             btnRecording.setLayoutParams(recordParams);
             btnRecording.setBackground(null);
             btnRecording.setImageResource(R.drawable.ic_record_circle);
@@ -451,7 +479,24 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 }
                 syncRecordingUi();
             });
-            card.addView(btnRecording);
+            recordingControls.addView(btnRecording);
+
+            TextView timer = new TextView(this);
+            recordingTimer = timer;
+            LinearLayout.LayoutParams timerParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            timerParams.gravity = Gravity.CENTER_HORIZONTAL;
+            timerParams.topMargin = -dpToPx(7);
+            timer.setLayoutParams(timerParams);
+            timer.setIncludeFontPadding(false);
+            timer.setTextColor(0xFFFFFFFF);
+            timer.setTextSize(13f);
+            timer.setVisibility(View.GONE);
+            timer.setText("");
+            recordingControls.addView(timer);
+            card.addView(recordingControls);
 
             addResizeHandle(card, Gravity.BOTTOM | Gravity.END, false);
             addResizeHandle(card, Gravity.BOTTOM | Gravity.START, true);
@@ -466,11 +511,49 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
     private void syncRecordingUi() {
         ImageButton button = recordingButton;
-        if (button == null) return;
         boolean recording = RecordingService.isRecording(this);
-        button.setImageTintList(android.content.res.ColorStateList.valueOf(
-                recording ? 0xFFFF3B30 : 0xFFFFFFFF
-        ));
+        if (button != null) {
+            button.setImageTintList(android.content.res.ColorStateList.valueOf(
+                    recording ? 0xFFFF3B30 : 0xFFFFFFFF
+            ));
+        }
+        updateRecordingTimer();
+        if (recordingTimer == null) {
+            recordingTimerHandler.removeCallbacks(recordingTimerTick);
+            return;
+        }
+        if (recording) {
+            recordingTimer.setVisibility(View.VISIBLE);
+            recordingTimerHandler.removeCallbacks(recordingTimerTick);
+            recordingTimerHandler.post(recordingTimerTick);
+        } else {
+            recordingTimerHandler.removeCallbacks(recordingTimerTick);
+            recordingTimer.setVisibility(View.GONE);
+            recordingTimer.setText("");
+        }
+    }
+
+    private void updateRecordingTimer() {
+        TextView timer = recordingTimer;
+        if (timer == null) return;
+        boolean recording = RecordingService.isRecording(this);
+        if (!recording) {
+            timer.setVisibility(View.GONE);
+            timer.setText("");
+            return;
+        }
+        long startedAt = UiPrefs.getRecordingStartedAtMs(UiPrefs.getPrefs(this));
+        if (startedAt <= 0L) {
+            timer.setVisibility(View.GONE);
+            timer.setText("");
+            return;
+        }
+        long elapsedMs = Math.max(0L, SystemClock.elapsedRealtime() - startedAt);
+        long totalSeconds = elapsedMs / 1000L;
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+        timer.setText(String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds));
+        timer.setVisibility(View.VISIBLE);
     }
 
     private void markMainVisible() {
@@ -779,6 +862,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
 
     @Override
     public void onDestroy() {
+        recordingTimerHandler.removeCallbacks(recordingTimerTick);
         super.onDestroy();
         saveOverlayLayoutPrefs(true);
         sPopupVisible = false;
