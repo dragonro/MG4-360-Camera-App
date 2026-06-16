@@ -137,18 +137,18 @@ increment_patch_version() {
     exit 1
   fi
 
-  IFS='.' read -r major minor patch build <<< "${version}"
-  if [[ -z "${major}" || -z "${minor}" || -z "${patch}" || -z "${build}" ]]; then
-    echo "Version format must be 0.0.0.x" >&2
+  IFS='.' read -r major minor patch build extra <<< "${version}"
+  if [[ -n "${extra:-}" || -z "${major}" || -z "${minor}" || -z "${patch}" || -z "${build}" ]]; then
+    echo "Version format must be 0.x.x.x" >&2
     exit 1
   fi
 
-  if [[ "${major}" != "0" || "${minor}" != "0" || "${patch}" != "0" ]]; then
-    echo "Increment option expects version format 0.0.0.x, found ${version}" >&2
+  if [[ "${major}" != "0" ]]; then
+    echo "Increment option expects version format 0.x.x.x, found ${version}" >&2
     exit 1
   fi
 
-  new_version="0.0.0.$((build + 1))"
+  new_version="${major}.${minor}.${patch}.$((build + 1))"
   new_version_code="$((version_code + 1))"
 
   python3 - <<'PY' "${APP_GRADLE}" "${new_version_code}" "${new_version}"
@@ -178,7 +178,7 @@ show_menu() {
 4. Build, install and run debug in the emulator
 5. Build release
 6. Promote release on GitHub
-9. Increment 0.0.0.x
+9. Increment patch version
 EOF
 }
 
