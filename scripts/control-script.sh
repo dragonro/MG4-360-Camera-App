@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Author: AdrianBega/DualBytes
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -65,6 +66,12 @@ install_debug() {
 run_debug() {
   ensure_emulator_running
   "${ADB_BIN}" shell am start -n com.drivehub.dualbytes.kamera/com.drivehub.kamera.MainActivity
+}
+
+build_install_run_debug() {
+  build_debug
+  install_debug
+  run_debug
 }
 
 build_release() {
@@ -168,8 +175,9 @@ show_menu() {
 1. Build debug app
 2. Install debug in the emulator
 3. Run debug in the emulator
-4. Build release
-5. Promote release on GitHub
+4. Build, install and run debug in the emulator
+5. Build release
+6. Promote release on GitHub
 9. Increment 0.0.0.x
 EOF
 }
@@ -182,8 +190,9 @@ main() {
       1) build_debug ;;
       2) install_debug ;;
       3) run_debug ;;
-      4) build_release ;;
-      5) promote_release ;;
+      4) build_install_run_debug ;;
+      5) build_release ;;
+      6) promote_release ;;
       9) increment_patch_version ;;
       *) echo "Invalid option: ${choice}" ;;
     esac
