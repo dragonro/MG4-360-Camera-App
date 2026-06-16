@@ -13,6 +13,7 @@ if [[ ! -d "${ANDROID_SDK_DIR}" ]]; then
 fi
 EMULATOR_BIN="${ANDROID_SDK_DIR}/emulator/emulator"
 ADB_BIN="${ANDROID_SDK_DIR}/platform-tools/adb"
+GITHUB_REPO=""
 
 ensure_emulator_running() {
   if "${ADB_BIN}" devices | awk 'NR > 1 && $2 == "device" { found = 1 } END { exit found ? 0 : 1 }'; then
@@ -51,6 +52,45 @@ current_version() {
 
 current_version_code() {
   sed -n 's/^[[:space:]]*versionCode \([0-9][0-9]*\).*/\1/p' "${APP_GRADLE}" | head -n 1
+}
+
+github_repo() {
+  if [[ -n "${GITHUB_REPO}" ]]; then
+    printf '%s\n' "${GITHUB_REPO}"
+    return 0
+  fi
+
+  local remote_url owner_repo
+  remote_url="$(git -C "${ROOT_DIR}" remote get-url origin 2>/dev/null || true)"
+  if [[ -z "${remote_url}" ]]; then
+    echo "Could not determine origin remote URL" >&2
+    exit 1
+  fi
+
+  case "${remote_url}" in
+    git@github.com:*)
+      owner_repo="${remote_url#git@github.com:}"
+      ;;
+    https://github.com/*)
+      owner_repo="${remote_url#https://github.com/}"
+      ;;
+    http://github.com/*)
+      owner_repo="${remote_url#http://github.com/}"
+      ;;
+    *)
+      echo "Unsupported origin remote URL: ${remote_url}" >&2
+      exit 1
+      ;;
+  esac
+
+  owner_repo="${owner_repo%.git}"
+  if [[ -z "${owner_repo}" || "${owner_repo}" != */* ]]; then
+    echo "Could not parse GitHub repository from origin remote: ${remote_url}" >&2
+    exit 1
+  fi
+
+  GITHUB_REPO="${owner_repo}"
+  printf '%s\n' "${GITHUB_REPO}"
 }
 
 build_debug() {
@@ -128,12 +168,27 @@ promote_release() {
   local target_commit
   target_commit="$(git rev-parse HEAD)"
 
-  gh release create "v${version}" \
-    "${signed_apk}" \
-    "${sha_file}" \
-    --title "v${version}" \
-    --notes "Signed release for MG4-360-Camera-App ${version}.\n\nAssets:\n- MG4-360-Camera-App-v${version}-release.apk\n- MG4-360-Camera-App-v${version}-release.apk.sha256" \
-    --target "${target_commit}"
+  local release_tag="v${version}"
+  local release_notes="Signed release for MG4-360-Camera-App ${version}.\n\nAssets:\n- MG4-360-Camera-App-v${version}-release.apk\n- MG4-360-Camera-App-v${version}-release.apk.sha256"
+  local repo
+  repo="$(github_repo)"
+
+  if gh release view "${release_tag}" --repo "${repo}" >/dev/null 2>&1; then
+    gh release edit "${release_tag}" \
+      --repo "${repo}" \
+      --title "${release_tag}" \
+      --notes "${release_notes}" \
+      --target "${target_commit}"
+    gh release upload "${release_tag}" "${signed_apk}" "${sha_file}" --clobber --repo "${repo}"
+  else
+    gh release create "${release_tag}" \
+      "${signed_apk}" \
+      "${sha_file}" \
+      --repo "${repo}" \
+      --title "${release_tag}" \
+      --notes "${release_notes}" \
+      --target "${target_commit}"
+  fi
 }
 
 increment_patch_version() {
@@ -210,4 +265,6 @@ main() {
   done
 }
 
-main
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main
+fi
