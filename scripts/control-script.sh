@@ -89,7 +89,10 @@ promote_release() {
     exit 1
   fi
 
-  local unsigned_apk="${RELEASE_DIR}/app-release-unsigned.apk"
+  local input_apk="${RELEASE_DIR}/app-release.apk"
+  if [[ ! -f "${input_apk}" ]]; then
+    input_apk="${RELEASE_DIR}/app-release-unsigned.apk"
+  fi
   local signed_apk="${RELEASE_DIR}/MG4-360-Camera-App-v${version}-release.apk"
   local sha_file="${signed_apk}.sha256"
   local apksigner_jar
@@ -102,8 +105,8 @@ promote_release() {
     exit 1
   fi
 
-  if [[ ! -f "${unsigned_apk}" ]]; then
-    echo "Missing unsigned release APK: ${unsigned_apk}" >&2
+  if [[ ! -f "${input_apk}" ]]; then
+    echo "Missing release APK: ${input_apk}" >&2
     exit 1
   fi
 
@@ -111,7 +114,7 @@ promote_release() {
     --key "${TOOLS_DIR}/platform.pk8" \
     --cert "${TOOLS_DIR}/platform.x509.pem" \
     --out "${signed_apk}" \
-    "${unsigned_apk}"
+    "${input_apk}"
 
   shasum -a 256 "${signed_apk}" | awk '{print $1}' > "${sha_file}"
 
