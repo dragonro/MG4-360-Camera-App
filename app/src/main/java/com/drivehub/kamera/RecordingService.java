@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.SystemClock;
@@ -104,14 +105,18 @@ public class RecordingService extends Service {
         stopRequested = false;
         prefs.edit().putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, SystemClock.elapsedRealtime()).apply();
         setRecordingState(true);
-        startForeground(
-                NOTIF_ID,
-                buildNotification(getString(R.string.notification_recording_starting)),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-        );
+        startRecordingForeground(buildNotification(getString(R.string.notification_recording_starting)));
         worker = new Thread(this::recordOnce, "RecordingServiceWorker");
         worker.start();
         return START_STICKY;
+    }
+
+    private void startRecordingForeground(Notification notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTIF_ID, notification);
+        }
     }
 
     private void recordOnce() {
