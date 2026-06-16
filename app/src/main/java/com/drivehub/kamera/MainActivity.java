@@ -251,6 +251,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Switch swRotateToDrivingDirection =
                 dialog.findViewById(R.id.switchOverlayRotateToDrivingDirection);
         Switch swSafetyWarning = dialog.findViewById(R.id.switchSafetyWarning);
+        Switch swEnableCameraPopup = dialog.findViewById(R.id.switchEnableCameraPopup);
         Switch swEnableRecording = dialog.findViewById(R.id.switchEnableRecording);
         TextView tvRecordsPathValue = dialog.findViewById(R.id.tvRecordsPathValue);
         Button btnExportUsb = dialog.findViewById(R.id.btnExportUsb);
@@ -263,6 +264,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         swSafetyWarning.setOnCheckedChangeListener((btn, checked) -> {
             avmPrefs.edit().putBoolean(KEY_SAFETY_WARNING, checked).apply();
             applyWarningVisibility();
+        });
+        swEnableCameraPopup.setChecked(UiPrefs.isCameraPopupEnabled(prefs));
+        swEnableCameraPopup.setOnCheckedChangeListener((btn, checked) -> {
+            prefs.edit().putBoolean(UiPrefs.KEY_ENABLE_CAMERA_POPUP, checked).apply();
         });
         swEnableRecording.setChecked(UiPrefs.isRecordingButtonEnabled(prefs));
         swEnableRecording.setOnCheckedChangeListener((btn, checked) -> {
@@ -345,6 +350,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 swOverlay,
                 swRotateToDrivingDirection,
                 swSafetyWarning,
+                swEnableCameraPopup,
                 swAllowBetaUpdates,
                 dialogClose,
                 seekOverlayHideDelay,

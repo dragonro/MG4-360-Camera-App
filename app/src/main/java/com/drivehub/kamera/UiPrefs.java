@@ -12,6 +12,7 @@ final class UiPrefs {
     static final String KEY_ALLOW_BETA_UPDATES = "allowBetaUpdates";
     static final String KEY_OVERLAY_ON_SIGNAL = "overlayOnSignal";
     static final String KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION = "overlayRotateToDrivingDirection";
+    static final String KEY_ENABLE_CAMERA_POPUP = "enableCameraPopup";
     static final String KEY_OVERLAY_HIDE_DELAY_MS = "overlayHideDelayMs";
     static final String KEY_OVERLAY_MIN_SHOW_MS = "overlayMinShowMs";
     static final String KEY_ENABLE_RECORDING_BUTTON = "enableRecordingButton";
@@ -62,6 +63,10 @@ final class UiPrefs {
 
     static boolean isOverlayRotationToDrivingDirectionEnabled(SharedPreferences prefs) {
         return prefs.getBoolean(KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION, false);
+    }
+
+    static boolean isCameraPopupEnabled(SharedPreferences prefs) {
+        return prefs.getBoolean(KEY_ENABLE_CAMERA_POPUP, false);
     }
 
     static int getDevDefaultPollMs(SharedPreferences prefs) {
