@@ -50,7 +50,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private static final int POPUP_BUTTON_SIZE_SCALE_PERCENT = 120;
     private static final int POPUP_ICON_SIZE_SCALE_PERCENT = 130;
     private static final int POPUP_RESIZE_HANDLE_SIZE_DP = 18;
-    private static final float POPUP_MIN_SCREEN_FRACTION = 0.10f;
+    private static final float POPUP_MIN_SCREEN_FRACTION = 0.15f;
     private static final float POPUP_MAX_SCREEN_FRACTION = 0.80f;
 
     private static final String PREFS_NAME = "overlay_prefs";
@@ -58,6 +58,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private static final String KEY_LAST_Y = "last_y";
     private static final String KEY_OVERLAY_W = "overlay_w";
     private static final String KEY_OVERLAY_H = "overlay_h";
+    private static volatile boolean sPopupVisible = false;
 
     private WindowManager windowManager;
     private View overlayView;
@@ -68,6 +69,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private boolean popupMode;
     private ImageButton recordingButton;
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
+    private final SyntheticTestPreview syntheticTestPreview = new SyntheticTestPreview();
 
     /** Current window size, updated via pinch gestures. */
     private int overlayWidthPx = DEFAULT_OVERLAY_WIDTH_PX;
@@ -115,6 +117,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         context.startForegroundService(i);
     }
 
+    public static boolean isPopupVisible() {
+        return sPopupVisible;
+    }
+
     public static void hideOverlay(Context context) {
         Intent i = new Intent(context, OverlayService.class);
         context.stopService(i);
@@ -139,6 +145,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             cameraIndex = intent.getIntExtra(EXTRA_CAMERA_INDEX, 15);
         }
         popupMode = intent != null && intent.getBooleanExtra(EXTRA_POPUP_MODE, false);
+        sPopupVisible = popupMode;
         // Run as a foreground service so the overlay survives while the app is in the background.
         Notification notif = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
@@ -670,6 +677,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     @Override
     public void onDestroy() {
         super.onDestroy();
+        sPopupVisible = false;
         if (uiPrefs != null) {
             uiPrefs.unregisterOnSharedPreferenceChangeListener(prefListener);
         }
@@ -741,10 +749,11 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             return;
         }
         applyPreviewTransform();
-        PreviewSourceController.start(this, cameraIndex, textureSurface, testVideoPlayer);
+        PreviewSourceController.start(this, cameraIndex, textureSurface, testVideoPlayer, syntheticTestPreview);
     }
 
     private void stopPreview() {
         PreviewSourceController.stop(testVideoPlayer);
+        syntheticTestPreview.stop();
     }
 }

@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private float downX = 0f;
     private float downY = 0f;
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
+    private final SyntheticTestPreview syntheticTestPreview = new SyntheticTestPreview();
 
     private static volatile boolean sMainVisible = false;
     private static volatile boolean sSettingsDialogOpen = false;
@@ -620,6 +621,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void startPopupOverlay() {
+        if (OverlayService.isPopupVisible()) {
+            OverlayService.hideOverlay(this);
+            return;
+        }
         if (!Settings.canDrawOverlays(this)) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName()));
@@ -657,7 +662,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 this,
                 currentVideoIndex,
                 surfaceHolder.getSurface(),
-                testVideoPlayer
+                testVideoPlayer,
+                syntheticTestPreview
         );
         testPreviewRunning = ok && TestVideoSources.shouldUse(this);
         previewRunning = ok && !testPreviewRunning;
@@ -670,6 +676,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private void stopPreview() {
         PreviewSourceController.stop(testVideoPlayer);
+        syntheticTestPreview.stop();
         testPreviewRunning = false;
         previewRunning = false;
         if (tvStatus != null) tvStatus.setText(R.string.main_preview_stopped);

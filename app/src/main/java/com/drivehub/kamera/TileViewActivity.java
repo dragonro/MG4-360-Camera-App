@@ -20,6 +20,7 @@ public class TileViewActivity extends AppCompatActivity {
     private final SurfaceHolder[]          holders   = new SurfaceHolder[4];
     private final SurfaceHolder.Callback[] callbacks = new SurfaceHolder.Callback[4];
     private final TestVideoPlayer[] testVideoPlayers = new TestVideoPlayer[4];
+    private final SyntheticTestPreview[] syntheticTestPreviews = new SyntheticTestPreview[4];
     private android.content.SharedPreferences prefs;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener =
             (sharedPreferences, key) -> {
@@ -43,6 +44,7 @@ public class TileViewActivity extends AppCompatActivity {
             SurfaceHolder holder = sv.getHolder();
             holders[i] = holder;
             testVideoPlayers[i] = new TestVideoPlayer();
+            syntheticTestPreviews[i] = new SyntheticTestPreview();
 
             callbacks[i] = new SurfaceHolder.Callback() {
                 @Override
@@ -51,7 +53,8 @@ public class TileViewActivity extends AppCompatActivity {
                             TileViewActivity.this,
                             cameraIndex,
                             h.getSurface(),
-                            testVideoPlayers[slot]
+                            testVideoPlayers[slot],
+                            syntheticTestPreviews[slot]
                     );
                 }
 
@@ -61,6 +64,7 @@ public class TileViewActivity extends AppCompatActivity {
                 @Override
                 public void surfaceDestroyed(SurfaceHolder h) {
                     testVideoPlayers[slot].stop();
+                    syntheticTestPreviews[slot].stop();
                 }
             };
             holder.addCallback(callbacks[i]);
@@ -105,6 +109,11 @@ public class TileViewActivity extends AppCompatActivity {
         for (TestVideoPlayer player : testVideoPlayers) {
             if (player != null) {
                 player.stop();
+            }
+        }
+        for (SyntheticTestPreview preview : syntheticTestPreviews) {
+            if (preview != null) {
+                preview.stop();
             }
         }
         PreviewSourceController.stopNative();

@@ -15,6 +15,16 @@ final class PreviewSourceController {
     }
 
     static boolean start(Context context, int cameraIndex, Surface surface, TestVideoPlayer testVideoPlayer) {
+        return start(context, cameraIndex, surface, testVideoPlayer, null);
+    }
+
+    static boolean start(
+            Context context,
+            int cameraIndex,
+            Surface surface,
+            TestVideoPlayer testVideoPlayer,
+            SyntheticTestPreview syntheticTestPreview
+    ) {
         if (context == null || surface == null || !surface.isValid()) {
             return false;
         }
@@ -22,6 +32,16 @@ final class PreviewSourceController {
             if (testVideoPlayer.start(context, cameraIndex, surface)) {
                 return true;
             }
+        }
+        try {
+            if (CameraProbe.startPreview(cameraIndex, surface)) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // Fall through to the synthetic preview in debug/emulator cases.
+        }
+        if (BuildConfig.DEBUG && syntheticTestPreview != null) {
+            return syntheticTestPreview.start(context, cameraIndex, surface);
         }
         try {
             return CameraProbe.startPreview(cameraIndex, surface);
