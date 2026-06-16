@@ -1,3 +1,4 @@
+// Updated: AdrianBega/DualBytes
 package com.drivehub.kamera;
 
 import android.app.Notification;
@@ -48,12 +49,14 @@ public class RecordingService extends Service {
     private volatile boolean recording;
 
     public static void startRecording(Context context) {
+        publishRecordingState(context, true);
         Intent i = new Intent(context, RecordingService.class);
         i.setAction(ACTION_START);
         context.startForegroundService(i);
     }
 
     public static void stopRecording(Context context) {
+        publishRecordingState(context, false);
         Intent i = new Intent(context, RecordingService.class);
         i.setAction(ACTION_STOP);
         context.startService(i);
@@ -103,7 +106,6 @@ public class RecordingService extends Service {
         }
 
         stopRequested = false;
-        prefs.edit().putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, SystemClock.elapsedRealtime()).apply();
         setRecordingState(true);
         startRecordingForeground(buildNotification(getString(R.string.notification_recording_starting)));
         worker = new Thread(this::recordOnce, "RecordingServiceWorker");
@@ -305,16 +307,29 @@ public class RecordingService extends Service {
 
     private void setRecordingState(boolean value) {
         recording = value;
-        SharedPreferences prefs = UiPrefs.getPrefs(this);
-        prefs.edit().putBoolean(EXTRA_IS_RECORDING, value).apply();
-        if (!value) {
-            prefs.edit().putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, 0L).apply();
+        publishRecordingState(this, value);
+    }
+
+    private static void publishRecordingState(Context context, boolean value) {
+        if (context == null) return;
+        SharedPreferences prefs = UiPrefs.getPrefs(context);
+        SharedPreferences.Editor editor = prefs.edit()
+                .putBoolean(EXTRA_IS_RECORDING, value);
+        if (value) {
+            long existingStartedAt = UiPrefs.getRecordingStartedAtMs(prefs);
+            if (existingStartedAt <= 0L) {
+                editor.putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, SystemClock.elapsedRealtime());
+            }
+        } else {
+            editor.putLong(UiPrefs.KEY_RECORDING_STARTED_AT_MS, 0L);
         }
+        editor.apply();
+
         Intent state = new Intent(ACTION_STATE_CHANGED);
-        state.setPackage(getPackageName());
+        state.setPackage(context.getPackageName());
         state.putExtra(EXTRA_IS_RECORDING, value);
         state.putExtra(EXTRA_IS_ENABLED, UiPrefs.isRecordingButtonEnabled(prefs));
-        sendBroadcast(state);
+        context.sendBroadcast(state);
     }
 
     private String buildTimestamp() {
