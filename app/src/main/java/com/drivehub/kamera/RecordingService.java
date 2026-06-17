@@ -111,6 +111,8 @@ public class RecordingService extends Service {
             return START_STICKY;
         }
 
+        startRecordingForeground(buildNotification(getString(R.string.notification_recording_starting)));
+
         SharedPreferences prefs = UiPrefs.getPrefs(this);
         if (!UiPrefs.isRecordingButtonEnabled(prefs)) {
             setRecordingState(false);
@@ -126,7 +128,6 @@ public class RecordingService extends Service {
 
         stopRequested = false;
         setRecordingState(true);
-        startRecordingForeground(buildNotification(getString(R.string.notification_recording_starting)));
         worker = new Thread(this::recordOnce, "RecordingServiceWorker");
         worker.start();
         return START_STICKY;

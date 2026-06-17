@@ -31,8 +31,10 @@ import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -51,13 +53,14 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     private static final int NOTIF_ID = 99;
     private static final String TAG = "OverlayService";
 
-    /** Default overlay size in px; the aspect ratio is preserved. */
+    /** Fallback overlay size in px when screen metrics are unavailable; the aspect ratio is preserved. */
     private static final int DEFAULT_OVERLAY_WIDTH_PX = 1000;
     private static final int DEFAULT_OVERLAY_HEIGHT_PX = 480;
     private static final float POPUP_CORNER_RADIUS_DP = 2f;
-    private static final int POPUP_BUTTON_SIZE_SCALE_PERCENT = 120;
+    private static final int POPUP_BUTTON_SIZE_SCALE_PERCENT = 160;
     private static final int POPUP_ICON_SIZE_SCALE_PERCENT = 130;
-    private static final int POPUP_RESIZE_HANDLE_SIZE_DP = 18;
+    private static final int POPUP_RESIZE_HANDLE_SIZE_DP = 36;
+    private static final float POPUP_DEFAULT_SCREEN_FRACTION = 0.30f;
     private static final float POPUP_MIN_SCREEN_FRACTION = 0.15f;
     private static final float POPUP_MAX_SCREEN_FRACTION = 0.80f;
 
@@ -132,6 +135,14 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             syncRecordingUi();
         }
     };
+    private final BroadcastReceiver recordingWarningReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+            showRecordingWarning(intent.getStringExtra(RecordingService.EXTRA_WARNING_CODE));
+            syncRecordingUi();
+        }
+    };
     public static void showOverlay(Context context, int cameraIndex) {
         Intent i = new Intent(context, OverlayService.class);
         i.putExtra(EXTRA_CAMERA_INDEX, cameraIndex);
@@ -164,6 +175,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         uiPrefs.registerOnSharedPreferenceChangeListener(prefListener);
         try {
             registerReceiver(recordingStateReceiver, new IntentFilter(RecordingService.ACTION_STATE_CHANGED));
+        } catch (Throwable ignored) {
+        }
+        try {
+            registerReceiver(recordingWarningReceiver, new IntentFilter(RecordingService.ACTION_RECORDING_WARNING));
         } catch (Throwable ignored) {
         }
         createNotificationChannel();
@@ -350,18 +365,35 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         try {
             android.content.SharedPreferences sp =
                     getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            int fallbackW = sp.getInt(KEY_OVERLAY_W, DEFAULT_OVERLAY_WIDTH_PX);
-            int fallbackH = sp.getInt(KEY_OVERLAY_H, DEFAULT_OVERLAY_HEIGHT_PX);
-            int w = sp.getInt(overlayWidthPrefKey(), fallbackW);
-            int h = sp.getInt(overlayHeightPrefKey(), fallbackH);
-            if (w >= 1 && h >= 1) {
-                overlayWidthPx = w;
-                overlayHeightPx = h;
+            int[] defaultSize = getDefaultOverlaySizePx();
+            int w = defaultSize[0];
+            int h = defaultSize[1];
+            if (sp.contains(overlayWidthPrefKey()) && sp.contains(overlayHeightPrefKey())) {
+                w = sp.getInt(overlayWidthPrefKey(), w);
+                h = sp.getInt(overlayHeightPrefKey(), h);
+            } else if (sp.contains(KEY_OVERLAY_W) && sp.contains(KEY_OVERLAY_H)) {
+                w = sp.getInt(KEY_OVERLAY_W, w);
+                h = sp.getInt(KEY_OVERLAY_H, h);
             }
+            if (w == DEFAULT_OVERLAY_WIDTH_PX && h == DEFAULT_OVERLAY_HEIGHT_PX) {
+                w = defaultSize[0];
+                h = defaultSize[1];
+            }
+            overlayWidthPx = Math.max(1, w);
+            overlayHeightPx = Math.max(1, h);
             overlayX = sp.getInt(overlayXPrefKey(), sp.getInt(KEY_LAST_X, overlayX));
             overlayY = sp.getInt(overlayYPrefKey(), sp.getInt(KEY_LAST_Y, overlayY));
         } catch (Throwable ignored) {
         }
+    }
+
+    private int[] getDefaultOverlaySizePx() {
+        int[] screenSize = getAvailableScreenSizePx();
+        if (screenSize == null) {
+            return new int[]{DEFAULT_OVERLAY_WIDTH_PX, DEFAULT_OVERLAY_HEIGHT_PX};
+        }
+        int defaultWidth = Math.round(screenSize[0] * POPUP_DEFAULT_SCREEN_FRACTION);
+        return clampOverlaySize(defaultWidth);
     }
 
     private String overlayXPrefKey() {
@@ -425,6 +457,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         btnDismissOverlay.setBackground(null);
         btnDismissOverlay.setImageResource(R.drawable.ic_close);
         btnDismissOverlay.setColorFilter(0xFFFFFFFF);
+        configurePopupIconButton(btnDismissOverlay);
         btnDismissOverlay.setPadding(
                 scalePopupIconPadding(10),
                 scalePopupIconPadding(10),
@@ -448,6 +481,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             btnShowApp.setBackground(null);
             btnShowApp.setImageResource(R.drawable.ic_popup);
             btnShowApp.setColorFilter(0xFFFFFFFF);
+            configurePopupIconButton(btnShowApp);
             btnShowApp.setPadding(
                     scalePopupIconPadding(10),
                     scalePopupIconPadding(10),
@@ -490,6 +524,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             btnRecording.setLayoutParams(recordParams);
             btnRecording.setBackground(null);
             btnRecording.setImageResource(R.drawable.ic_record_circle);
+            configurePopupIconButton(btnRecording);
             btnRecording.setPadding(
                     scalePopupIconPadding(10),
                     scalePopupIconPadding(10),
@@ -501,7 +536,17 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 if (RecordingService.isRecording(OverlayService.this)) {
                     RecordingService.stopRecording(OverlayService.this);
                 } else {
+                    if (!RecordingService.isRecordingEnabled(OverlayService.this)) {
+                        Toast.makeText(
+                                OverlayService.this,
+                                R.string.recording_warning_disabled,
+                                Toast.LENGTH_LONG
+                        ).show();
+                        syncRecordingUi();
+                        return;
+                    }
                     RecordingService.startRecording(OverlayService.this);
+                    recordingTimerHandler.postDelayed(this::syncRecordingUi, 500L);
                 }
                 syncRecordingUi();
             });
@@ -539,6 +584,12 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         return true;
     }
 
+    private void configurePopupIconButton(ImageButton button) {
+        button.setScaleType(ImageButton.ScaleType.FIT_CENTER);
+        button.setAdjustViewBounds(false);
+        button.setAlpha(0.75f);
+    }
+
     private void syncRecordingUi() {
         ImageButton button = recordingButton;
         boolean recording = RecordingService.isRecording(this);
@@ -561,6 +612,15 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             recordingTimer.setVisibility(View.GONE);
             recordingTimer.setText("");
         }
+    }
+
+    private void showRecordingWarning(@Nullable String code) {
+        int messageRes = RecordingService.WARNING_NOT_ENOUGH_SPACE.equals(code)
+                ? R.string.recording_warning_not_enough_space
+                : RecordingService.WARNING_PRUNE_FAILED.equals(code)
+                ? R.string.recording_warning_prune_failed
+                : R.string.recording_warning_storage_full;
+        Toast.makeText(this, messageRes, Toast.LENGTH_LONG).show();
     }
 
     private void updateRecordingTimer() {
@@ -643,7 +703,7 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
     }
 
     private void addResizeHandle(FrameLayout card, int gravity, boolean fromLeft) {
-        ImageButton handle = new ImageButton(this);
+        ImageView handle = new ImageView(this);
         int size = dpToPx(POPUP_RESIZE_HANDLE_SIZE_DP);
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size, gravity);
         params.leftMargin = 0;
@@ -654,6 +714,8 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         handle.setImageResource(fromLeft ? R.drawable.ic_resize_corner_bottom_left
                 : R.drawable.ic_resize_corner_bottom_right);
         handle.setPadding(0, 0, 0, 0);
+        handle.setScaleType(ImageView.ScaleType.FIT_XY);
+        handle.setAdjustViewBounds(false);
         handle.setColorFilter(0xFFFFFFFF);
         handle.setContentDescription(fromLeft ? "Resize popup from lower left" : "Resize popup from lower right");
         handle.setOnTouchListener((v, event) -> {
@@ -909,6 +971,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         }
         try {
             unregisterReceiver(recordingStateReceiver);
+        } catch (Throwable ignored) {
+        }
+        try {
+            unregisterReceiver(recordingWarningReceiver);
         } catch (Throwable ignored) {
         }
         stopPreview();
