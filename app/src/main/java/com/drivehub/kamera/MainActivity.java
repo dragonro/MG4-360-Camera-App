@@ -130,11 +130,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         public void onReceive(Context context, Intent intent) {
             if (intent == null) return;
             if (!OverlayService.ACTION_POPUP_READY.equals(intent.getAction())) return;
-            try {
-                unregisterReceiver(this);
-            } catch (Throwable ignored) {
-            }
-            finishAndRemoveTask();
+            finishMainAfterPopupRequested();
         }
     };
 
@@ -796,7 +792,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private void startPopupOverlay() {
         if (OverlayService.isPopupVisible()) {
-            OverlayService.hideOverlay(this);
+            finishMainAfterPopupRequested();
             return;
         }
         if (!Settings.canDrawOverlays(this)) {
@@ -819,6 +815,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         } catch (Throwable ignored) {
         }
         OverlayService.showPopup(this, currentVideoIndex);
+        finishMainAfterPopupRequested();
+    }
+
+    private void finishMainAfterPopupRequested() {
+        try {
+            unregisterReceiver(popupReadyReceiver);
+        } catch (Throwable ignored) {
+        }
+        finishAndRemoveTask();
     }
 
     static void requestAppVisibility(Context context) {
