@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
+#include <ctime>
 
 #include <android/log.h>
 
@@ -110,9 +111,44 @@ struct SlotState {
     std::atomic<bool> running{false};
     pthread_t thread{};
     RecTask* task = nullptr;
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+    bool startupResolved = false;
+    bool startupOk = false;
+    std::string lastError;
 };
 
 static SlotState gSlots[4];
+static constexpr int STARTUP_TIMEOUT_MS = 3000;
+
+static void setLastError(int slot, const std::string& message) {
+    if (slot < 0 || slot >= 4) return;
+    pthread_mutex_lock(&gSlots[slot].mutex);
+    gSlots[slot].lastError = message;
+    pthread_mutex_unlock(&gSlots[slot].mutex);
+}
+
+static void signalStartup(int slot, bool ok, const std::string& message) {
+    if (slot < 0 || slot >= 4) return;
+    pthread_mutex_lock(&gSlots[slot].mutex);
+    gSlots[slot].startupResolved = true;
+    gSlots[slot].startupOk = ok;
+    if (!message.empty()) {
+        gSlots[slot].lastError = message;
+    }
+    pthread_cond_broadcast(&gSlots[slot].cond);
+    pthread_mutex_unlock(&gSlots[slot].mutex);
+}
+
+static void markStartupFailed(int slot, const std::string& message) {
+    loge("slot=%d startup failed: %s", slot, message.c_str());
+    signalStartup(slot, false, message);
+}
+
+static void markStartupReady(int slot) {
+    logi("slot=%d native recorder startup ready", slot);
+    signalStartup(slot, true, "");
+}
 
 static void* recordThread(void* arg) {
     RecTask* task = static_cast<RecTask*>(arg);
@@ -122,7 +158,8 @@ static void* recordThread(void* arg) {
     std::string devPath = "/dev/video" + std::to_string(task->videoIndex);
     int fd = open(devPath.c_str(), O_RDWR | O_CLOEXEC);
     if (fd < 0) {
-        loge("slot=%d open %s failed: %s", task->slot, devPath.c_str(), errnoStr().c_str());
+        std::string error = "open " + devPath + " failed: " + errnoStr();
+        markStartupFailed(task->slot, error);
         gSlots[task->slot].running = false;
         delete task;
         return nullptr;
@@ -132,7 +169,7 @@ static void* recordThread(void* arg) {
     v4l2_format fmt{};
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_G_FMT, &fmt) < 0) {
-        loge("slot=%d VIDIOC_G_FMT failed: %s", task->slot, errnoStr().c_str());
+        markStartupFailed(task->slot, "VIDIOC_G_FMT failed: " + errnoStr());
         close(fd);
         gSlots[task->slot].running = false;
         delete task;
@@ -148,7 +185,7 @@ static void* recordThread(void* arg) {
     const int recW = std::min(task->outW, srcW);
     const int recH = std::min(task->outH, srcH / 2);
     if (recH <= 0 || recW <= 0 || (recW % 2) != 0) {
-        loge("slot=%d invalid output size %dx%d", task->slot, recW, recH);
+        markStartupFailed(task->slot, "invalid output size");
         close(fd);
         gSlots[task->slot].running = false;
         delete task;
@@ -161,7 +198,7 @@ static void* recordThread(void* arg) {
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
     if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0 || req.count < 1) {
-        logw("slot=%d VIDIOC_REQBUFS failed", task->slot);
+        markStartupFailed(task->slot, "VIDIOC_REQBUFS failed: " + errnoStr());
         close(fd);
         gSlots[task->slot].running = false;
         delete task;
@@ -177,7 +214,7 @@ static void* recordThread(void* arg) {
         buf.memory = V4L2_MEMORY_MMAP;
         buf.index = i;
         if (ioctl(fd, VIDIOC_QUERYBUF, &buf) < 0) {
-            logw("slot=%d VIDIOC_QUERYBUF failed", task->slot);
+            markStartupFailed(task->slot, "VIDIOC_QUERYBUF failed: " + errnoStr());
             close(fd);
             gSlots[task->slot].running = false;
             delete task;
@@ -186,14 +223,14 @@ static void* recordThread(void* arg) {
         buffers[i].length = buf.length;
         buffers[i].start = mmap(nullptr, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
         if (buffers[i].start == MAP_FAILED) {
-            logw("slot=%d mmap failed", task->slot);
+            markStartupFailed(task->slot, "mmap failed: " + errnoStr());
             close(fd);
             gSlots[task->slot].running = false;
             delete task;
             return nullptr;
         }
         if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
-            logw("slot=%d VIDIOC_QBUF failed", task->slot);
+            markStartupFailed(task->slot, "VIDIOC_QBUF failed: " + errnoStr());
             close(fd);
             gSlots[task->slot].running = false;
             delete task;
@@ -203,7 +240,7 @@ static void* recordThread(void* arg) {
 
     v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
-        logw("slot=%d VIDIOC_STREAMON failed", task->slot);
+        markStartupFailed(task->slot, "VIDIOC_STREAMON failed: " + errnoStr());
         close(fd);
         gSlots[task->slot].running = false;
         delete task;
@@ -224,7 +261,7 @@ static void* recordThread(void* arg) {
     // Create codec
     AMediaCodec* codec = AMediaCodec_createEncoderByType("video/avc");
     if (!codec) {
-        loge("slot=%d AMediaCodec_createEncoderByType failed", task->slot);
+        markStartupFailed(task->slot, "AMediaCodec_createEncoderByType failed");
         ioctl(fd, VIDIOC_STREAMOFF, &type);
         close(fd);
         gSlots[task->slot].running = false;
@@ -246,7 +283,7 @@ static void* recordThread(void* arg) {
     media_status_t st = AMediaCodec_configure(codec, format, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
     AMediaFormat_delete(format);
     if (st != AMEDIA_OK) {
-        loge("slot=%d AMediaCodec_configure failed: %d", task->slot, (int)st);
+        markStartupFailed(task->slot, "AMediaCodec_configure failed: " + std::to_string((int)st));
         AMediaCodec_delete(codec);
         ioctl(fd, VIDIOC_STREAMOFF, &type);
         close(fd);
@@ -257,7 +294,7 @@ static void* recordThread(void* arg) {
 
     st = AMediaCodec_start(codec);
     if (st != AMEDIA_OK) {
-        loge("slot=%d AMediaCodec_start failed: %d", task->slot, (int)st);
+        markStartupFailed(task->slot, "AMediaCodec_start failed: " + std::to_string((int)st));
         AMediaCodec_delete(codec);
         ioctl(fd, VIDIOC_STREAMOFF, &type);
         close(fd);
@@ -270,7 +307,7 @@ static void* recordThread(void* arg) {
     // AMediaMuxer_new(int fd, OutputFormat) expects a file descriptor.
     int outFd = open(task->outputPath.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (outFd < 0) {
-        loge("slot=%d open output file failed: %s", task->slot, errnoStr().c_str());
+        markStartupFailed(task->slot, "open output file failed: " + errnoStr());
         AMediaCodec_stop(codec);
         AMediaCodec_delete(codec);
         ioctl(fd, VIDIOC_STREAMOFF, &type);
@@ -282,7 +319,7 @@ static void* recordThread(void* arg) {
 
     AMediaMuxer* muxer = AMediaMuxer_new(outFd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
     if (!muxer) {
-        loge("slot=%d AMediaMuxer_new failed", task->slot);
+        markStartupFailed(task->slot, "AMediaMuxer_new failed");
         close(outFd);
         AMediaCodec_stop(codec);
         AMediaCodec_delete(codec);
@@ -372,8 +409,20 @@ static void* recordThread(void* arg) {
                 trackIndex = AMediaMuxer_addTrack(muxer, outFormat);
                 AMediaFormat_delete(outFormat);
                 if (trackIndex >= 0) {
-                    AMediaMuxer_start(muxer);
-                    muxerStarted = true;
+                    media_status_t muxerStatus = AMediaMuxer_start(muxer);
+                    if (muxerStatus == AMEDIA_OK) {
+                        muxerStarted = true;
+                        markStartupReady(task->slot);
+                    } else {
+                        markStartupFailed(task->slot,
+                                "AMediaMuxer_start failed: " + std::to_string((int)muxerStatus));
+                        gSlots[task->slot].running = false;
+                        outputDone = true;
+                    }
+                } else {
+                    markStartupFailed(task->slot, "AMediaMuxer_addTrack failed");
+                    gSlots[task->slot].running = false;
+                    outputDone = true;
                 }
                 continue;
             }
@@ -471,7 +520,10 @@ Java_com_drivehub_kamera_CameraProbe_startMp4Record(JNIEnv* env, jclass /*clazz*
                                                      jint bitrate) {
     int s = (int)slot;
     if (s < 0 || s >= 4) return JNI_FALSE;
-    if (gSlots[s].running.load()) return JNI_FALSE;
+    if (gSlots[s].running.load()) {
+        setLastError(s, "slot already running");
+        return JNI_FALSE;
+    }
     if (!outputPath) return JNI_FALSE;
 
     const char* outC = env->GetStringUTFChars(outputPath, nullptr);
@@ -488,14 +540,64 @@ Java_com_drivehub_kamera_CameraProbe_startMp4Record(JNIEnv* env, jclass /*clazz*
     task->bitrate = (int)bitrate;
     task->outputPath = outPath;
 
+    pthread_mutex_lock(&gSlots[s].mutex);
+    gSlots[s].startupResolved = false;
+    gSlots[s].startupOk = false;
+    gSlots[s].lastError.clear();
+    pthread_mutex_unlock(&gSlots[s].mutex);
+
     gSlots[s].running = true;
     int rc = pthread_create(&gSlots[s].thread, nullptr, recordThread, task);
     if (rc != 0) {
         gSlots[s].running = false;
+        setLastError(s, "pthread_create failed: " + std::to_string(rc));
         delete task;
         return JNI_FALSE;
     }
+
+    timespec deadline{};
+    clock_gettime(CLOCK_REALTIME, &deadline);
+    deadline.tv_sec += STARTUP_TIMEOUT_MS / 1000;
+    deadline.tv_nsec += (STARTUP_TIMEOUT_MS % 1000) * 1000000L;
+    if (deadline.tv_nsec >= 1000000000L) {
+        deadline.tv_sec += 1;
+        deadline.tv_nsec -= 1000000000L;
+    }
+
+    pthread_mutex_lock(&gSlots[s].mutex);
+    while (!gSlots[s].startupResolved) {
+        int waitRc = pthread_cond_timedwait(&gSlots[s].cond, &gSlots[s].mutex, &deadline);
+        if (waitRc == ETIMEDOUT) {
+            gSlots[s].lastError = "native recorder startup timed out";
+            break;
+        }
+    }
+    bool ok = gSlots[s].startupResolved && gSlots[s].startupOk;
+    pthread_mutex_unlock(&gSlots[s].mutex);
+
+    if (!ok) {
+        gSlots[s].running = false;
+        pthread_t t = gSlots[s].thread;
+        if (t) {
+            pthread_join(t, nullptr);
+            gSlots[s].thread = 0;
+        }
+        return JNI_FALSE;
+    }
     return JNI_TRUE;
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_drivehub_kamera_CameraProbe_getLastRecordError(JNIEnv* env, jclass /*clazz*/, jint slot) {
+    int s = (int)slot;
+    if (s < 0 || s >= 4) {
+        return env->NewStringUTF("invalid slot");
+    }
+    pthread_mutex_lock(&gSlots[s].mutex);
+    std::string error = gSlots[s].lastError;
+    pthread_mutex_unlock(&gSlots[s].mutex);
+    return env->NewStringUTF(error.c_str());
 }
 
 extern "C"
@@ -513,4 +615,3 @@ Java_com_drivehub_kamera_CameraProbe_stopMp4Record(JNIEnv* /*env*/, jclass /*cla
         gSlots[s].thread = 0;
     }
 }
-

@@ -24,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import java.io.FileInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -43,6 +44,9 @@ public class RecordingService extends Service {
     public static final String WARNING_NOT_ENOUGH_SPACE = "not_enough_space_to_start";
     public static final String WARNING_STORAGE_FULL = "recording_stopped_storage_full";
     public static final String WARNING_PRUNE_FAILED = "recording_prune_failed";
+    public static final String WARNING_PERMISSION_MISSING = "recording_permission_missing";
+    public static final String WARNING_FOLDER_NOT_WRITABLE = "recording_folder_not_writable";
+    public static final String WARNING_NATIVE_FAILED = "recording_native_failed";
 
     private static final String PREFS_NAME = "rec_prefs";
     private static final String KEY_ENABLED = "enabled";
@@ -133,16 +137,21 @@ public class RecordingService extends Service {
 
         stopRequested = false;
         restartAfterStop = false;
-        setRecordingState(true);
         worker = new Thread(this::recordOnce, "RecordingServiceWorker");
         worker.start();
         return START_STICKY;
     }
 
     private boolean canStartInitialRecording() {
+        if (!RecordingPermissions.hasRequiredStoragePermission(this)) {
+            Log.w(TAG, "Missing recording storage permission for default target");
+            publishStorageWarning(WARNING_PERMISSION_MISSING);
+            return false;
+        }
         File baseDir = RecordingStorageManager.getWritableBaseDir(this);
         if (!baseDir.exists() && !baseDir.mkdirs()) {
-            publishStorageWarning(WARNING_NOT_ENOUGH_SPACE);
+            Log.w(TAG, "Could not create recording base dir=" + baseDir.getAbsolutePath());
+            publishStorageWarning(WARNING_FOLDER_NOT_WRITABLE);
             return false;
         }
         int durationMin = UiPrefs.getRecordingDurationMin(UiPrefs.getPrefs(this));
@@ -151,7 +160,12 @@ public class RecordingService extends Service {
                 ? new File(getCacheDir(), "recording_tmp")
                 : baseDir;
         if (!segmentBaseDir.exists() && !segmentBaseDir.mkdirs()) {
-            publishStorageWarning(WARNING_NOT_ENOUGH_SPACE);
+            Log.w(TAG, "Could not create recording segment dir=" + segmentBaseDir.getAbsolutePath());
+            publishStorageWarning(WARNING_FOLDER_NOT_WRITABLE);
+            return false;
+        }
+        if (!verifyWritableDirectory(segmentBaseDir)) {
+            publishStorageWarning(WARNING_FOLDER_NOT_WRITABLE);
             return false;
         }
         RecordingStoragePolicy.Result result = RecordingStoragePolicy.ensureFileTargetSpace(
@@ -221,6 +235,7 @@ public class RecordingService extends Service {
         }
         if (shouldUseDebugDemoRecording()) {
             Log.i(TAG, "Starting debug demo recording segment=" + segmentStamp);
+            setRecordingState(true);
             boolean ok = startDebugDemoSegment(segmentBaseDir, segmentStamp, segmentDurationMs);
             if (useTree && ok) {
                 ok = copySegmentToTree(segmentBaseDir, segmentStamp);
@@ -237,6 +252,9 @@ public class RecordingService extends Service {
             String outputPath = segmentFile(segmentBaseDir, segmentStamp, CAMERA_INDICES[i])
                     .getAbsolutePath();
             try {
+                Log.i(TAG, "Starting native recorder slot=" + SLOT_IDS[i]
+                        + " camera=" + CAMERA_INDICES[i]
+                        + " output=" + outputPath);
                 started[i] = CameraProbe.startMp4Record(SLOT_IDS[i], CAMERA_INDICES[i], outputPath,
                         720, 240, 15, 2_500_000);
             } catch (Throwable t) {
@@ -244,6 +262,9 @@ public class RecordingService extends Service {
                 started[i] = false;
             }
             if (!started[i]) {
+                Log.w(TAG, "Native recorder startup failed slot=" + SLOT_IDS[i]
+                        + " camera=" + CAMERA_INDICES[i]
+                        + " error=" + safeNativeRecordError(SLOT_IDS[i]));
                 break;
             }
         }
@@ -251,9 +272,11 @@ public class RecordingService extends Service {
         if (!allStarted(started)) {
             stopRecordingNative();
             deleteSegmentFiles(segmentBaseDir, segmentStamp);
+            publishStorageWarning(WARNING_NATIVE_FAILED);
             return false;
         }
 
+        setRecordingState(true);
         sleepUntilSegmentEnd(segmentDurationMs);
         stopRecordingNative();
         if (useTree) {
@@ -350,6 +373,31 @@ public class RecordingService extends Service {
             if (!value) return false;
         }
         return true;
+    }
+
+    private boolean verifyWritableDirectory(File dir) {
+        File probe = new File(dir, ".recording_write_probe");
+        try (FileOutputStream out = new FileOutputStream(probe, false)) {
+            out.write(new byte[]{0x4D, 0x47, 0x34});
+            out.flush();
+            Log.i(TAG, "Recording target is writable: " + dir.getAbsolutePath());
+            return true;
+        } catch (Throwable t) {
+            Log.w(TAG, "Recording target is not writable: " + dir.getAbsolutePath(), t);
+            return false;
+        } finally {
+            //noinspection ResultOfMethodCallIgnored
+            probe.delete();
+        }
+    }
+
+    private String safeNativeRecordError(int slot) {
+        try {
+            String error = CameraProbe.getLastRecordError(slot);
+            return error == null || error.trim().isEmpty() ? "unknown" : error;
+        } catch (Throwable t) {
+            return "unavailable: " + t.getClass().getSimpleName();
+        }
     }
 
     private boolean shouldUseDebugDemoRecording() {
@@ -502,6 +550,11 @@ public class RecordingService extends Service {
         }
         if (WARNING_NOT_ENOUGH_SPACE.equals(warningCode)) {
             return WARNING_STORAGE_FULL;
+        }
+        if (WARNING_PERMISSION_MISSING.equals(warningCode)
+                || WARNING_FOLDER_NOT_WRITABLE.equals(warningCode)
+                || WARNING_NATIVE_FAILED.equals(warningCode)) {
+            return warningCode;
         }
         return warningCode == null ? WARNING_STORAGE_FULL : warningCode;
     }

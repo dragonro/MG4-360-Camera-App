@@ -619,6 +619,12 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                 ? R.string.recording_warning_not_enough_space
                 : RecordingService.WARNING_PRUNE_FAILED.equals(code)
                 ? R.string.recording_warning_prune_failed
+                : RecordingService.WARNING_PERMISSION_MISSING.equals(code)
+                ? R.string.recording_warning_permission_missing
+                : RecordingService.WARNING_FOLDER_NOT_WRITABLE.equals(code)
+                ? R.string.recording_warning_folder_not_writable
+                : RecordingService.WARNING_NATIVE_FAILED.equals(code)
+                ? R.string.recording_warning_native_failed
                 : R.string.recording_warning_storage_full;
         Toast.makeText(this, messageRes, Toast.LENGTH_LONG).show();
     }
