@@ -69,16 +69,21 @@ final class RecordingStoragePolicy {
         if (deleteResult.deleteFailed) {
             return Result.fail(RecordingService.WARNING_PRUNE_FAILED);
         }
-        if (!deleteResult.freedEnough) {
+        if (!deleteResult.freedEnough && !canTemporarilyFitNextLoopSegment(targetDir, requiredBytes)) {
             return Result.fail(RecordingService.WARNING_NOT_ENOUGH_SPACE);
         }
         groups = listFileGroups(targetDir, activeSegmentKey);
         currentBytes = sumGroupBytes(groups);
         quotaBytes = calculateQuotaBytes(targetDir.getUsableSpace(), currentBytes,
                 UiPrefs.getRecordingStorageQuotaPercent(prefs));
-        return currentBytes + requiredBytes <= quotaBytes
-                ? Result.ok()
-                : Result.fail(RecordingService.WARNING_NOT_ENOUGH_SPACE);
+        if (currentBytes + requiredBytes <= quotaBytes) {
+            return Result.ok();
+        }
+        if (canTemporarilyFitNextLoopSegment(targetDir, requiredBytes)) {
+            Log.i(TAG, "Allowing loop recording segment outside quota until completed segment pruning runs");
+            return Result.ok();
+        }
+        return Result.fail(RecordingService.WARNING_NOT_ENOUGH_SPACE);
     }
 
     static Result enforceFileTargetQuota(
@@ -102,6 +107,10 @@ final class RecordingStoragePolicy {
     private static long calculateQuotaBytes(long freeBytes, long currentAppBytes, int quotaPercent) {
         long reclaimableTotal = Math.max(0L, freeBytes) + Math.max(0L, currentAppBytes);
         return Math.max(0L, (reclaimableTotal * UiPrefs.clampRecordingStorageQuotaPercent(quotaPercent)) / 100L);
+    }
+
+    private static boolean canTemporarilyFitNextLoopSegment(File targetDir, long requiredBytes) {
+        return requiredBytes > 0L && targetDir.getUsableSpace() >= requiredBytes;
     }
 
     private static List<SegmentGroup<File>> listFileGroups(File targetDir, @Nullable String activeSegmentKey) {

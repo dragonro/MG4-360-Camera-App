@@ -59,6 +59,7 @@ public class RecordingService extends Service {
 
     private Thread worker;
     private volatile boolean stopRequested;
+    private volatile boolean restartAfterStop;
     private volatile boolean recording;
 
     public static void startRecording(Context context) {
@@ -103,11 +104,15 @@ public class RecordingService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
+            restartAfterStop = false;
             requestStop();
             return START_NOT_STICKY;
         }
 
         if (worker != null) {
+            if (stopRequested) {
+                restartAfterStop = true;
+            }
             return START_STICKY;
         }
 
@@ -127,6 +132,7 @@ public class RecordingService extends Service {
         }
 
         stopRequested = false;
+        restartAfterStop = false;
         setRecordingState(true);
         worker = new Thread(this::recordOnce, "RecordingServiceWorker");
         worker.start();
@@ -269,9 +275,9 @@ public class RecordingService extends Service {
                 ? RecordingStoragePolicy.enforceTreeQuota(
                 this,
                 RecordingStorageManager.resolveTreeDocument(this),
-                null
+                segmentStamp
         )
-                : RecordingStoragePolicy.enforceFileTargetQuota(this, segmentBaseDir, null);
+                : RecordingStoragePolicy.enforceFileTargetQuota(this, segmentBaseDir, segmentStamp);
         if (!result.ok) {
             publishStorageWarning(normalizeStorageWarning(result.warningCode));
             return false;
@@ -532,7 +538,14 @@ public class RecordingService extends Service {
         worker = null;
         setRecordingState(false);
         stopForeground(STOP_FOREGROUND_REMOVE);
-        stopSelf();
+        boolean shouldRestart = restartAfterStop;
+        restartAfterStop = false;
+        if (shouldRestart) {
+            stopRequested = false;
+            startRecording(this);
+        } else {
+            stopSelf();
+        }
     }
 
     private void setRecordingState(boolean value) {
