@@ -14,6 +14,9 @@ public final class CameraProbe {
     /** Starts preview on the given /dev/video index onto the provided Surface. */
     public static native boolean startPreview(int videoIndex, android.view.Surface surface);
 
+    /** Sets native preview processing mode. See UiPrefs.PROCESSING_MODE_* constants. */
+    public static native void setProcessingMode(int mode);
+
     /** Stops preview for the provided Surface while keeping other preview surfaces alive. */
     public static native void stopPreviewSurface(android.view.Surface surface);
 

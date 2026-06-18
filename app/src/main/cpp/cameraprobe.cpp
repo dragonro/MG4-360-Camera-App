@@ -5,6 +5,7 @@
 #include <sstream>
 #include <cerrno>
 #include <cstring>
+#include <algorithm>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -122,6 +123,12 @@ static int g_width = 0;
 static int g_height = 0;
 static int g_srcStrideBytes = 0;
 static int g_videoIndex = -1;
+static volatile int g_processingMode = 0;
+static cv::Mat g_undistortMapX;
+static cv::Mat g_undistortMapY;
+static int g_undistortMapWidth = 0;
+static int g_undistortMapHeight = 0;
+static pthread_mutex_t g_processingMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void releaseAllPreviewWindowsLocked();
 
@@ -220,6 +227,72 @@ static bool removePreviewWindow(JNIEnv *env, jobject surface)
     return removed;
 }
 
+static void clearUndistortMapsLocked()
+{
+    g_undistortMapX.release();
+    g_undistortMapY.release();
+    g_undistortMapWidth = 0;
+    g_undistortMapHeight = 0;
+}
+
+static void buildUndistortMapsLocked(int width, int height)
+{
+    if (width <= 0 || height <= 0)
+        return;
+    if (g_undistortMapWidth == width && g_undistortMapHeight == height &&
+        !g_undistortMapX.empty() && !g_undistortMapY.empty())
+    {
+        return;
+    }
+
+    g_undistortMapX.create(height, width, CV_32FC1);
+    g_undistortMapY.create(height, width, CV_32FC1);
+    g_undistortMapWidth = width;
+    g_undistortMapHeight = height;
+
+    const float cx = (width - 1) * 0.5f;
+    const float cy = (height - 1) * 0.5f;
+    const float scale = std::min(cx, cy);
+    const float k1 = -0.26f;
+    const float k2 = 0.06f;
+
+    for (int y = 0; y < height; ++y)
+    {
+        float *mapX = g_undistortMapX.ptr<float>(y);
+        float *mapY = g_undistortMapY.ptr<float>(y);
+        const float yn = (y - cy) / scale;
+        for (int x = 0; x < width; ++x)
+        {
+            const float xn = (x - cx) / scale;
+            const float r2 = xn * xn + yn * yn;
+            const float radial = 1.0f + k1 * r2 + k2 * r2 * r2;
+            mapX[x] = cx + xn * radial * scale;
+            mapY[x] = cy + yn * radial * scale;
+        }
+    }
+}
+
+static void applyUndistortionIfNeeded(cv::Mat &rgbaFrame)
+{
+    if (g_processingMode != 1 || rgbaFrame.empty())
+        return;
+
+    cv::Mat mapX;
+    cv::Mat mapY;
+    pthread_mutex_lock(&g_processingMutex);
+    buildUndistortMapsLocked(rgbaFrame.cols, rgbaFrame.rows);
+    mapX = g_undistortMapX;
+    mapY = g_undistortMapY;
+    pthread_mutex_unlock(&g_processingMutex);
+
+    if (mapX.empty() || mapY.empty())
+        return;
+
+    cv::Mat undistorted;
+    cv::remap(rgbaFrame, undistorted, mapX, mapY, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0, 255));
+    rgbaFrame = undistorted;
+}
+
 static void *previewThread(void * /*arg*/)
 {
     v4l2_requestbuffers req{};
@@ -305,6 +378,8 @@ static void *previewThread(void * /*arg*/)
         {
             cv::flip(rgbaFrame, rgbaFrame, 1);
         }
+
+        applyUndistortionIfNeeded(rgbaFrame);
 
         std::vector<ANativeWindow *> windows;
         pthread_mutex_lock(&g_windowsMutex);
@@ -461,4 +536,18 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_drivehub_kamera_CameraProbe_stopPreview(JNIEnv * /*env*/, jclass /*clazz*/)
 {
     stopPreviewInternal();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_drivehub_kamera_CameraProbe_setProcessingMode(JNIEnv * /*env*/, jclass /*clazz*/, jint mode)
+{
+    int normalized = mode == 1 ? 1 : 0;
+    pthread_mutex_lock(&g_processingMutex);
+    if (g_processingMode != normalized)
+    {
+        g_processingMode = normalized;
+        clearUndistortMapsLocked();
+        logi("Processing mode set to %d", normalized);
+    }
+    pthread_mutex_unlock(&g_processingMutex);
 }

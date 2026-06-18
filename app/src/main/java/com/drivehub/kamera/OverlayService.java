@@ -127,6 +127,11 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
                     applyCurrentOverlayCornerRadius();
                 } else if (UiPrefs.KEY_OVERLAY_ROTATE_TO_DRIVING_DIRECTION.equals(key)) {
                     updateOverlayPresentation(true);
+                } else if (UiPrefs.KEY_PROCESSING_MODE.equals(key)) {
+                    PreviewSourceController.applyProcessingMode(this);
+                    if (textureSurface != null && textureSurface.isValid()) {
+                        startPreview();
+                    }
                 }
             };
     private final BroadcastReceiver recordingStateReceiver = new BroadcastReceiver() {

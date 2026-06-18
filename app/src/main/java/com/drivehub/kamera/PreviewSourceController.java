@@ -29,6 +29,7 @@ final class PreviewSourceController {
         if (context == null || surface == null || !surface.isValid()) {
             return false;
         }
+        applyProcessingMode(context);
         if (testVideoPlayer != null && TestVideoSources.shouldUse(context)) {
             if (testVideoPlayer.start(context, cameraIndex, surface)) {
                 return true;
@@ -73,6 +74,14 @@ final class PreviewSourceController {
     static void stopNative() {
         try {
             CameraProbe.stopPreview();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    static void applyProcessingMode(Context context) {
+        if (context == null) return;
+        try {
+            CameraProbe.setProcessingMode(UiPrefs.getProcessingMode(UiPrefs.getPrefs(context)));
         } catch (Throwable ignored) {
         }
     }
