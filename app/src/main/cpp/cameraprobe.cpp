@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <cstring>
 #include <algorithm>
+#include <atomic>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -123,9 +124,9 @@ static int g_width = 0;
 static int g_height = 0;
 static int g_srcStrideBytes = 0;
 static int g_videoIndex = -1;
-static volatile int g_processingMode = 0;
-static cv::Mat g_undistortMapX;
-static cv::Mat g_undistortMapY;
+static std::atomic<int> g_processingMode{0};
+static cv::Mat g_undistortMap1;
+static cv::Mat g_undistortMap2;
 static int g_undistortMapWidth = 0;
 static int g_undistortMapHeight = 0;
 static pthread_mutex_t g_processingMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -229,8 +230,8 @@ static bool removePreviewWindow(JNIEnv *env, jobject surface)
 
 static void clearUndistortMapsLocked()
 {
-    g_undistortMapX.release();
-    g_undistortMapY.release();
+    g_undistortMap1.release();
+    g_undistortMap2.release();
     g_undistortMapWidth = 0;
     g_undistortMapHeight = 0;
 }
@@ -240,13 +241,13 @@ static void buildUndistortMapsLocked(int width, int height)
     if (width <= 0 || height <= 0)
         return;
     if (g_undistortMapWidth == width && g_undistortMapHeight == height &&
-        !g_undistortMapX.empty() && !g_undistortMapY.empty())
+        !g_undistortMap1.empty() && !g_undistortMap2.empty())
     {
         return;
     }
 
-    g_undistortMapX.create(height, width, CV_32FC1);
-    g_undistortMapY.create(height, width, CV_32FC1);
+    cv::Mat mapX(height, width, CV_32FC1);
+    cv::Mat mapY(height, width, CV_32FC1);
     g_undistortMapWidth = width;
     g_undistortMapHeight = height;
 
@@ -258,39 +259,42 @@ static void buildUndistortMapsLocked(int width, int height)
 
     for (int y = 0; y < height; ++y)
     {
-        float *mapX = g_undistortMapX.ptr<float>(y);
-        float *mapY = g_undistortMapY.ptr<float>(y);
+        float *rowX = mapX.ptr<float>(y);
+        float *rowY = mapY.ptr<float>(y);
         const float yn = (y - cy) / scale;
         for (int x = 0; x < width; ++x)
         {
             const float xn = (x - cx) / scale;
             const float r2 = xn * xn + yn * yn;
             const float radial = 1.0f + k1 * r2 + k2 * r2 * r2;
-            mapX[x] = cx + xn * radial * scale;
-            mapY[x] = cy + yn * radial * scale;
+            rowX[x] = cx + xn * radial * scale;
+            rowY[x] = cy + yn * radial * scale;
         }
     }
+
+    cv::convertMaps(mapX, mapY, g_undistortMap1, g_undistortMap2, CV_16SC2);
 }
 
 static void applyUndistortionIfNeeded(cv::Mat &rgbaFrame)
 {
-    if (g_processingMode != 1 || rgbaFrame.empty())
+    if (g_processingMode.load(std::memory_order_relaxed) != 1 || rgbaFrame.empty())
         return;
 
-    cv::Mat mapX;
-    cv::Mat mapY;
+    cv::Mat map1;
+    cv::Mat map2;
+    static thread_local cv::Mat undistortedFrame;
     pthread_mutex_lock(&g_processingMutex);
     buildUndistortMapsLocked(rgbaFrame.cols, rgbaFrame.rows);
-    mapX = g_undistortMapX;
-    mapY = g_undistortMapY;
+    map1 = g_undistortMap1;
+    map2 = g_undistortMap2;
     pthread_mutex_unlock(&g_processingMutex);
 
-    if (mapX.empty() || mapY.empty())
+    if (map1.empty() || map2.empty())
         return;
 
-    cv::Mat undistorted;
-    cv::remap(rgbaFrame, undistorted, mapX, mapY, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0, 255));
-    rgbaFrame = undistorted;
+    undistortedFrame.create(rgbaFrame.rows, rgbaFrame.cols, CV_8UC4);
+    cv::remap(rgbaFrame, undistortedFrame, map1, map2, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0, 255));
+    rgbaFrame = undistortedFrame;
 }
 
 static void *previewThread(void * /*arg*/)
@@ -543,9 +547,9 @@ Java_com_drivehub_kamera_CameraProbe_setProcessingMode(JNIEnv * /*env*/, jclass 
 {
     int normalized = mode == 1 ? 1 : 0;
     pthread_mutex_lock(&g_processingMutex);
-    if (g_processingMode != normalized)
+    if (g_processingMode.load(std::memory_order_relaxed) != normalized)
     {
-        g_processingMode = normalized;
+        g_processingMode.store(normalized, std::memory_order_relaxed);
         clearUndistortMapsLocked();
         logi("Processing mode set to %d", normalized);
     }
