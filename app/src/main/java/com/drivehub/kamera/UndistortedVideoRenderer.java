@@ -32,6 +32,7 @@ final class UndistortedVideoRenderer {
     private static final long FRAME_WAIT_MS = 250L;
 
     private final Object frameLock = new Object();
+    private final Object lifecycleLock = new Object();
     private final Surface targetSurface;
     private final File videoFile;
     private final int cameraIndex;
@@ -42,6 +43,7 @@ final class UndistortedVideoRenderer {
     private volatile boolean running;
     private volatile boolean frameAvailable;
     private MediaPlayer mediaPlayer;
+    private volatile long generation = 0L;
 
     UndistortedVideoRenderer(Surface targetSurface, File videoFile, int cameraIndex, PositionProvider positionProvider) {
         this.targetSurface = targetSurface;
@@ -54,14 +56,20 @@ final class UndistortedVideoRenderer {
         if (targetSurface == null || !targetSurface.isValid() || videoFile == null || !videoFile.isFile()) {
             return false;
         }
-        running = true;
+        synchronized (lifecycleLock) {
+            generation++;
+            running = true;
+        }
         renderThread = new Thread(this::renderLoop, "UndistortedVideoRenderer-" + cameraIndex);
         renderThread.start();
         return true;
     }
 
     void stop() {
-        running = false;
+        synchronized (lifecycleLock) {
+            running = false;
+            generation++;
+        }
         synchronized (frameLock) {
             frameLock.notifyAll();
         }
@@ -97,6 +105,7 @@ final class UndistortedVideoRenderer {
         int textureId = 0;
         try {
             egl = EglState.create(targetSurface);
+            final long myGeneration = generation;
             textureId = createExternalTexture();
             inputTexture = new SurfaceTexture(textureId);
             inputTexture.setOnFrameAvailableListener(surfaceTexture -> {
@@ -121,6 +130,9 @@ final class UndistortedVideoRenderer {
             player.setLooping(false);
             player.setOnPreparedListener(mp -> {
                 try {
+                    if (!isCurrentGeneration(myGeneration)) {
+                        return;
+                    }
                     int seekMs = positionProvider.positionMs(mp.getDuration());
                     Log.i(TAG, "Starting undistorted camera " + cameraIndex + " from "
                             + videoFile.getName() + " at " + seekMs + "ms");
@@ -137,6 +149,9 @@ final class UndistortedVideoRenderer {
             });
             player.setOnCompletionListener(mp -> {
                 try {
+                    if (!isCurrentGeneration(myGeneration)) {
+                        return;
+                    }
                     mp.seekTo(0);
                     mp.start();
                 } catch (Throwable ignored) {
@@ -144,6 +159,9 @@ final class UndistortedVideoRenderer {
                 }
             });
             player.setOnErrorListener((mp, what, extra) -> {
+                if (!isCurrentGeneration(myGeneration)) {
+                    return true;
+                }
                 Log.w(TAG, "MediaPlayer error camera=" + cameraIndex + " what=" + what + " extra=" + extra);
                 running = false;
                 synchronized (frameLock) {
@@ -163,9 +181,19 @@ final class UndistortedVideoRenderer {
             long fpsWindowStartMs = SystemClock.elapsedRealtime();
             int fpsFrames = 0;
             while (running && targetSurface.isValid()) {
-                waitForFrame();
+                if (!waitForFrame()) {
+                    continue;
+                }
                 if (!running) break;
-                inputTexture.updateTexImage();
+                try {
+                    inputTexture.updateTexImage();
+                } catch (Throwable t) {
+                    if (!running) {
+                        break;
+                    }
+                    Log.w(TAG, "Skipping stale frame update for camera " + cameraIndex, t);
+                    continue;
+                }
                 inputTexture.getTransformMatrix(textureMatrix);
 
                 GLES20.glViewport(0, 0, egl.width, egl.height);
@@ -228,7 +256,11 @@ final class UndistortedVideoRenderer {
         }
     }
 
-    private void waitForFrame() {
+    private boolean isCurrentGeneration(long expectedGeneration) {
+        return running && generation == expectedGeneration;
+    }
+
+    private boolean waitForFrame() {
         synchronized (frameLock) {
             if (!frameAvailable && running) {
                 try {
@@ -237,7 +269,9 @@ final class UndistortedVideoRenderer {
                     Thread.currentThread().interrupt();
                 }
             }
+            boolean hadFrame = frameAvailable;
             frameAvailable = false;
+            return hadFrame;
         }
     }
 

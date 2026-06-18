@@ -18,7 +18,7 @@ final class TestVideoPlayer {
     private MediaPlayer mediaPlayer;
     private UndistortedVideoRenderer undistortedRenderer;
 
-    boolean start(Context context, int cameraIndex, Surface surface) {
+    synchronized boolean start(Context context, int cameraIndex, Surface surface) {
         stop();
         if (context == null || surface == null || !surface.isValid()) return false;
 
@@ -66,7 +66,7 @@ final class TestVideoPlayer {
         }
     }
 
-    void stop() {
+    synchronized void stop() {
         UndistortedVideoRenderer renderer = undistortedRenderer;
         undistortedRenderer = null;
         if (renderer != null) {
