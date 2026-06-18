@@ -316,7 +316,9 @@ public class SignalService extends Service {
             OverlayService.showOverlay(this, 17);
             Log.i(TAG, "Reverse => overlay v17");
         } else {
-            Log.i(TAG, "Signal/gear off => keeping current overlay visible");
+            OverlayService.showOverlay(this, 15);
+            clearOverlayShownTimestamp();
+            Log.i(TAG, "Signal/gear off => overlay v15");
         }
     }
 
