@@ -428,11 +428,9 @@ public class RecordingService extends Service {
     @Nullable
     private File resolveDebugRecordingSource(int cameraIndex) {
         try {
-            if (TestVideoSources.hasDebugAsset(this)) {
-                return TestVideoSources.materializeDebugAsset(this, cameraIndex);
-            }
+            return TestVideoSources.resolveFile(this, cameraIndex);
         } catch (Throwable t) {
-            Log.w(TAG, "Could not materialize debug recording asset", t);
+            Log.w(TAG, "Could not resolve debug recording source", t);
         }
         return TestVideoSources.getFile(this, cameraIndex);
     }

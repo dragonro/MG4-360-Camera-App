@@ -4,13 +4,13 @@ set -euo pipefail
 
 if [[ $# -gt 1 ]]; then
   echo "Usage: $0 [/path/to/video-folder-or-mp4]" >&2
-  echo "Default sample: app/src/debug/assets/front_camera_sample_1.mp4" >&2
+  echo "Default sample folder: app/src/debug/assets" >&2
   echo "When a single MP4 is provided, it is installed for all camera slots." >&2
   exit 2
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INPUT_PATH="${1:-${ROOT_DIR}/app/src/debug/assets/front_camera_sample_1.mp4}"
+INPUT_PATH="${1:-${ROOT_DIR}/app/src/debug/assets}"
 PACKAGE="com.drivehub.dualbytes.kamera"
 TMP_DIR="/data/local/tmp/mg4-camera-test-videos"
 APP_DIR="files/mg4-camera-test"

@@ -2,6 +2,7 @@
 .gradle/
 **/build/
 captures/
+calibration/
 
 # Local machine configuration
 local.properties

@@ -55,6 +55,7 @@ public class SignalService extends Service {
     private HandlerThread pollThread;
     private Handler pollHandler;
     private volatile boolean polling;
+    private volatile boolean debugSimulationActive;
     private int lastLamp = Integer.MIN_VALUE;
     private int currentLamp = 0;
     private int currentGear = 0;
@@ -131,6 +132,7 @@ public class SignalService extends Service {
         int simulatedLamp = intent.getIntExtra(EXTRA_DEBUG_LAMP, currentLamp);
         int simulatedGear = intent.getIntExtra(EXTRA_DEBUG_GEAR, currentGear);
         mainHandler.post(() -> {
+            debugSimulationActive = true;
             currentLamp = simulatedLamp;
             currentGear = simulatedGear;
             lastLamp = Integer.MIN_VALUE;
@@ -206,8 +208,10 @@ public class SignalService extends Service {
             @Override
             public void run() {
                 if (!polling) return;
-                currentLamp = readTurnLampFromSystemProperty();
-                currentGear = readGearFromSystemProperty();
+                if (!debugSimulationActive) {
+                    currentLamp = readTurnLampFromSystemProperty();
+                    currentGear = readGearFromSystemProperty();
+                }
                 updateOverlayDecision();
                 pollHandler.postDelayed(this, readNextPollingDelayMs());
             }
