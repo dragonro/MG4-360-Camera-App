@@ -141,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     public static boolean shouldBlockOverlay() {
-        return sMainVisible && !sSettingsDialogOpen;
+        return sMainVisible;
     }
 
     public static void launchFromOverlay(Context context) {
@@ -349,6 +349,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     @SuppressWarnings("deprecation")
     private void showSettingsDialog() {
         sSettingsDialogOpen = true;
+        OverlayService.hideOverlay(this);
         SignalService.requestRecheck();
 
         Dialog dialog = new Dialog(this);
