@@ -31,6 +31,8 @@ final class SettingsAppearanceController {
     private Switch swRotateToDrivingDirection;
     private Switch swSafetyWarning;
     private Switch swEnableCameraPopup;
+    private Switch swProcessingFisheye;
+    private Switch swProcessingUndistorted;
     private Switch swAllowBetaUpdates;
     private ImageButton dialogClose;
     private SeekBar seekOverlayHideDelay;
@@ -42,6 +44,7 @@ final class SettingsAppearanceController {
     private EditText etAccentColor;
     private TextView tabUpdate;
     private TextView tabSettings;
+    private TextView tabProcessing;
     private TextView tabSignalCamera;
     private TextView tabOptik;
     private TextView tabCredits;
@@ -65,6 +68,8 @@ final class SettingsAppearanceController {
             Switch swRotateToDrivingDirection,
             Switch swSafetyWarning,
             Switch swEnableCameraPopup,
+            Switch swProcessingFisheye,
+            Switch swProcessingUndistorted,
             Switch swAllowBetaUpdates,
             ImageButton dialogClose,
             SeekBar seekOverlayHideDelay,
@@ -76,6 +81,7 @@ final class SettingsAppearanceController {
             EditText etAccentColor,
             TextView tabUpdate,
             TextView tabSettings,
+            TextView tabProcessing,
             TextView tabSignalCamera,
             TextView tabOptik,
             TextView tabCredits,
@@ -86,6 +92,8 @@ final class SettingsAppearanceController {
         this.swRotateToDrivingDirection = swRotateToDrivingDirection;
         this.swSafetyWarning = swSafetyWarning;
         this.swEnableCameraPopup = swEnableCameraPopup;
+        this.swProcessingFisheye = swProcessingFisheye;
+        this.swProcessingUndistorted = swProcessingUndistorted;
         this.swAllowBetaUpdates = swAllowBetaUpdates;
         this.dialogClose = dialogClose;
         this.seekOverlayHideDelay = seekOverlayHideDelay;
@@ -97,6 +105,7 @@ final class SettingsAppearanceController {
         this.etAccentColor = etAccentColor;
         this.tabUpdate = tabUpdate;
         this.tabSettings = tabSettings;
+        this.tabProcessing = tabProcessing;
         this.tabSignalCamera = tabSignalCamera;
         this.tabOptik = tabOptik;
         this.tabCredits = tabCredits;
@@ -307,6 +316,12 @@ final class SettingsAppearanceController {
         if (swEnableCameraPopup != null) {
             swEnableCameraPopup.setTrackTintList(buildToggleTrackTint(accentColor));
         }
+        if (swProcessingFisheye != null) {
+            swProcessingFisheye.setTrackTintList(buildToggleTrackTint(accentColor));
+        }
+        if (swProcessingUndistorted != null) {
+            swProcessingUndistorted.setTrackTintList(buildToggleTrackTint(accentColor));
+        }
         if (swAllowBetaUpdates != null) {
             swAllowBetaUpdates.setTrackTintList(buildToggleTrackTint(accentColor));
         }
@@ -319,10 +334,11 @@ final class SettingsAppearanceController {
         int inactiveColor = ContextCompat.getColor(activity, R.color.settings_tab_inactive);
         if (tabUpdate != null) tabUpdate.setTextColor(activeTab == 0 ? accentColor : inactiveColor);
         if (tabSettings != null) tabSettings.setTextColor(activeTab == 1 ? accentColor : inactiveColor);
-        if (tabSignalCamera != null) tabSignalCamera.setTextColor(activeTab == 2 ? accentColor : inactiveColor);
-        if (tabOptik != null) tabOptik.setTextColor(activeTab == 3 ? accentColor : inactiveColor);
-        if (tabCredits != null) tabCredits.setTextColor(activeTab == 4 ? accentColor : inactiveColor);
-        if (tabDev != null) tabDev.setTextColor(activeTab == 5 ? accentColor : inactiveColor);
+        if (tabProcessing != null) tabProcessing.setTextColor(activeTab == 2 ? accentColor : inactiveColor);
+        if (tabSignalCamera != null) tabSignalCamera.setTextColor(activeTab == 3 ? accentColor : inactiveColor);
+        if (tabOptik != null) tabOptik.setTextColor(activeTab == 4 ? accentColor : inactiveColor);
+        if (tabCredits != null) tabCredits.setTextColor(activeTab == 5 ? accentColor : inactiveColor);
+        if (tabDev != null) tabDev.setTextColor(activeTab == 6 ? accentColor : inactiveColor);
     }
 
     private ColorStateList buildToggleTrackTint(int accentColor) {

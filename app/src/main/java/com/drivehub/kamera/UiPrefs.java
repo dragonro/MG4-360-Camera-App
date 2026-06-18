@@ -22,6 +22,7 @@ final class UiPrefs {
     static final String KEY_LOOP_RECORDING = "loopRecording";
     static final String KEY_RECORDING_STARTED_AT_MS = "recordingStartedAtMs";
     static final String KEY_RECORDING_TREE_URI = "recordingTreeUri";
+    static final String KEY_PROCESSING_MODE = "processingMode";
     static final String KEY_LAST_UI_STATE = "lastUiState";
     static final String KEY_DEV_DEFAULT_POLL_MS = "devDefaultPollMs";
     static final String KEY_DEV_SIGNAL_OFF_POLL_MS = "devSignalOffPollMs";
@@ -29,6 +30,8 @@ final class UiPrefs {
     static final String UI_STATE_MAIN = "main";
     static final String UI_STATE_OVERLAY = "overlay";
     static final String UI_STATE_POPUP = "popup";
+    static final int PROCESSING_MODE_FISHEYE = 0;
+    static final int PROCESSING_MODE_UNDISTORTED = 1;
     static final int MAX_TILE_CORNER_RADIUS = 35;
     static final int MAX_OVERLAY_HIDE_DELAY_MS = 3000;
     static final int MAX_OVERLAY_MIN_SHOW_MS = 6000;
@@ -113,6 +116,18 @@ final class UiPrefs {
 
     static String getRecordingTreeUri(SharedPreferences prefs) {
         return prefs.getString(KEY_RECORDING_TREE_URI, null);
+    }
+
+    static int getProcessingMode(SharedPreferences prefs) {
+        int value = prefs.getInt(KEY_PROCESSING_MODE, PROCESSING_MODE_FISHEYE);
+        return value == PROCESSING_MODE_UNDISTORTED ? PROCESSING_MODE_UNDISTORTED : PROCESSING_MODE_FISHEYE;
+    }
+
+    static void setProcessingMode(SharedPreferences prefs, int mode) {
+        if (prefs == null) return;
+        prefs.edit().putInt(KEY_PROCESSING_MODE,
+                mode == PROCESSING_MODE_UNDISTORTED ? PROCESSING_MODE_UNDISTORTED : PROCESSING_MODE_FISHEYE
+        ).apply();
     }
 
     static boolean isDevTestVideoSourcesEnabled(SharedPreferences prefs) {

@@ -79,6 +79,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private final SettingsAppearanceController appearanceController = new SettingsAppearanceController(this);
     private final SignalCameraSettingsController signalCameraSettingsController =
             new SignalCameraSettingsController(this);
+    private final ProcessingSettingsController processingSettingsController =
+            new ProcessingSettingsController(this::restartPreviewForProcessingChange);
     private final DevSettingsController devSettingsController = new DevSettingsController();
     private TextView recordingPathValueView;
 
@@ -478,12 +480,14 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         ImageButton dialogClose = dialog.findViewById(R.id.btnClose);
         TextView tabUpdate = dialog.findViewById(R.id.tabUpdate);
         TextView tabSettings = dialog.findViewById(R.id.tabSettings);
+        TextView tabProcessing = dialog.findViewById(R.id.tabProcessing);
         TextView tabSignalCamera = dialog.findViewById(R.id.tabSignalCamera);
         TextView tabOptik = dialog.findViewById(R.id.tabOptik);
         TextView tabCredits = dialog.findViewById(R.id.tabCredits);
         TextView tabDev = dialog.findViewById(R.id.tabDev);
         View sectionUpdate = dialog.findViewById(R.id.sectionUpdate);
         View sectionSettings = dialog.findViewById(R.id.sectionSettings);
+        View sectionProcessing = dialog.findViewById(R.id.sectionProcessing);
         View sectionSignalCamera = dialog.findViewById(R.id.sectionSignalCamera);
         View sectionOptik = dialog.findViewById(R.id.sectionOptik);
         View sectionCredits = dialog.findViewById(R.id.sectionCredits);
@@ -494,6 +498,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         EditText etDevDefaultPollMs = dialog.findViewById(R.id.etDevDefaultPollMs);
         EditText etDevSignalOffPollMs = dialog.findViewById(R.id.etDevSignalOffPollMs);
         Switch swDevTestVideoSources = dialog.findViewById(R.id.switchDevTestVideoSources);
+        Switch swProcessingFisheye = dialog.findViewById(R.id.switchProcessingFisheye);
+        Switch swProcessingUndistorted = dialog.findViewById(R.id.switchProcessingUndistorted);
         TextView tvDevTestVideoPath = dialog.findViewById(R.id.tvDevTestVideoPath);
         Button btnDevOpenTileTest = dialog.findViewById(R.id.btnDevOpenTileTest);
         Button btnDevResetDefaults = dialog.findViewById(R.id.btnDevResetDefaults);
@@ -515,6 +521,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 btnDevOpenTileTest,
                 btnDevResetDefaults
         );
+        processingSettingsController.bind(prefs, swProcessingFisheye, swProcessingUndistorted);
 
         appearanceController.bindSettingsAppearance(
                 prefs,
@@ -522,6 +529,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 swRotateToDrivingDirection,
                 swSafetyWarning,
                 swEnableCameraPopup,
+                swProcessingFisheye,
+                swProcessingUndistorted,
                 swAllowBetaUpdates,
                 dialogClose,
                 seekOverlayHideDelay,
@@ -533,44 +542,50 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 etAccentColor,
                 tabUpdate,
                 tabSettings,
+                tabProcessing,
                 tabSignalCamera,
                 tabOptik,
                 tabCredits,
                 tabDev
         );
 
-        bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 1);
+        bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 1);
         appearanceController.reapplyForActiveTab(1);
         tabUpdate.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 0);
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 0);
             appearanceController.reapplyForActiveTab(0);
         });
         tabSettings.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 1);
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 1);
             appearanceController.reapplyForActiveTab(1);
         });
-        tabSignalCamera.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 2);
+        tabProcessing.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 2);
             appearanceController.reapplyForActiveTab(2);
         });
-        tabOptik.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 3);
+        tabSignalCamera.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 3);
             appearanceController.reapplyForActiveTab(3);
         });
-        tabCredits.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 4);
+        tabOptik.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 4);
             appearanceController.reapplyForActiveTab(4);
         });
-        tabDev.setOnClickListener(v -> {
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 5);
+        tabCredits.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 5);
             appearanceController.reapplyForActiveTab(5);
+        });
+        tabDev.setOnClickListener(v -> {
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 6);
+            appearanceController.reapplyForActiveTab(6);
         });
 
         TextView tvVersion = dialog.findViewById(R.id.tvDialogVersion);
@@ -588,9 +603,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             if (versionTapCount[0] < 5) return;
             versionTapCount[0] = 0;
             tabDev.setVisibility(View.VISIBLE);
-            bindSettingsTab(tabUpdate, tabSettings, tabSignalCamera, tabOptik, tabCredits, tabDev,
-                    sectionUpdate, sectionSettings, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 5);
-            appearanceController.reapplyForActiveTab(5);
+            bindSettingsTab(tabUpdate, tabSettings, tabProcessing, tabSignalCamera, tabOptik, tabCredits, tabDev,
+                    sectionUpdate, sectionSettings, sectionProcessing, sectionSignalCamera, sectionOptik, sectionCredits, sectionDev, 6);
+            appearanceController.reapplyForActiveTab(6);
             Toast.makeText(this, R.string.settings_dev_unlocked, Toast.LENGTH_SHORT).show();
         });
 
@@ -732,26 +747,33 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void bindSettingsTab(
-            TextView tabUpdate, TextView tabSettings, TextView tabSignalCamera, TextView tabOptik, TextView tabCredits, TextView tabDev,
-            View sectionUpdate, View sectionSettings, View sectionSignalCamera, View sectionOptik, View sectionCredits, View sectionDev,
+            TextView tabUpdate, TextView tabSettings, TextView tabProcessing, TextView tabSignalCamera, TextView tabOptik, TextView tabCredits, TextView tabDev,
+            View sectionUpdate, View sectionSettings, View sectionProcessing, View sectionSignalCamera, View sectionOptik, View sectionCredits, View sectionDev,
             int active
     ) {
         sectionUpdate.setVisibility(active == 0 ? View.VISIBLE : View.GONE);
         sectionSettings.setVisibility(active == 1 ? View.VISIBLE : View.GONE);
-        sectionSignalCamera.setVisibility(active == 2 ? View.VISIBLE : View.GONE);
-        sectionOptik.setVisibility(active == 3 ? View.VISIBLE : View.GONE);
-        sectionCredits.setVisibility(active == 4 ? View.VISIBLE : View.GONE);
-        sectionDev.setVisibility(active == 5 ? View.VISIBLE : View.GONE);
+        sectionProcessing.setVisibility(active == 2 ? View.VISIBLE : View.GONE);
+        sectionSignalCamera.setVisibility(active == 3 ? View.VISIBLE : View.GONE);
+        sectionOptik.setVisibility(active == 4 ? View.VISIBLE : View.GONE);
+        sectionCredits.setVisibility(active == 5 ? View.VISIBLE : View.GONE);
+        sectionDev.setVisibility(active == 6 ? View.VISIBLE : View.GONE);
         styleSettingsTab(tabUpdate, active == 0);
         styleSettingsTab(tabSettings, active == 1);
-        styleSettingsTab(tabSignalCamera, active == 2);
-        styleSettingsTab(tabOptik, active == 3);
-        styleSettingsTab(tabCredits, active == 4);
-        styleSettingsTab(tabDev, active == 5);
+        styleSettingsTab(tabProcessing, active == 2);
+        styleSettingsTab(tabSignalCamera, active == 3);
+        styleSettingsTab(tabOptik, active == 4);
+        styleSettingsTab(tabCredits, active == 5);
+        styleSettingsTab(tabDev, active == 6);
     }
 
     private void styleSettingsTab(TextView tab, boolean active) {
         appearanceController.styleSettingsTab(tab, active);
+    }
+
+    private void restartPreviewForProcessingChange() {
+        PreviewSourceController.applyProcessingMode(this);
+        startPreviewIfReady();
     }
 
     private void toggleRecording() {
