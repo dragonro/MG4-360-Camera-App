@@ -164,6 +164,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             return;
         }
 
+        sMainVisible = true;
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -348,6 +349,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @SuppressWarnings("deprecation")
     private void showSettingsDialog() {
+        sMainVisible = true;
         sSettingsDialogOpen = true;
         OverlayService.hideOverlay(this);
         SignalService.requestRecheck();

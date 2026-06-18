@@ -144,6 +144,10 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
         }
     };
     public static void showOverlay(Context context, int cameraIndex) {
+        if (MainActivity.shouldBlockOverlay()) {
+            UiPrefs.setLastUiState(UiPrefs.getPrefs(context), UiPrefs.UI_STATE_MAIN);
+            return;
+        }
         Intent i = new Intent(context, OverlayService.class);
         i.putExtra(EXTRA_CAMERA_INDEX, cameraIndex);
         i.putExtra(EXTRA_POPUP_MODE, false);
@@ -191,6 +195,11 @@ public class OverlayService extends Service implements TextureView.SurfaceTextur
             cameraIndex = intent.getIntExtra(EXTRA_CAMERA_INDEX, 15);
         }
         popupMode = intent != null && intent.getBooleanExtra(EXTRA_POPUP_MODE, false);
+        if (!popupMode && MainActivity.shouldBlockOverlay()) {
+            UiPrefs.setLastUiState(UiPrefs.getPrefs(this), UiPrefs.UI_STATE_MAIN);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         sPopupVisible = popupMode;
         loadSavedOverlayGeometry();
         markCurrentOverlayState();
