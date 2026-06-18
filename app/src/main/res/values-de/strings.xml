@@ -47,6 +47,10 @@
     <string name="recording_warning_not_enough_space">Aufnahme konnte nicht gestartet werden: nicht genug zugewiesener Speicherplatz.</string>
     <string name="recording_warning_storage_full">Aufnahme gestoppt: zugewiesener Speicherplatz ist voll.</string>
     <string name="recording_warning_prune_failed">Aufnahme gestoppt: alte Aufnahmen konnten nicht gelöscht werden.</string>
+    <string name="recording_warning_permission_missing">Aufnahme konnte nicht gestartet werden: Speicherberechtigung erforderlich.</string>
+    <string name="recording_warning_folder_not_writable">Aufnahme konnte nicht gestartet werden: Aufnahmeordner ist nicht beschreibbar.</string>
+    <string name="recording_warning_native_failed">Aufnahme konnte nicht gestartet werden: Kamera-Recorder fehlgeschlagen.</string>
+    <string name="recording_warning_disabled">Aufnahme ist in den Einstellungen deaktiviert.</string>
     <string-array name="recording_duration_options">
         <item>1 Min.</item>
         <item>2 Min.</item>

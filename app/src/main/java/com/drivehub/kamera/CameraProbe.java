@@ -27,6 +27,9 @@ public final class CameraProbe {
     public static native boolean startMp4Record(int slot, int videoIndex, String outputPath,
                                                   int width, int height, int fps, int bitrate);
 
+    /** Returns the last native MP4 recording startup/runtime error for the slot. */
+    public static native String getLastRecordError(int slot);
+
     /** Stops MP4 recording for the given slot. */
     public static native void stopMp4Record(int slot);
 }

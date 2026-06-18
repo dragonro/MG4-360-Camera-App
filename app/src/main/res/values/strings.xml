@@ -48,6 +48,10 @@
     <string name="recording_warning_not_enough_space">Recording could not start: not enough allocated storage space.</string>
     <string name="recording_warning_storage_full">Recording stopped: allocated storage space is full.</string>
     <string name="recording_warning_prune_failed">Recording stopped: old recordings could not be deleted.</string>
+    <string name="recording_warning_permission_missing">Recording could not start: storage permission is required.</string>
+    <string name="recording_warning_folder_not_writable">Recording could not start: recording folder is not writable.</string>
+    <string name="recording_warning_native_failed">Recording could not start: camera recorder failed.</string>
+    <string name="recording_warning_disabled">Recording is disabled in settings.</string>
     <string-array name="recording_duration_options">
         <item>1 min</item>
         <item>2 min</item>

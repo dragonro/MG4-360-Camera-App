@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.Settings;
@@ -38,6 +39,7 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -51,6 +53,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private static final String KEY_SAFETY_WARNING = "ShowSafetyWarning";
     private static final int REQ_RECORDING_FOLDER = 5001;
     private static final int REQ_OVERLAY_PERMISSION = 5002;
+    private static final int REQ_RECORDING_STORAGE_PERMISSION = 5003;
     private static final int SWIPE_THRESHOLD_PX = 140;
     private SurfaceHolder surfaceHolder;
     private TextView tvStatus;
@@ -63,6 +66,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private boolean mainPreviewOwnsSurface = false;
     private boolean restoreOverlayOnLaunch = false;
     private boolean overlayRestoreStarted = false;
+    private boolean startRecordingAfterPermission = false;
+    private boolean enableRecordingAfterPermission = false;
+    private Switch pendingRecordingPermissionSwitch;
     private float downX = 0f;
     private float downY = 0f;
     private final TestVideoPlayer testVideoPlayer = new TestVideoPlayer();
@@ -115,11 +121,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         public void onReceive(Context context, Intent intent) {
             if (intent == null) return;
             String code = intent.getStringExtra(RecordingService.EXTRA_WARNING_CODE);
-            int messageRes = RecordingService.WARNING_NOT_ENOUGH_SPACE.equals(code)
-                    ? R.string.recording_warning_not_enough_space
-                    : RecordingService.WARNING_PRUNE_FAILED.equals(code)
-                    ? R.string.recording_warning_prune_failed
-                    : R.string.recording_warning_storage_full;
+            int messageRes = recordingWarningMessageRes(code);
             Toast.makeText(MainActivity.this, messageRes, Toast.LENGTH_LONG).show();
             syncRecordingUi();
         }
@@ -130,11 +132,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         public void onReceive(Context context, Intent intent) {
             if (intent == null) return;
             if (!OverlayService.ACTION_POPUP_READY.equals(intent.getAction())) return;
-            try {
-                unregisterReceiver(this);
-            } catch (Throwable ignored) {
-            }
-            finishAndRemoveTask();
+            finishMainAfterPopupRequested();
         }
     };
 
@@ -143,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     public static boolean shouldBlockOverlay() {
-        return sMainVisible && !sSettingsDialogOpen;
+        return sMainVisible;
     }
 
     public static void launchFromOverlay(Context context) {
@@ -166,6 +164,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             return;
         }
 
+        sMainVisible = true;
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -350,7 +349,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @SuppressWarnings("deprecation")
     private void showSettingsDialog() {
+        sMainVisible = true;
         sSettingsDialogOpen = true;
+        OverlayService.hideOverlay(this);
         SignalService.requestRecheck();
 
         Dialog dialog = new Dialog(this);
@@ -393,6 +394,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         });
         swEnableRecording.setChecked(UiPrefs.isRecordingButtonEnabled(prefs));
         swEnableRecording.setOnCheckedChangeListener((btn, checked) -> {
+            if (checked && !ensureRecordingPermission(false, true)) {
+                pendingRecordingPermissionSwitch = (Switch) btn;
+                prefs.edit().putBoolean(UiPrefs.KEY_ENABLE_RECORDING_BUTTON, false).apply();
+                btn.setChecked(false);
+                syncRecordingUi();
+                return;
+            }
             prefs.edit().putBoolean(UiPrefs.KEY_ENABLE_RECORDING_BUTTON, checked).apply();
             syncRecordingUi();
             if (!checked && RecordingService.isRecording(this)) {
@@ -615,6 +623,40 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQ_RECORDING_STORAGE_PERMISSION) return;
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (!granted) {
+            startRecordingAfterPermission = false;
+            enableRecordingAfterPermission = false;
+            pendingRecordingPermissionSwitch = null;
+            UiPrefs.getPrefs(this).edit()
+                    .putBoolean(UiPrefs.KEY_ENABLE_RECORDING_BUTTON, false)
+                    .apply();
+            Toast.makeText(this, R.string.recording_warning_permission_missing, Toast.LENGTH_LONG).show();
+            syncRecordingUi();
+            return;
+        }
+        if (enableRecordingAfterPermission) {
+            UiPrefs.getPrefs(this).edit()
+                    .putBoolean(UiPrefs.KEY_ENABLE_RECORDING_BUTTON, true)
+                    .apply();
+            if (pendingRecordingPermissionSwitch != null) {
+                pendingRecordingPermissionSwitch.setChecked(true);
+            }
+        }
+        boolean shouldStart = startRecordingAfterPermission;
+        startRecordingAfterPermission = false;
+        enableRecordingAfterPermission = false;
+        pendingRecordingPermissionSwitch = null;
+        syncRecordingUi();
+        if (shouldStart) {
+            RecordingService.startRecording(this);
+        }
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_OVERLAY_PERMISSION) {
@@ -719,9 +761,46 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if (RecordingService.isRecording(this)) {
             RecordingService.stopRecording(this);
         } else {
+            if (!ensureRecordingPermission(true, false)) {
+                return;
+            }
             RecordingService.startRecording(this);
         }
         syncRecordingUi();
+    }
+
+    private boolean ensureRecordingPermission(boolean startAfterGrant, boolean enableAfterGrant) {
+        if (RecordingPermissions.hasRequiredStoragePermission(this)) {
+            return true;
+        }
+        startRecordingAfterPermission = startAfterGrant;
+        enableRecordingAfterPermission = enableAfterGrant;
+        ActivityCompat.requestPermissions(
+                this,
+                RecordingPermissions.requiredPermissions(this),
+                REQ_RECORDING_STORAGE_PERMISSION
+        );
+        Toast.makeText(this, R.string.recording_warning_permission_missing, Toast.LENGTH_LONG).show();
+        return false;
+    }
+
+    private int recordingWarningMessageRes(String code) {
+        if (RecordingService.WARNING_NOT_ENOUGH_SPACE.equals(code)) {
+            return R.string.recording_warning_not_enough_space;
+        }
+        if (RecordingService.WARNING_PRUNE_FAILED.equals(code)) {
+            return R.string.recording_warning_prune_failed;
+        }
+        if (RecordingService.WARNING_PERMISSION_MISSING.equals(code)) {
+            return R.string.recording_warning_permission_missing;
+        }
+        if (RecordingService.WARNING_FOLDER_NOT_WRITABLE.equals(code)) {
+            return R.string.recording_warning_folder_not_writable;
+        }
+        if (RecordingService.WARNING_NATIVE_FAILED.equals(code)) {
+            return R.string.recording_warning_native_failed;
+        }
+        return R.string.recording_warning_storage_full;
     }
 
     private void resumeRecordingIfNeeded() {
@@ -796,7 +875,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private void startPopupOverlay() {
         if (OverlayService.isPopupVisible()) {
-            OverlayService.hideOverlay(this);
+            finishMainAfterPopupRequested();
             return;
         }
         if (!Settings.canDrawOverlays(this)) {
@@ -819,6 +898,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         } catch (Throwable ignored) {
         }
         OverlayService.showPopup(this, currentVideoIndex);
+        finishMainAfterPopupRequested();
+    }
+
+    private void finishMainAfterPopupRequested() {
+        try {
+            unregisterReceiver(popupReadyReceiver);
+        } catch (Throwable ignored) {
+        }
+        finishAndRemoveTask();
     }
 
     static void requestAppVisibility(Context context) {

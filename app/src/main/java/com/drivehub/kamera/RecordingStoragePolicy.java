@@ -65,16 +65,25 @@ final class RecordingStoragePolicy {
         if (!loopRecording) {
             return Result.fail(RecordingService.WARNING_NOT_ENOUGH_SPACE);
         }
-        if (!deleteOldestFileGroups(groups, currentBytes + requiredBytes - quotaBytes)) {
+        DeleteResult deleteResult = deleteOldestFileGroups(groups, currentBytes + requiredBytes - quotaBytes);
+        if (deleteResult.deleteFailed) {
             return Result.fail(RecordingService.WARNING_PRUNE_FAILED);
+        }
+        if (!deleteResult.freedEnough && !canTemporarilyFitNextLoopSegment(targetDir, requiredBytes)) {
+            return Result.fail(RecordingService.WARNING_NOT_ENOUGH_SPACE);
         }
         groups = listFileGroups(targetDir, activeSegmentKey);
         currentBytes = sumGroupBytes(groups);
         quotaBytes = calculateQuotaBytes(targetDir.getUsableSpace(), currentBytes,
                 UiPrefs.getRecordingStorageQuotaPercent(prefs));
-        return currentBytes + requiredBytes <= quotaBytes
-                ? Result.ok()
-                : Result.fail(RecordingService.WARNING_NOT_ENOUGH_SPACE);
+        if (currentBytes + requiredBytes <= quotaBytes) {
+            return Result.ok();
+        }
+        if (canTemporarilyFitNextLoopSegment(targetDir, requiredBytes)) {
+            Log.i(TAG, "Allowing loop recording segment outside quota until completed segment pruning runs");
+            return Result.ok();
+        }
+        return Result.fail(RecordingService.WARNING_NOT_ENOUGH_SPACE);
     }
 
     static Result enforceFileTargetQuota(
@@ -98,6 +107,10 @@ final class RecordingStoragePolicy {
     private static long calculateQuotaBytes(long freeBytes, long currentAppBytes, int quotaPercent) {
         long reclaimableTotal = Math.max(0L, freeBytes) + Math.max(0L, currentAppBytes);
         return Math.max(0L, (reclaimableTotal * UiPrefs.clampRecordingStorageQuotaPercent(quotaPercent)) / 100L);
+    }
+
+    private static boolean canTemporarilyFitNextLoopSegment(File targetDir, long requiredBytes) {
+        return requiredBytes > 0L && targetDir.getUsableSpace() >= requiredBytes;
     }
 
     private static List<SegmentGroup<File>> listFileGroups(File targetDir, @Nullable String activeSegmentKey) {
@@ -177,26 +190,27 @@ final class RecordingStoragePolicy {
         return total;
     }
 
-    private static boolean deleteOldestFileGroups(List<SegmentGroup<File>> groups, long bytesToFree) {
+    private static DeleteResult deleteOldestFileGroups(List<SegmentGroup<File>> groups, long bytesToFree) {
         long freed = 0L;
         for (SegmentGroup<File> group : groups) {
             boolean deletedAll = true;
             for (File file : group.items) {
                 if (file.exists() && !file.delete()) {
+                    Log.w(TAG, "Could not delete old recording file=" + file.getAbsolutePath());
                     deletedAll = false;
                 }
             }
             if (!deletedAll) {
                 Log.w(TAG, "Could not delete recording segment group=" + group.key);
-                return false;
+                return DeleteResult.failed();
             }
             freed += group.bytes;
             Log.i(TAG, "Deleted old recording segment group=" + group.key + " bytes=" + group.bytes);
             if (freed >= bytesToFree) {
-                return true;
+                return DeleteResult.freedEnough();
             }
         }
-        return freed >= bytesToFree;
+        return freed >= bytesToFree ? DeleteResult.freedEnough() : DeleteResult.notEnough();
     }
 
     private static boolean deleteOldestTreeGroups(List<SegmentGroup<DocumentFile>> groups, long bytesToFree) {
@@ -229,6 +243,28 @@ final class RecordingStoragePolicy {
 
         SegmentGroup(String key) {
             this.key = key;
+        }
+    }
+
+    private static final class DeleteResult {
+        final boolean freedEnough;
+        final boolean deleteFailed;
+
+        private DeleteResult(boolean freedEnough, boolean deleteFailed) {
+            this.freedEnough = freedEnough;
+            this.deleteFailed = deleteFailed;
+        }
+
+        static DeleteResult freedEnough() {
+            return new DeleteResult(true, false);
+        }
+
+        static DeleteResult notEnough() {
+            return new DeleteResult(false, false);
+        }
+
+        static DeleteResult failed() {
+            return new DeleteResult(false, true);
         }
     }
 }
